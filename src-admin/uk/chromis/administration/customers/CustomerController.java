@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -71,6 +72,8 @@ import uk.chromis.basic.BasicException;
 import uk.chromis.custom.controls.ButtonPanel;
 import uk.chromis.custom.controls.ImageEditor;
 import uk.chromis.custom.toggleswitch.ToggleSwitch;
+import uk.chromis.pos.costpricing.CostPricingStore;
+import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.format.Formats;
 import uk.chromis.globals.SystemProperty;
 import uk.chromis.pos.barcodes.Barcode;
@@ -137,6 +140,8 @@ public class CustomerController extends BasePanelController implements Initializ
    public TextField txtCreditLimit;
    public TextField txtCurrentCredit;
    public TextField txtDiscount;
+   public ToggleSwitch tswtCostPricing;
+   public TextField txtCostMarkup;
    public TextField txtEmail;
    public TextField txtFax;
    public TextField txtLastDate;
@@ -376,6 +381,11 @@ public class CustomerController extends BasePanelController implements Initializ
       this.enableTelephoneNumber(this.txtTelephone);
       this.enableNumericWithDecimal(this.txtCreditLimit, 10);
       this.enableNumericWithDecimal(this.txtDiscount);
+      this.enableNumericWithDecimal(this.txtCostMarkup);
+      this.tswtCostPricing.selectedProperty().addListener((observable, oldValue, newValue) -> {
+         this.txtCostMarkup.setDisable(!newValue);
+         dirty.set(true);
+      });
       this.setLayout();
       this.buildMainTable();
       this.buildTransactionTable();
@@ -796,6 +806,7 @@ public class CustomerController extends BasePanelController implements Initializ
       this.txtAccountNo.setText(this.selectedCustomer.getAccountNumber());
       this.txtCardNumber.setText(this.selectedCustomer.getCustomerCard());
       this.txtDiscount.setText(this.localeString(Double.valueOf(this.selectedCustomer.getCustomerDiscount() * 100.0)));
+      this.loadCostMarkup(this.selectedCustomer.getId());
       this.tswtAccountActive.setSelected(this.selectedCustomer.isActiveCustomer());
       this.btnClear.setDisable(!this.selectedCustomer.isActiveCustomer());
       this.btnAssign.setDisable(!this.selectedCustomer.isActiveCustomer());
@@ -935,6 +946,8 @@ public class CustomerController extends BasePanelController implements Initializ
 
    @Override
    public void resetFields() {
+      this.tswtCostPricing.setSelected(false);
+      this.txtCostMarkup.setText(this.localeString("0.00"));
       this.btnAccount.setSelected(true);
       this.paneRadio.setVisible(SystemProperty.LOYALTYENABLED);
       this.setLayout();
@@ -1055,6 +1068,8 @@ public class CustomerController extends BasePanelController implements Initializ
                Logger.getLogger(CustomerController.class.getName()).log(Level.SEVERE, null, var5);
             }
 
+            this.saveCostMarkup((String)customer[0]);
+
             dirty.setValue(false);
             this.updateRow(this.selectedRow, this.customerDataLogic.getCustomerById(this.selectedCustomer.getId()));
             this.selectedRow = this.mainTable.getSelectionModel().getSelectedIndex();
@@ -1070,6 +1085,7 @@ public class CustomerController extends BasePanelController implements Initializ
 
             try {
                this.customerDataLogic.customerInsert(customer);
+               this.saveCostMarkup(id);
                dirty.setValue(false);
                this.addTableRow(this.customerDataLogic.getCustomerById(id));
             } catch (BasicException var6) {
@@ -1082,6 +1098,32 @@ public class CustomerController extends BasePanelController implements Initializ
          }
 
          return false;
+      }
+   }
+
+   // Cost-plus pricing: the customer pays product cost plus this percentage in Chromis POS
+   private void loadCostMarkup(String customerId) {
+      Double markup = null;
+
+      try {
+         markup = CostPricingStore.getMarkup(SessionFactory.getInstance().getSession().getConnection(), customerId);
+      } catch (SQLException ex) {
+         Logger.getLogger(CustomerController.class.getName()).log(Level.SEVERE, null, ex);
+      }
+
+      this.tswtCostPricing.setSelected(markup != null);
+      this.txtCostMarkup.setDisable(markup == null);
+      this.txtCostMarkup.setText(this.localeString(markup == null ? 0.0 : markup));
+   }
+
+   private void saveCostMarkup(String customerId) {
+      Double markup = this.tswtCostPricing.isSelected() ? this.parseLocaleString(this.txtCostMarkup.getText()) : null;
+
+      try {
+         CostPricingStore.setMarkup(SessionFactory.getInstance().getSession().getConnection(), customerId, markup);
+      } catch (SQLException ex) {
+         Logger.getLogger(CustomerController.class.getName()).log(Level.SEVERE, null, ex);
+         Dialogs.showDialog(4, "No se pudo guardar el margen sobre costo:\n" + ex.getMessage(), (Stage)this.apAnchor.getScene().getWindow(), true);
       }
    }
 

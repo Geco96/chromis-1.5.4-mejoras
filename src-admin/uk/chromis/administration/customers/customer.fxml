@@ -89,7 +89,7 @@
                               </Pane>
                                     </children>
                                 </Pane>
-                                <Pane fx:id="paneStatistics" layoutX="629.0" layoutY="37.0" prefHeight="141.0" prefWidth="220.0">
+                                <Pane fx:id="paneStatistics" layoutX="629.0" layoutY="37.0" prefHeight="190.0" prefWidth="220.0">
                                     <children>
                                         <TextField fx:id="txtCreditLimit" alignment="CENTER_RIGHT" layoutX="119.0" layoutY="2.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="95.0" text="0.00" />
                                         <TextField fx:id="txtCurrentCredit" alignment="CENTER_RIGHT" editable="false" layoutX="119.0" layoutY="33.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="95.0" text="0.00" />
@@ -100,6 +100,11 @@
                                         <TextField fx:id="txtDiscount" alignment="CENTER_RIGHT" layoutX="119.0" layoutY="93.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="61.0" text="0.00" />
                                         <Label layoutX="183.0" layoutY="93.0" prefHeight="25.0" text="\%" />
                                         <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="91.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="%lbl.customerDiscount" />
+                                        <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="124.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="Precio sobre costo" />
+                                        <ToggleSwitch fx:id="tswtCostPricing" layoutX="125.0" layoutY="128.0" prefHeight="18.0" prefWidth="33.0" />
+                                        <TextField fx:id="txtCostMarkup" alignment="CENTER_RIGHT" disable="true" layoutX="119.0" layoutY="155.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="61.0" text="0.00" />
+                                        <Label layoutX="183.0" layoutY="155.0" prefHeight="25.0" text="\%" />
+                                        <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="155.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="Margen sobre costo" />
                                     </children>
                                 </Pane>
                             </children>
