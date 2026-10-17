@@ -508,11 +508,9 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          if (this.m_ticketlines.getSelectedIndex() >= 0 && this.m_oTicket.getLine(this.m_ticketlines.getSelectedIndex()).getProductID() != null) {
             TicketLineInfo current_line = this.m_oTicket.getLine(this.m_ticketlines.getSelectedIndex());
             this.jEditAttributes.setEnabled(current_line.hasAttributes());
-            if (current_line.getProductInfoExt() != null) {
-               this.m_jEditLine.setEnabled(!current_line.getProductInfoExt().hasTierPringing());
-            } else {
-               this.m_jEditLine.setEnabled(true);
-            }
+            // Tier priced lines can be edited too: a manual price is kept, a quantity
+            // change is re-priced by tier (see editTicketLine)
+            this.m_jEditLine.setEnabled(true);
 
             if (current_line.isServiceCharge()) {
                this.m_jEditLine.setEnabled(false);
@@ -2965,18 +2963,33 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          this.errorBeep();
       } else {
          try {
-            TicketLineInfo newline = new JProductLineEdit(this.m_App, this.m_oTicket.getLine(i)).getTicketLine();
+            TicketLineInfo oldLine = this.m_oTicket.getLine(i);
+            Double oldPrice = oldLine.getPrice();
+            boolean wasEdited = oldLine.getProperty("edited") != null;
+            TicketLineInfo newline = new JProductLineEdit(this.m_App, oldLine).getTicketLine();
             if (newline != null) {
                Double newPrice = newline.getPrice();
                Double newPricExec = newline.getSoldPriceExe();
                newline.setProductInfoExt(this.dlSales.getProductInfo(newline.getProductID()));
                newline.setPrice(newPrice);
-               newline.setProperty("edited", "1");
+               boolean tierPriced = newline.getProductInfoExt() != null && newline.getProductInfoExt().hasTierPringing();
+               if (tierPriced && !wasEdited && Math.abs(newPrice - oldPrice) < 0.005) {
+                  // Only the quantity changed: leave the line under tier pricing
+                  newline.removeProperty("edited");
+               } else {
+                  newline.setProperty("edited", "1");
+               }
                if (newline.getProductID().equalsIgnoreCase("giftcard-sale") || newline.getProductID().equalsIgnoreCase("giftcard-topup")) {
                   newline.setProperty("cardbalance", Formats.CURRENCY.formatValue(this.giftCard.getCardBalance(this.barCode) + newline.getPrice()));
                }
 
                this.paintTicketLine(i, newline);
+               if (tierPriced) {
+                  this.checkSellingPrices(this.m_oTicket);
+                  this.checkServiceCharge(this.m_oTicket);
+                  this.refreshTicket();
+               }
+
                if (newline.getUpdated()) {
                   this.reLoadCatalog();
                }
