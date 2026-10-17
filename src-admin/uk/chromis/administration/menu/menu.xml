@@ -191,7 +191,12 @@ menuItem option - text              chromispos.properties entry to use
                     text = "menu.databasebackup"
                     actionClass="uk.chromis.administration.menu.UserDefinedActions"
                     accessName="DatabaseBackup"
-                    actionMethod="databaseBackup" />  
+                    actionMethod="databaseBackup" />
+        <menuEntry  type="menuitem"
+                    text = "Respaldos programados"
+                    actionClass="uk.chromis.administration.backups.ScheduledBackups"
+                    accessName="DatabaseBackup"
+                    actionMethod="showPanel"/>  
         <menuEntry  type="menuitem"
                     text = "menu.saveResources"
                     actionClass="uk.chromis.administration.utilities.BlobReader"

@@ -133,6 +133,28 @@ public final class BackupService {
         }
     }
 
+    /** Saves the editable settings (used by Chromis Admin). */
+    public static void saveSettings(Connection con, Settings s) throws SQLException {
+        createTable(con);
+        try (PreparedStatement ps = con.prepareStatement("UPDATE backup_settings SET enabled = ?, terminal = ?, folder = ?, "
+                + "interval_hours = ?, keep_count = ? WHERE id = 1")) {
+            ps.setBoolean(1, s.enabled);
+            ps.setString(2, s.terminal);
+            ps.setString(3, s.folder);
+            ps.setInt(4, Math.max(1, s.intervalHours));
+            ps.setInt(5, Math.max(1, s.keepCount));
+            ps.executeUpdate();
+        }
+    }
+
+    /** Asks the designated terminal to back up at its next check (within a minute). */
+    public static void requestBackup(Connection con) throws SQLException {
+        createTable(con);
+        try (Statement st = con.createStatement()) {
+            st.executeUpdate("UPDATE backup_settings SET run_now = 1 WHERE id = 1");
+        }
+    }
+
     private Connection connect() throws SQLException {
         return DriverManager.getConnection(url, user, password);
     }

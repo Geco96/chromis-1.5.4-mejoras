@@ -139,7 +139,7 @@ public class CreateMenu {
             break;
          case "menuitem":
             if (element.getAttribute("permissionclass").length() == 0) {
-               this.lineItem = new MenuItem(String.format("%-35s", LocalResource.getString(element.getAttribute("text")).trim()));
+               this.lineItem = new MenuItem(String.format("%-35s", this.menuText(element.getAttribute("text")).trim()));
                this.shortCutKeys(element, this.lineItem);
                if (element.getAttribute("actionClass").length() != 0 && element.getAttribute("actionMethod").length() != 0) {
                   this.lineItem
@@ -188,7 +188,7 @@ public class CreateMenu {
             }
             break;
          case "checkmenuitem":
-            this.checkMenuItem = new CheckMenuItem(String.format("%-35s", LocalResource.getString(element.getAttribute("text")).trim()));
+            this.checkMenuItem = new CheckMenuItem(String.format("%-35s", this.menuText(element.getAttribute("text")).trim()));
             if (element.getAttribute("actionClass").length() != 0 && element.getAttribute("actionMethod").length() != 0) {
                this.checkMenuItem
                   .setOnAction(
@@ -205,7 +205,7 @@ public class CreateMenu {
             break;
          case "singleuseitem":
             if (!this.lu.getBooleanCount(element.getAttribute("sql"))) {
-               this.lineItem = new MenuItem(String.format("%-35s", LocalResource.getString(element.getAttribute("text")).trim()));
+               this.lineItem = new MenuItem(String.format("%-35s", this.menuText(element.getAttribute("text")).trim()));
                if (element.getAttribute("actionClass").length() != 0 && element.getAttribute("actionMethod").length() != 0) {
                   this.lineItem.setOnAction(e -> {
                      this.callClassByNameParameter(element.getAttribute("actionClass"), element.getAttribute("actionMethod"), (MenuItem)e.getSource());
@@ -220,6 +220,12 @@ public class CreateMenu {
                this.mainItemFlag = true;
             }
       }
+   }
+
+   // Menu entries added by the improvements use plain text instead of a locale key
+   private String menuText(String key) {
+      String text = LocalResource.getString(key);
+      return text != null && text.startsWith("!! ") ? key : text;
    }
 
    private void shortCutKeys(Element element, MenuItem item) {
