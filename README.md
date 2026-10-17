@@ -13,7 +13,7 @@ originales, las clases que se modificaron.
 | `original-createdb/` | `dbcreator.jar` 1.5.4 (crea la base; solo se usó para pruebas). |
 | `src/` | Clases modificadas o nuevas de Chromis POS. |
 | `src-admin/` | Clases y pantallas (FXML) modificadas o nuevas de Chromis Admin. |
-| `src-common/` | Código que va en ambos: respaldos y tablas de precio sobre costo. |
+| `src-common/` | Código que va en ambos: respaldos, precio sobre costo y umbrales de reposición. |
 | `tools/PatchJar.java` | Genera cada jar final: copia el original y reemplaza solo lo compilado. |
 | `tools/javafx-11.0.2/` | JavaFX, solo para compilar Admin (en ejecución se usa el del JRE instalado). |
 | `tests/` | Pruebas manuales contra MySQL/MariaDB (no van dentro del jar). |
@@ -44,17 +44,40 @@ originales, las clases que se modificaron.
    - Admin → Utilidades → **Respaldos programados**: configuración, estado del
      último respaldo, *Pedir respaldo ahora a la terminal* y *Respaldar ahora
      desde esta PC*. Usa el mismo permiso que el respaldo manual de Admin.
+6. **Reposición** (lo que hacía el monitor *Lite* de sucursales):
+   - Cada producto con *Controlar stock* tiene **mínimo, reserva y máximo**.
+     Estados: *Agotado* (≤ 0), *Bajo* (≤ mínimo), *Reserva* (≤ reserva),
+     *Normal*. Mínimo y máximo son los niveles de stock propios de Chromis (la
+     pestaña *Stock Levels* del producto los muestra); la reserva se guarda aparte.
+   - Admin → Stock Management → **Reposición**: tabla con el estado de cada
+     producto, filtros y búsqueda. Los umbrales se escriben directo en la tabla.
+     *Pedir* = máximo − stock y se puede cambiar. **Generar PDF de pedido**
+     crea el pedido de los productos marcados, con el nombre de la empresa, la
+     fecha, el usuario y espacio para la firma. Usa el permiso de *Orders*.
+   - En la caja, al cobrar, un aviso en la esquina indica qué productos
+     **entraron en reserva, quedaron bajo el mínimo o se agotaron**. También
+     resume al abrir la caja cuántos productos están agotados o bajos. El aviso
+     no quita el foco (el lector sigue escribiendo en el ticket), se cierra solo
+     y se quita con un clic. Se activa o desactiva en la misma pantalla de Admin.
+   - Corrección en Admin → Productos: al guardar un producto con niveles de
+     stock, Chromis volvía a escribir el stock que tenía cuando se abrió el
+     producto; las ventas hechas mientras estaba abierto se perdían del
+     inventario. Ahora el stock no se toca al guardar.
 
 ### Tablas nuevas
 
-Se crean solas la primera vez; **las tablas originales de Chromis no se
-modifican**, por lo que volver al jar original no causa problemas.
+Se crean solas la primera vez; **la estructura de las tablas originales de
+Chromis no cambia**, por lo que volver al jar original no causa problemas
+(los mínimos y máximos de reposición se guardan en la tabla original
+`stocklevel` y el jar original también los entiende).
 
 | Tabla | Uso |
 |---|---|
 | `costpricing_customers (customer, markup)` | Margen sobre costo (%) por cliente. |
 | `costpricing_excluded (product)` | Productos que conservan su precio normal. |
 | `backup_settings` | Configuración y estado de los respaldos (una fila, `id = 1`). |
+| `restock_reserve (location, product, reserve)` | Nivel de reserva por producto. |
+| `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 
@@ -87,6 +110,9 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Cliente con 7.5 % sobre costo | Arroz $30 (costo $20) → $21.50; producto excluido conserva $80; producto sin costo muestra aviso y no se agrega; al quitar el cliente vuelve a $30. |
 | Captura en Admin | Margen del cliente y opción del producto se guardan y se vuelven a mostrar al reabrir. |
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
+| Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
+| Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
+| Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 
 El botón de editar línea solo aparece a usuarios con el permiso
 `button.lineeditor` (comportamiento original de Chromis; se asigna en Admin →

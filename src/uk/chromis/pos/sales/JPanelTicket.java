@@ -132,6 +132,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    private String ticketPrintType;
    protected DataLogicReceipts dlReceipts;
    private CostPricing costPricing;
+   private RestockAlerts restockAlerts;
    protected DataLogicSystem dlSystem;
    protected DataLogicSales dlSales;
    protected DataLogicCustomers dlCustomers;
@@ -248,6 +249,9 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          message -> SwingUtilities.invokeLater(
                () -> JAlertPane.messageBox(0, "No se pudo hacer el respaldo programado de la base de datos.\n\n" + message, 16, new Dimension(125, 50), 4)
             )
+      );
+      this.restockAlerts = new RestockAlerts(
+         AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this.m_App.getInventoryLocation(), this
       );
 
       try {
@@ -1407,6 +1411,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
                         AppConfig.put("lastticket.number", Integer.toString(ticket.getTicketId()));
                         AppConfig.put("lastticket.type", Integer.toString(ticket.getTicketType().getId()));
+                        this.restockAlerts.afterSale(ticket);
                      } catch (BasicException var10) {
                         MessageInf msg = new MessageInf(-67108864, AppLocal.getIntString("message.nosaveticket"), var10);
                         msg.show(this);
