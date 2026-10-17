@@ -1,5 +1,6 @@
 import java.sql.*;
 import uk.chromis.data.loader.Session;
+import uk.chromis.pos.costpricing.CostPricingStore;
 import uk.chromis.pos.sales.CostPricing;
 public class CostPricingTest {
     static int fails = 0;
@@ -29,6 +30,18 @@ public class CostPricingTest {
         check("precio 100 + 7.5%", CostPricing.price(100.0, 7.5), 107.5);
         check("precio 12.34 + 7.5%", CostPricing.price(12.34, 7.5), 13.27);
         check("cliente null", cp.getMarkup(null), null);
+        // Lo que guarda Chromis Admin
+        CostPricingStore.setMarkup(c, "C2", 10.0);
+        CostPricingStore.setMarkup(c, "C2", 12.5);
+        CostPricingStore.setExcluded(c, "P3", true);
+        CostPricingStore.setExcluded(c, "P2", false);
+        cp.reset();
+        check("Admin: margen actualizado", cp.getMarkup("C2"), 12.5);
+        check("Admin: producto excluido", cp.isExcluded("P3"), true);
+        check("Admin: exclusión quitada", cp.isExcluded("P2"), false);
+        CostPricingStore.setMarkup(c, "C2", null);
+        cp.reset();
+        check("Admin: apagar margen", cp.getMarkup("C2"), null);
         System.exit(fails);
     }
 }
