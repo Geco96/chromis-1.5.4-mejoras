@@ -65,6 +65,7 @@ import uk.chromis.globals.IconFactory;
 import uk.chromis.globals.SystemProperty;
 import uk.chromis.pos.auditing.Audit;
 import uk.chromis.pos.barcodes.Barcode;
+import uk.chromis.pos.customers.CustomerInfo;
 import uk.chromis.pos.customers.CustomerInfoExt;
 import uk.chromis.pos.customers.JCustomerFinder;
 import uk.chromis.pos.datalogic.DataLogicCustomers;
@@ -128,6 +129,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    protected String siteGuid;
    private String ticketPrintType;
    protected DataLogicReceipts dlReceipts;
+   private CostPricing costPricing;
    protected DataLogicSystem dlSystem;
    protected DataLogicSales dlSales;
    protected DataLogicCustomers dlCustomers;
@@ -235,6 +237,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.dlSales = (DataLogicSales)this.m_App.getBean("uk.chromis.pos.datalogic.DataLogicSales");
       this.dlCustomers = (DataLogicCustomers)this.m_App.getBean("uk.chromis.pos.datalogic.DataLogicCustomers");
       this.dlReceipts = (DataLogicReceipts)app.getBean("uk.chromis.pos.datalogic.DataLogicReceipts");
+      this.costPricing = new CostPricing(this.m_App.getSession());
 
       try {
          for (KeyedData k : this.dlSales.getRestrictedProducts()) {
@@ -386,6 +389,13 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    }
 
    protected void addTicketLine(TicketLineInfo oLine) {
+      Double markup = this.getCostPlusMarkup(this.m_oTicket.getCustomer());
+      if (markup != null && !this.m_oTicket.isRefund() && this.isCostPlusProduct(oLine) && !this.hasCost(oLine)) {
+         this.showMissingCost(oLine.getProductName());
+         this.stateToZero();
+         return;
+      }
+
       if (!this.m_oTicket.isRefund() && SystemProperty.SCONOFF && this.m_oTicket.getNoSC().equals("0")) {
          this.m_oTicket.setNoSC("1");
          if (!"restaurant".equals(TerminalInfo.getPosType()) & !SystemProperty.SCRESTAURANT) {
@@ -1211,6 +1221,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
    private void checkSellingPrices(TicketInfo m_oTicket, Boolean itemRemoved, Double qty, String name, String id) {
       HashMap<String, Double> products = new HashMap<>();
+      Double costPlusMarkup = this.getCostPlusMarkup(m_oTicket.getCustomer());
 
       for (int i = 0; i < m_oTicket.getLinesCount(); i++) {
          TicketLineInfo current_line = m_oTicket.getLine(i);
@@ -1235,6 +1246,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
             }
 
             current_line.setProperty("tierpriced", String.valueOf(current_line.getProductInfoExt().isTierPriced(products.get(current_line.getProductID()))));
+            this.applyCostPlus(current_line, costPlusMarkup);
          } else if (m_oTicket.getTicketType().toString().equalsIgnoreCase("REFUND") && current_line.getPrice() > 0.0) {
             current_line.setPrice(current_line.getPrice() * -1.0);
          }
@@ -2276,6 +2288,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
          this.m_oTicket.setTicketDiscountRate(0.0);
          this.m_oTicket.setTicketDiscount(0.0);
+         this.checkSellingPrices(this.m_oTicket);
          this.refreshTicket();
          return true;
       } else {
@@ -2284,6 +2297,28 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    }
 
    private void processCustomer(CustomerInfoExt newCustomer) {
+      this.costPricing.reset();
+      Double markup = this.getCostPlusMarkup(newCustomer);
+      if (markup != null && !this.m_oTicket.isRefund()) {
+         StringBuilder missing = new StringBuilder();
+         for (TicketLineInfo line : this.m_oTicket.getLines()) {
+            if (this.isCostPlusProduct(line) && !this.hasCost(line)) {
+               missing.append("\n - ").append(line.getProductName());
+            }
+         }
+
+         if (missing.length() > 0) {
+            this.showMissingCost(missing.toString());
+            return;
+         }
+
+         for (TicketLineInfo line : this.m_oTicket.getLines()) {
+            if (line.getProperty("edited") == null && !this.m_oTicket.isRefund()) {
+               this.applyCostPlus(line, markup);
+            }
+         }
+      }
+
       Integer customerStatus = newCustomer.getCustomerStatus();
       String alertMessage = AppLocal.getIntString("message.customername", newCustomer.getName());
       String customMessage = "";
@@ -2363,8 +2398,47 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.refreshTicket();
    }
 
+   private Double getCostPlusMarkup(CustomerInfo customer) {
+      return customer == null ? null : this.costPricing.getMarkup(customer.getId());
+   }
+
+   private boolean isCostPlusProduct(TicketLineInfo line) {
+      return line.getProductInfoExt() != null
+         && line.getProductID() != null
+         && !line.isSystemObject()
+         && !line.isProductVprice()
+         && !this.costPricing.isExcluded(line.getProductID());
+   }
+
+   private boolean hasCost(TicketLineInfo line) {
+      Double cost = line.getProductInfoExt().getPriceBuy();
+      return cost != null && cost > 0.0;
+   }
+
+   private void showMissingCost(String products) {
+      JAlertPane.messageBox(
+         0,
+         "Este cliente paga precio sobre costo, pero no hay costo capturado para:\n" + products + "\n\nCaptura el costo del producto en Chromis Admin antes de venderlo a este cliente.",
+         16,
+         new Dimension(125, 50),
+         4
+      );
+   }
+
+   // Cost-plus customers pay cost + markup; it takes priority over tier and customer
+   // discounts. Lines with a manually edited price are left alone.
+   private void applyCostPlus(TicketLineInfo line, Double markup) {
+      if (markup != null && this.isCostPlusProduct(line) && this.hasCost(line)) {
+         line.setPrice(CostPricing.price(line.getProductInfoExt().getPriceBuy(), markup));
+         line.setProperty("costplus", String.valueOf(markup));
+         line.setProperty("tierpriced", "false");
+      } else {
+         line.removeProperty("costplus");
+      }
+   }
+
    private void applyDiscount(TicketLineInfo line) {
-      if (line.discountAllowed() && !line.isDiscounted()) {
+      if (line.discountAllowed() && !line.isDiscounted() && line.getProperty("costplus") == null) {
          this.processDiscount(line, this.m_oTicket.getTicketDiscountRate());
       }
    }
