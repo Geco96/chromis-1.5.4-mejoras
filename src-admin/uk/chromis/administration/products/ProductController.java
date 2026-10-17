@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.net.URL;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,6 +74,8 @@ import uk.chromis.basic.BasicException;
 import uk.chromis.custom.controls.ExtendedComboBox;
 import uk.chromis.custom.controls.ImageEditor;
 import uk.chromis.custom.toggleswitch.ToggleSwitch;
+import uk.chromis.data.loader.SessionFactory;
+import uk.chromis.pos.costpricing.CostPricingStore;
 import uk.chromis.format.Formats;
 import uk.chromis.globals.IconFactory;
 import uk.chromis.globals.SystemProperty;
@@ -123,6 +126,7 @@ public class ProductController extends BasePanelController implements Initializa
    public ToggleSwitch tswtBoldL2;
    public ToggleSwitch tswtButtonImage;
    public ToggleSwitch tswtCanDiscount;
+   public ToggleSwitch tswtCostPricing;
    public ToggleSwitch tswtInCatalog;
    public ToggleSwitch tswtIsScale;
    public ToggleSwitch tswtIsServiceItem;
@@ -330,6 +334,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.setToggleListener(this.tswtVariablePrice);
       this.setToggleListener(this.tswtRetireProduct);
       this.setToggleListener(this.tswtWarrantyReceipt);
+      this.setToggleListener(this.tswtCostPricing);
       this.setToggleListener(this.tswtInCatalog);
       this.setToggleListener(this.tswtAgeWarning);
       this.setToggleListener(this.tswtIngredient);
@@ -1413,6 +1418,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.tswtIsScale.setSelected(this.selectedProduct.isScale());
       this.tswtAlwaysAvailable.setSelected(this.selectedProduct.isAlwaysAvailable());
       this.tswtCanDiscount.setSelected(this.selectedProduct.canDiscount());
+      this.tswtCostPricing.setSelected(!this.isCostPricingExcluded(this.selectedProduct.getId()));
       this.discountSpinner.getEditor().setText(this.selectedProduct.canDiscount() ? String.valueOf(this.selectedProduct.getDiscount()) : "");
       this.tswtManageStockLevel.setSelected(this.selectedProduct.manageStock());
       this.tswtAgeWarning.setSelected(this.selectedProduct.isAgeRestricted());
@@ -1943,6 +1949,7 @@ public class ProductController extends BasePanelController implements Initializa
    @Override
    public void resetFields() {
       this.APIcall = true;
+      this.tswtCostPricing.setSelected(true);
       this.txtReference.setText("");
       this.txtReference.setDisable(false);
       this.txtBarcode.setText("");
@@ -2164,6 +2171,7 @@ public class ProductController extends BasePanelController implements Initializa
 
             try {
                this.productDataLogic.productInsert().exec(record);
+               this.saveCostPricing(id);
                dirty.setValue(false);
                if (!this.tswtRetireProduct.isSelected()) {
                   this.addTableRow(this.productDataLogic.getProduct(id));
@@ -2185,6 +2193,7 @@ public class ProductController extends BasePanelController implements Initializa
 
             try {
                this.productDataLogic.productUpdate().exec(record);
+               this.saveCostPricing(this.selectedProduct.getId());
                dirty.setValue(false);
                if (this.tswtRetireProduct.isSelected()) {
                   this.resetFields();
@@ -2202,6 +2211,25 @@ public class ProductController extends BasePanelController implements Initializa
 
          dirty.setValue(false);
          return true;
+      }
+   }
+
+   // Products switched off keep their normal price for cost-plus customers in Chromis POS
+   private boolean isCostPricingExcluded(String productId) {
+      try {
+         return CostPricingStore.isExcluded(SessionFactory.getInstance().getSession().getConnection(), productId);
+      } catch (SQLException ex) {
+         Logger.getLogger(ProductController.class.getName()).log(Level.SEVERE, null, ex);
+         return false;
+      }
+   }
+
+   private void saveCostPricing(String productId) {
+      try {
+         CostPricingStore.setExcluded(SessionFactory.getInstance().getSession().getConnection(), productId, !this.tswtCostPricing.isSelected());
+      } catch (SQLException ex) {
+         Logger.getLogger(ProductController.class.getName()).log(Level.SEVERE, null, ex);
+         Dialogs.showDialog(4, "No se pudo guardar la opción de precio sobre costo:\n" + ex.getMessage(), (Stage)this.apAnchor.getScene().getWindow(), true);
       }
    }
 

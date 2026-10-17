@@ -96,6 +96,8 @@
                                 <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="130.0" maxHeight="25.0" maxWidth="100.0" minHeight="25.0" minWidth="155.0" prefHeight="25.0" prefWidth="155.0" text="%lbl.kitchenDescription" />
                                 <ExtendedComboBox fx:id="cmbBuyTaxCategory" layoutX="160.0" layoutY="220.0" maxHeight="27.0" maxWidth="250.0" minHeight="27.0" minWidth="250.0" prefHeight="27.0" prefWidth="250.0" style="-fx-border-color: #AA0000; -fx-border-image-width: 2;" />
                                 <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="220.0" maxHeight="25.0" maxWidth="100.0" minHeight="25.0" minWidth="155.0" prefHeight="25.0" prefWidth="155.0" text="%lbl.buyTaxRate" />
+                                <ToggleSwitch fx:id="tswtCostPricing" layoutX="425.0" layoutY="229.0" prefWidth="40.0" selected="true" />
+                                <Label layoutX="470.0" layoutY="225.0" prefHeight="25.0" prefWidth="170.0" text="Precio sobre costo" />
                         <LabelHelper layoutX="430.0" layoutY="191.0" prefWidth="109.0" />
                             </children>
                         </Pane>
