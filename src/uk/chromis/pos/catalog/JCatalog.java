@@ -264,7 +264,8 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
                }
             }
 
-            for (ProductInfoExt prod : this.m_dlSales.getProductCatalogNormal(catid, this.siteGuid)) {
+            // Auxiliary products are listed in the catalog like any other product
+            for (ProductInfoExt prod : this.m_dlSales.getProductCatalog(catid, this.siteGuid)) {
                if (SystemProperty.HISTORICPRODUCTICON) {
                   jcurrTab.addButton(new ImageIcon(this.tnbbutton.getThumbNailText(prod.getImage(), this.getProductLabel(prod))), new JCatalog.MouseTimer(prod));
                } else if (prod.getImage() == null) {
