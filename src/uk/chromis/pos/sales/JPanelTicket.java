@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.SwingUtilities;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
@@ -65,6 +66,7 @@ import uk.chromis.globals.IconFactory;
 import uk.chromis.globals.SystemProperty;
 import uk.chromis.pos.auditing.Audit;
 import uk.chromis.pos.barcodes.Barcode;
+import uk.chromis.pos.backup.BackupService;
 import uk.chromis.pos.customers.CustomerInfo;
 import uk.chromis.pos.customers.CustomerInfoExt;
 import uk.chromis.pos.customers.JCustomerFinder;
@@ -238,6 +240,15 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.dlCustomers = (DataLogicCustomers)this.m_App.getBean("uk.chromis.pos.datalogic.DataLogicCustomers");
       this.dlReceipts = (DataLogicReceipts)app.getBean("uk.chromis.pos.datalogic.DataLogicReceipts");
       this.costPricing = new CostPricing(this.m_App.getSession());
+      BackupService.start(
+         AppConfig.getDatabaseURL(),
+         AppConfig.getDatabaseUser(),
+         AppConfig.getClearDatabasePassword(),
+         AppConfig.getString("terminalID"),
+         message -> SwingUtilities.invokeLater(
+               () -> JAlertPane.messageBox(0, "No se pudo hacer el respaldo programado de la base de datos.\n\n" + message, 16, new Dimension(125, 50), 4)
+            )
+      );
 
       try {
          for (KeyedData k : this.dlSales.getRestrictedProducts()) {
