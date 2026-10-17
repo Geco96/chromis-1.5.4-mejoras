@@ -26,6 +26,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Region;
 import javafx.stage.DirectoryChooser;
 import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.pos.backup.BackupService;
@@ -238,6 +239,9 @@ public class ScheduledBackupsController implements Initializable {
         Platform.runLater(() -> {
             Alert alert = new Alert(type, message);
             alert.setHeaderText(null);
+            // Let long messages wrap instead of being cut with "..."
+            alert.getDialogPane().setPrefWidth(560);
+            alert.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
             alert.setTitle("Respaldos programados");
             if (apAnchor.getScene() != null) {
                 alert.initOwner(apAnchor.getScene().getWindow());

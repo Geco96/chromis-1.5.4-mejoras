@@ -10,6 +10,7 @@ originales, las clases que se modificaron.
 |---|---|
 | `original/` | Archivos instalados de Chromis POS 1.5.4, **sin modificar**. |
 | `original-admin/` | `admin.jar` de Chromis Admin 1.5.4, **sin modificar**. |
+| `original-createdb/` | `dbcreator.jar` 1.5.4 (crea la base; solo se usó para pruebas). |
 | `src/` | Clases modificadas o nuevas de Chromis POS. |
 | `src-admin/` | Clases y pantallas (FXML) modificadas o nuevas de Chromis Admin. |
 | `src-common/` | Código que va en ambos: respaldos y tablas de precio sobre costo. |
@@ -71,6 +72,25 @@ UPDATE backup_settings SET run_now = 1 WHERE id = 1;
 ```
 
 El nombre de la terminal es el que Chromis usa como `terminalID`.
+
+## Pruebas realizadas
+
+Con una base creada por el `dbcreator.jar` 1.5.4 (en `original-createdb/`) sobre
+MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
+`docs/capturas/`):
+
+| Prueba | Resultado |
+|---|---|
+| Código con caracteres invisibles delante (STX, GS, ancho cero, uso privado) | Original: *"❈7500000000024 - This Product Code does not exist"*. Mejorado: agrega el producto. |
+| Editar línea de producto con niveles (10 pzas → $25) | Original: botón de editar desactivado. Mejorado: cantidad 12 → $25 c/u; precio manual $27 se respeta. |
+| Auxiliar en catálogo y con ticket vacío | Original: no aparece y escanearlo con ticket vacío no agrega nada. Mejorado: aparece y se agrega. |
+| Cliente con 7.5 % sobre costo | Arroz $30 (costo $20) → $21.50; producto excluido conserva $80; producto sin costo muestra aviso y no se agrega; al quitar el cliente vuelve a $30. |
+| Captura en Admin | Margen del cliente y opción del producto se guardan y se vuelven a mostrar al reabrir. |
+| Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
+
+El botón de editar línea solo aparece a usuarios con el permiso
+`button.lineeditor` (comportamiento original de Chromis; se asigna en Admin →
+Roles).
 
 ## Compilar
 
