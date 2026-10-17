@@ -63,6 +63,11 @@ originales, las clases que se modificaron.
      stock, Chromis volvía a escribir el stock que tenía cuando se abrió el
      producto; las ventas hechas mientras estaba abierto se perdían del
      inventario. Ahora el stock no se toca al guardar.
+7. **Inicio de sesión de Admin**: el usuario se elige de una lista con los
+   usuarios registrados (visibles) y el cursor pasa directo a la contraseña.
+   Recuerda el último usuario que entró en esa PC. Se puede seguir escribiendo
+   un nombre o pasando una tarjeta, como antes. Si la contraseña es incorrecta,
+   el usuario se conserva y solo se borra la contraseña.
 
 ### Tablas nuevas
 
@@ -112,6 +117,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
 | Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
+| Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 
 El botón de editar línea solo aparece a usuarios con el permiso
