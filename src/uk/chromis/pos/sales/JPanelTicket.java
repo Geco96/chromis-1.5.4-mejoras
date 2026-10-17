@@ -1796,7 +1796,29 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    private void validateISSNBarcode(String barcode) {
    }
 
+   // Some scanners and keyboard emulators inject invisible characters (shown as
+   // empty boxes) that corrupt the barcode, so they are dropped before processing.
+   private boolean isInvisibleChar(char c) {
+      if (c == '\n' || c == 127 || c == 167) {
+         return false;
+      }
+      switch (Character.getType(c)) {
+         case Character.CONTROL:
+         case Character.FORMAT:
+         case Character.PRIVATE_USE:
+         case Character.SURROGATE:
+         case Character.UNASSIGNED:
+            return true;
+         default:
+            return !this.m_jPrice.getFont().canDisplay(c);
+      }
+   }
+
    private void stateTransition(char cTrans) {
+      if (this.isInvisibleChar(cTrans)) {
+         return;
+      }
+
       if (cTrans == '\n') {
          if (this.m_sBarcode.length() == 0) {
             this.processTicketLineReceipt();
