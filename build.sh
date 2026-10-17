@@ -1,13 +1,27 @@
 #!/bin/sh
-# Compila las clases modificadas de src/ contra el chromispos.jar original
-# y genera dist/chromispos.jar. Requiere JDK 11 o superior.
+# Compila las clases modificadas y genera:
+#   dist/chromispos.jar  (src/ + src-common/ sobre original/chromispos.jar)
+#   dist/admin.jar       (src-admin/ + src-common/ sobre original-admin/admin.jar)
+# Requiere JDK 11 o superior.
 set -e
 cd "$(dirname "$0")"
-rm -rf build
-mkdir -p build/classes dist
-find src -name '*.java' > build/sources.txt
-javac --release 11 -g -nowarn -encoding UTF-8 -proc:none \
-    -cp original/chromispos.jar -d build/classes @build/sources.txt
-# Recursos no-Java dentro de src/ (si los hay) se copian tal cual
-(cd src && find . -type f ! -name '*.java' -exec sh -c 'mkdir -p "../build/classes/$(dirname "$1")" && cp "$1" "../build/classes/$1"' _ {} \;)
-java tools/PatchJar.java original/chromispos.jar build/classes dist/chromispos.jar
+JAVAFX=$(ls tools/javafx-11.0.2/*.jar | tr '\n' ':')
+
+# build_jar <nombre> <jar-original> <classpath-extra> <carpetas-fuente...>
+build_jar() {
+    name=$1; original=$2; extra=$3; shift 3
+    out=build/$name
+    rm -rf "$out"
+    mkdir -p "$out/classes" dist
+    find "$@" -name '*.java' > "$out/sources.txt"
+    javac --release 11 -g -nowarn -encoding UTF-8 -proc:none \
+        -cp "$original:$extra" -d "$out/classes" @"$out/sources.txt"
+    # Recursos no-Java (fxml, xml, ...) se copian tal cual
+    for dir in "$@"; do
+        (cd "$dir" && find . -type f ! -name '*.java' -exec sh -c 'mkdir -p "$0/$(dirname "$1")" && cp "$1" "$0/$1"' "../$out/classes" {} \;)
+    done
+    java tools/PatchJar.java "$original" "$out/classes" "dist/$name.jar"
+}
+
+build_jar chromispos original/chromispos.jar "" src src-common
+build_jar admin original-admin/admin.jar "$JAVAFX" src-admin src-common

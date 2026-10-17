@@ -1,54 +1,29 @@
 package uk.chromis.pos.sales;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import uk.chromis.data.loader.Session;
+import uk.chromis.pos.costpricing.CostPricingStore;
 
 /**
- * Cost-plus pricing per customer: selected customers pay the product cost
- * (pricebuy) plus a percentage instead of the sell price.
- *
- * Data lives in two tables of its own so the original Chromis tables are not
- * altered:
- *   costpricing_customers (customer, markup)  markup in percent, e.g. 7.5
- *   costpricing_excluded  (product)           products that keep their normal price
+ * Cost-plus pricing per customer for the sales screen: selected customers pay
+ * the product cost (pricebuy) plus a percentage instead of the sell price.
+ * Values are cached until reset() so the ticket is not slowed down by queries.
  */
 public final class CostPricing {
 
     private static final Logger LOGGER = Logger.getLogger(CostPricing.class.getName());
 
     private final Session session;
-    private boolean tablesChecked = false;
     private String cachedCustomer = null;
     private Double cachedMarkup = null;
     private final Map<String, Boolean> excludedCache = new HashMap<>();
 
     public CostPricing(Session session) {
         this.session = session;
-    }
-
-    public static void createTables(Connection con) throws SQLException {
-        try (Statement st = con.createStatement()) {
-            st.executeUpdate("CREATE TABLE IF NOT EXISTS costpricing_customers ("
-                    + "customer VARCHAR(255) NOT NULL PRIMARY KEY, "
-                    + "markup DOUBLE NOT NULL)");
-            st.executeUpdate("CREATE TABLE IF NOT EXISTS costpricing_excluded ("
-                    + "product VARCHAR(255) NOT NULL PRIMARY KEY)");
-        }
-    }
-
-    private void ensureTables() throws SQLException {
-        if (!tablesChecked) {
-            createTables(session.getConnection());
-            tablesChecked = true;
-        }
     }
 
     /** Forgets cached values so changes made in Admin are picked up. */
@@ -68,16 +43,7 @@ public final class CostPricing {
         }
         Double markup = null;
         try {
-            ensureTables();
-            try (PreparedStatement ps = session.getConnection().prepareStatement(
-                    "SELECT markup FROM costpricing_customers WHERE customer = ?")) {
-                ps.setString(1, customerId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        markup = rs.getDouble(1);
-                    }
-                }
-            }
+            markup = CostPricingStore.getMarkup(session.getConnection(), customerId);
         } catch (SQLException ex) {
             LOGGER.log(Level.WARNING, "No se pudo leer el margen sobre costo del cliente", ex);
         }
@@ -94,14 +60,7 @@ public final class CostPricing {
         if (excluded == null) {
             excluded = false;
             try {
-                ensureTables();
-                try (PreparedStatement ps = session.getConnection().prepareStatement(
-                        "SELECT 1 FROM costpricing_excluded WHERE product = ?")) {
-                    ps.setString(1, productId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        excluded = rs.next();
-                    }
-                }
+                excluded = CostPricingStore.isExcluded(session.getConnection(), productId);
             } catch (SQLException ex) {
                 LOGGER.log(Level.WARNING, "No se pudo leer la exclusión de precio sobre costo", ex);
             }
@@ -111,6 +70,6 @@ public final class CostPricing {
     }
 
     public static double price(double cost, double markup) {
-        return Math.rint(cost * (1.0 + markup / 100.0) * 100.0) / 100.0;
+        return CostPricingStore.price(cost, markup);
     }
 }
