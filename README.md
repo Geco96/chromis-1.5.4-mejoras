@@ -67,15 +67,15 @@ originales, las clases que se modificaron.
      stock, Chromis volvía a escribir el stock que tenía cuando se abrió el
      producto; las ventas hechas mientras estaba abierto se perdían del
      inventario. Ahora el stock no se toca al guardar.
-8. **Existencias en los botones del catálogo**: debajo del nombre se muestra
-   "Stock: 15" (productos con *Controlar stock*). Se activa y se elige el color
-   en Admin → Stock Management → Reposición. Se actualiza tras cada venta y al
-   cambiar de categoría (así también se ven las ventas de la otra caja).
 7. **Inicio de sesión de Admin**: el usuario se elige de una lista con los
    usuarios registrados (visibles) y el cursor pasa directo a la contraseña.
    Recuerda el último usuario que entró en esa PC. Se puede seguir escribiendo
    un nombre o pasando una tarjeta, como antes. Si la contraseña es incorrecta,
    el usuario se conserva y solo se borra la contraseña.
+8. **Existencias en los botones del catálogo**: debajo del nombre se muestra
+   "Stock: 15" (productos con *Controlar stock*). Se activa y se elige el color
+   en Admin → Stock Management → Reposición. Se actualiza tras cada venta y al
+   cambiar de categoría (así también se ven las ventas de la otra caja).
 
 ### Tablas nuevas
 
