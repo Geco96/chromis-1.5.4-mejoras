@@ -16,7 +16,9 @@ public class ConsonantCodeTest {
     }
     public static void main(String[] a) throws Exception {
         check("ejemplo", ConsonantCode.fromName("ASERRIN BOLSA NEGRO"), "SRRNBLSNGR");
-        check("minúsculas, acentos, Ñ y números", ConsonantCode.fromName("Piñata Azúcar 1kg"), "PNTZCRKG");
+        check("minúsculas, acentos, Ñ y números", ConsonantCode.fromName("Piñata Azúcar 1kg"), "PNTZCR1KG");
+        check("conserva números", ConsonantCode.fromName("BOLSA 5KG"), "BLS5KG");
+        check("máximo 12", ConsonantCode.fromName("CEMENTO GRIS PORTLAND 50 KG"), "CMNTGRSPRTLN");
         check("Y es consonante", ConsonantCode.fromName("Yeso blanco"), "YSBLNC");
         check("solo vocales", ConsonantCode.fromName(" aeiou "), "");
         check("nulo", ConsonantCode.fromName(null), "");
@@ -27,11 +29,12 @@ public class ConsonantCodeTest {
         Connection c = DriverManager.getConnection(a.length > 0 ? a[0] : "jdbc:mysql://localhost:3306/chromispos",
                 a.length > 1 ? a[1] : "chromis", a.length > 2 ? a[2] : "chromis");
         String id;
-        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT id, code FROM products WHERE code IS NOT NULL AND code <> '' LIMIT 1")) {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT id, code FROM products WHERE code IS NOT NULL AND code <> '' AND CHAR_LENGTH(code) <= 10 LIMIT 1")) {
             rs.next();
             id = rs.getString(1);
             String code = rs.getString(2);
             check("código libre se queda igual", ConsonantCode.unique(c, "ZZQXWVTRPLKJ", null), "ZZQXWVTRPLKJ");
+            check("sufijo dentro de 12", ConsonantCode.unique(c, "750123456789", "otro").length() <= 12, true);
             check("código de otro producto lleva número", ConsonantCode.unique(c, code, "otro"), code + "2");
             check("su propio código no cuenta", ConsonantCode.unique(c, code, id), code);
         }

@@ -94,14 +94,19 @@ originales, las clases que se modificaron.
      ventas hechas después de contar) y cada ajuste queda en el diario de stock
      como "Conteo #N". Lo no contado no se toca. No usa el cierre de periodo
      de *Stock Taking* de Chromis, que pone todo el stock en cero.
-10. **Generar código (Code 128)** en Admin → Productos, junto a *PLU (Default
-    Barcode)*: llena el código con las consonantes de la descripción del ticket
-    (o de la referencia si no hay descripción), p. ej. "ASERRIN BOLSA NEGRO" →
-    `SRRNBLSNGR`. Pensado para productos que no traen código de barras.
-    - Quita acentos (Ñ cuenta como N) y descarta vocales, números y símbolos.
-    - Si otro producto ya tiene ese código, agrega 2, 3... (`SRRNBLSNGR2`).
-    - Si el producto ya tiene un EAN/UPC, pregunta antes de reemplazarlo.
-    - Chromis lo guarda como `CODE128` al guardar el producto.
+10. **Código Code 128 automático** en Admin → Productos: se arma con las
+    consonantes y números de la descripción del ticket (o de la referencia si
+    no hay descripción), máximo 12 caracteres. Ej.: "ASERRIN BOLSA NEGRO" →
+    `SRRNBLSNGR`, "BOLSA 5KG" → `BLS5KG`, "CEMENTO GRIS PORTLAND 50 KG" →
+    `CMNTGRSPRTLN`. Pensado para productos que no traen código de barras.
+    - Si se guarda un producto con *PLU (Default Barcode)* vacío, se genera solo.
+    - El botón **Generar código**, junto al campo, lo llena antes de guardar
+      para verlo o corregirlo. Si el producto ya tiene un EAN/UPC, pregunta
+      antes de reemplazarlo.
+    - Quita acentos (Ñ cuenta como N) y descarta vocales y símbolos.
+    - Si otro producto ya tiene ese código, termina en 2, 3... sin pasar de 12
+      (`SRRNBLSNGR2`).
+    - Chromis lo guarda como `CODE128`.
 
 ### Tablas nuevas
 
@@ -156,7 +161,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Borrar producto con auxiliar debajo | Original: al borrar Arroz se borraba también la Espiral (auxiliar sin relación). Mejorado: la Espiral se queda; la Bolsa (auxiliar de Arroz en Admin) sí se borra con él. |
 | Existencias en botones | "Stock: 20" en Espiral; tras vender 2 pasa a "Stock: 18" sin reiniciar; cambio de color y apagado desde Admin se ven al cambiar de categoría. |
 | Conteos programados | Conteo de 3 productos: Arroz escaneado 3 veces (sistema 11), Bolsa 5 (sistema 3), Espiral 18 en la tabla; hoja, resultado (−$160 / +$2) e informe propio solo con esos 3; tras vender 2 Arroz después de contar, al cerrar Arroz queda en 1 (9 − 8) y Bolsa en 5, con movimientos "Conteo #5" en el diario. Rotativo de 2 productos toma los nunca contados y programa el siguiente a 7 días. |
-| Generar código | "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar y con "No" lo conserva. |
+| Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 

@@ -1723,12 +1723,7 @@ public class ProductController extends BasePanelController implements Initializa
     * the reference), as Code 128, for products that come without a barcode.
     */
    public void generateCode() {
-      String source = this.txtDescription.getText();
-      if (ConsonantCode.fromName(source).isEmpty()) {
-         source = this.txtReference.getText();
-      }
-
-      String code = ConsonantCode.fromName(source);
+      String code = this.consonantCodeBase();
       if (code.isEmpty()) {
          Dialogs.showDialog(8, "Escribe primero la descripción (o la referencia) del producto: el código se arma con sus consonantes.",
             (Stage)this.apAnchor.getScene().getWindow(), true);
@@ -1747,17 +1742,27 @@ public class ProductController extends BasePanelController implements Initializa
          return;
       }
 
-      try {
-         code = ConsonantCode.unique(
-            SessionFactory.getInstance().getSession().getConnection(), code, this.selectedProduct == null ? null : this.selectedProduct.getId()
-         );
-      } catch (SQLException var4) {
-         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo revisar si el código ya existe", var4);
-      }
-
+      code = this.uniqueConsonantCode(code);
       this.txtBarcode.setText(code);
       this.txtBarcode.requestFocus();
       this.txtBarcode.positionCaret(code.length());
+   }
+
+   /** Consonants and digits of the ticket description, or of the reference when it has none. */
+   private String consonantCodeBase() {
+      String code = ConsonantCode.fromName(this.txtDescription.getText());
+      return code.isEmpty() ? ConsonantCode.fromName(this.txtReference.getText()) : code;
+   }
+
+   private String uniqueConsonantCode(String code) {
+      try {
+         return ConsonantCode.unique(
+            SessionFactory.getInstance().getSession().getConnection(), code, this.selectedProduct == null ? null : this.selectedProduct.getId()
+         );
+      } catch (SQLException var3) {
+         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo revisar si el código ya existe", var3);
+         return code;
+      }
    }
 
    private void resetPricingPanel(int count) {
@@ -2079,6 +2084,14 @@ public class ProductController extends BasePanelController implements Initializa
 
    @Override
    public Boolean saveRecord() {
+      // Products without a barcode get the Code 128 of their name instead of failing the "Barcode" check
+      if (this.txtBarcode.getText() == null || this.txtBarcode.getText().isBlank()) {
+         String code = this.consonantCodeBase();
+         if (!code.isEmpty()) {
+            this.txtBarcode.setText(this.uniqueConsonantCode(code));
+         }
+      }
+
       if (!this.checkCompulsoryFields(this.fields, (Stage)this.apAnchor.getScene().getWindow())) {
          return false;
       } else {
