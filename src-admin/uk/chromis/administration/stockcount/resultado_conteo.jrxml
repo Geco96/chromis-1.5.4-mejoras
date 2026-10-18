@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Resultado de un conteo programado: stock del sistema, contado y diferencias a costo.
+     Parámetros: PLAN_ID, LOCATION, COMPANY, PLAN_NAME, PLAN_DATE.
+     "Sistema" es el stock que tenía Chromis cuando se capturó el conteo. -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="resultado_conteo" language="java" pageWidth="612" pageHeight="792" columnWidth="572" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" whenNoDataType="AllSectionsNoDetail">
+	<parameter name="PLAN_ID" class="java.lang.Integer"/>
+	<parameter name="LOCATION" class="java.lang.String"/>
+	<parameter name="COMPANY" class="java.lang.String"/>
+	<parameter name="PLAN_NAME" class="java.lang.String"/>
+	<parameter name="PLAN_DATE" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select x.*, x.counted - x.system_qty as diff, (x.counted - x.system_qty) * x.cost as diffvalue
+from (
+  select p.reference, p.name, coalesce(c.name, 'Sin categoría') as category, l.counted,
+         coalesce(l.system_qty, (select coalesce(sum(s.units), 0) from stockcurrent s
+                                 where s.product = p.id and s.location = $P{LOCATION})) as system_qty,
+         (case when coalesce(p.averagecost, 0) = 0 then p.pricebuy else p.averagecost end) as cost
+  from stockcount_lines l
+  join products p on p.id = l.product
+  left join categories c on c.id = p.category
+  where l.plan_id = $P{PLAN_ID}
+) x
+order by x.category, x.name]]>
+	</queryString>
+	<field name="reference" class="java.lang.String"/>
+	<field name="name" class="java.lang.String"/>
+	<field name="category" class="java.lang.String"/>
+	<field name="counted" class="java.math.BigDecimal"/>
+	<field name="system_qty" class="java.math.BigDecimal"/>
+	<field name="cost" class="java.math.BigDecimal"/>
+	<field name="diff" class="java.math.BigDecimal"/>
+	<field name="diffvalue" class="java.math.BigDecimal"/>
+	<variable name="totalValue" class="java.math.BigDecimal" calculation="Sum"><variableExpression><![CDATA[$F{diffvalue}]]></variableExpression></variable>
+	<variable name="faltante" class="java.math.BigDecimal" calculation="Sum"><variableExpression><![CDATA[$F{diffvalue} != null && $F{diffvalue}.signum() < 0 ? $F{diffvalue} : java.math.BigDecimal.ZERO]]></variableExpression></variable>
+	<variable name="sobrante" class="java.math.BigDecimal" calculation="Sum"><variableExpression><![CDATA[$F{diffvalue} != null && $F{diffvalue}.signum() > 0 ? $F{diffvalue} : java.math.BigDecimal.ZERO]]></variableExpression></variable>
+	<variable name="contados" class="java.lang.Integer" calculation="Count"><variableExpression><![CDATA[$F{counted}]]></variableExpression></variable>
+	<variable name="conDiferencia" class="java.lang.Integer" calculation="Sum"><variableExpression><![CDATA[$F{diff} != null && $F{diff}.signum() != 0 ? 1 : 0]]></variableExpression></variable>
+	<title>
+		<band height="62">
+			<textField>
+				<reportElement x="0" y="0" width="572" height="20"/>
+				<textElement textAlignment="Center"><font size="15" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{COMPANY} == null || $P{COMPANY}.isEmpty() ? "RESULTADO DEL CONTEO" : $P{COMPANY}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="22" width="572" height="16"/>
+				<textElement textAlignment="Center"><font size="11"/></textElement>
+				<textFieldExpression><![CDATA["RESULTADO DEL CONTEO - " + $P{PLAN_NAME} + " (#" + $P{PLAN_ID} + ")"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="40" width="572" height="14"/>
+				<textElement textAlignment="Center"><font size="9"/></textElement>
+				<textFieldExpression><![CDATA["Fecha programada: " + $P{PLAN_DATE} + "     Impreso: " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="20">
+			<staticText><reportElement x="0" y="2" width="75" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph leftIndent="3"/></textElement><text><![CDATA[Referencia]]></text></staticText>
+			<staticText><reportElement x="75" y="2" width="200" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph leftIndent="3"/></textElement><text><![CDATA[Producto]]></text></staticText>
+			<staticText><reportElement x="275" y="2" width="55" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph rightIndent="3"/></textElement><text><![CDATA[Sistema]]></text></staticText>
+			<staticText><reportElement x="330" y="2" width="60" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph rightIndent="3"/></textElement><text><![CDATA[Contado]]></text></staticText>
+			<staticText><reportElement x="390" y="2" width="55" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph rightIndent="3"/></textElement><text><![CDATA[Diferencia]]></text></staticText>
+			<staticText><reportElement x="445" y="2" width="57" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph rightIndent="3"/></textElement><text><![CDATA[Costo]]></text></staticText>
+			<staticText><reportElement x="502" y="2" width="70" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" size="9"/><paragraph rightIndent="3"/></textElement><text><![CDATA[Dif. $]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="16">
+			<frame>
+				<reportElement x="0" y="0" width="572" height="16" mode="Opaque" backcolor="#FFD9D9">
+					<printWhenExpression><![CDATA[$F{diff} != null && $F{diff}.signum() < 0]]></printWhenExpression>
+				</reportElement>
+			</frame>
+			<frame>
+				<reportElement x="0" y="0" width="572" height="16" mode="Opaque" backcolor="#D9F2D9">
+					<printWhenExpression><![CDATA[$F{diff} != null && $F{diff}.signum() > 0]]></printWhenExpression>
+				</reportElement>
+			</frame>
+			<textField isBlankWhenNull="true"><reportElement x="0" y="0" width="75" height="16"/><textElement verticalAlignment="Middle"><font size="8"/><paragraph leftIndent="3"/></textElement><textFieldExpression><![CDATA[$F{reference}]]></textFieldExpression></textField>
+			<textField isBlankWhenNull="true"><reportElement x="75" y="0" width="200" height="16"/><textElement verticalAlignment="Middle"><font size="8"/><paragraph leftIndent="3"/></textElement><textFieldExpression><![CDATA[$F{name}]]></textFieldExpression></textField>
+			<textField pattern="#,##0.###" isBlankWhenNull="true"><reportElement x="275" y="0" width="55" height="16"/><textElement textAlignment="Right" verticalAlignment="Middle"><font size="8"/><paragraph rightIndent="3"/></textElement><textFieldExpression><![CDATA[$F{system_qty}]]></textFieldExpression></textField>
+			<textField><reportElement x="330" y="0" width="60" height="16"/><textElement textAlignment="Right" verticalAlignment="Middle"><font size="8"/><paragraph rightIndent="3"/></textElement><textFieldExpression><![CDATA[$F{counted} == null ? "sin contar" : new java.text.DecimalFormat("#,##0.###").format($F{counted})]]></textFieldExpression></textField>
+			<textField pattern="+#,##0.###;-#,##0.###" isBlankWhenNull="true"><reportElement x="390" y="0" width="55" height="16"/><textElement textAlignment="Right" verticalAlignment="Middle"><font size="8" isBold="true"/><paragraph rightIndent="3"/></textElement><textFieldExpression><![CDATA[$F{diff}]]></textFieldExpression></textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true"><reportElement x="445" y="0" width="57" height="16"/><textElement textAlignment="Right" verticalAlignment="Middle"><font size="8"/><paragraph rightIndent="3"/></textElement><textFieldExpression><![CDATA[$F{cost}]]></textFieldExpression></textField>
+			<textField pattern="+#,##0.00;-#,##0.00" isBlankWhenNull="true"><reportElement x="502" y="0" width="70" height="16"/><textElement textAlignment="Right" verticalAlignment="Middle"><font size="8"/><paragraph rightIndent="3"/></textElement><textFieldExpression><![CDATA[$F{diffvalue}]]></textFieldExpression></textField>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="16">
+			<textField>
+				<reportElement x="0" y="2" width="572" height="12"/>
+				<textElement textAlignment="Right"><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="96">
+			<line><reportElement x="0" y="4" width="572" height="1"/></line>
+			<textField>
+				<reportElement x="0" y="10" width="572" height="14"/>
+				<textElement><font size="9"/></textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT} + " productos en el conteo · " + $V{contados} + " contados · " + ($V{REPORT_COUNT} - $V{contados}) + " sin contar · " + $V{conDiferencia} + " con diferencia"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00">
+				<reportElement x="0" y="28" width="572" height="14"/>
+				<textElement><font size="9"/></textElement>
+				<textFieldExpression><![CDATA["Faltante a costo: " + new java.text.DecimalFormat("#,##0.00").format($V{faltante} == null ? java.math.BigDecimal.ZERO : $V{faltante}) + "     Sobrante a costo: " + new java.text.DecimalFormat("#,##0.00").format($V{sobrante} == null ? java.math.BigDecimal.ZERO : $V{sobrante})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="46" width="572" height="16"/>
+				<textElement><font size="11" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["Diferencia neta a costo: " + new java.text.DecimalFormat("+#,##0.00;-#,##0.00").format($V{totalValue} == null ? java.math.BigDecimal.ZERO : $V{totalValue})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="352" y="78" width="220" height="14"/>
+				<textElement textAlignment="Center"><font size="9"/></textElement>
+				<text><![CDATA[Revisó: ______________________]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

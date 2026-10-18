@@ -76,6 +76,24 @@ originales, las clases que se modificaron.
    "Stock: 15" (productos con *Controlar stock*). Se activa y se elige el color
    en Admin → Stock Management → Reposición. Se actualiza tras cada venta y al
    cambiar de categoría (así también se ven las ventas de la otra caja).
+9. **Conteos programados** (Admin → Stock Management → Conteos programados,
+   permiso de *Stock Taking*): toma de stock por lotes en lugar de todo el
+   inventario.
+   - Un conteo tiene nombre, fecha y productos, que se agregan escaneando o con
+     *Buscar y marcar...*.
+   - **Conteo rotativo automático**: cada N días se crea solo un conteo con los
+     N productos que nunca se han contado o llevan más tiempo sin contarse.
+   - El conteo se captura escaneando (suma 1 o la cantidad indicada) o
+     escribiendo en la tabla. Para cada producto se guarda el stock que tenía el
+     sistema al contarlo, así que se puede contar con la tienda abierta.
+   - Informes de Jasper solo con esos productos: **Hoja de conteo** (para
+     imprimir y anotar), **Resultado / diferencias** (sistema, contado,
+     diferencia y su valor a costo) y **Otro informe (.jrxml)**, que recibe
+     `PLAN_ID` y `PRODUCT_IDS` (ver `docs/informes/ejemplo_informe_propio.jrxml`).
+   - **Cerrar y ajustar stock**: lo contado queda como stock (respetando las
+     ventas hechas después de contar) y cada ajuste queda en el diario de stock
+     como "Conteo #N". Lo no contado no se toca. No usa el cierre de periodo
+     de *Stock Taking* de Chromis, que pone todo el stock en cero.
 
 ### Tablas nuevas
 
@@ -91,7 +109,8 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `backup_settings` | Configuración y estado de los respaldos (una fila, `id = 1`). |
 | `restock_reserve (location, product, reserve)` | Nivel de reserva por producto. |
 | `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
-| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`). |
+| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`) y conteo rotativo (`stockcount.rotation.*`). |
+| `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 
@@ -128,6 +147,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
 | Borrar producto con auxiliar debajo | Original: al borrar Arroz se borraba también la Espiral (auxiliar sin relación). Mejorado: la Espiral se queda; la Bolsa (auxiliar de Arroz en Admin) sí se borra con él. |
 | Existencias en botones | "Stock: 20" en Espiral; tras vender 2 pasa a "Stock: 18" sin reiniciar; cambio de color y apagado desde Admin se ven al cambiar de categoría. |
+| Conteos programados | Conteo de 3 productos: Arroz escaneado 3 veces (sistema 11), Bolsa 5 (sistema 3), Espiral 18 en la tabla; hoja, resultado (−$160 / +$2) e informe propio solo con esos 3; tras vender 2 Arroz después de contar, al cerrar Arroz queda en 1 (9 − 8) y Bolsa en 5, con movimientos "Conteo #5" en el diario. Rotativo de 2 productos toma los nunca contados y programa el siguiente a 7 días. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 

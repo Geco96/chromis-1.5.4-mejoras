@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hoja para el conteo físico de un conteo programado (Chromis Admin → Conteos programados).
+     Parámetros: PLAN_ID, LOCATION, COMPANY, PLAN_NAME, PLAN_DATE. -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="hoja_conteo" language="java" pageWidth="612" pageHeight="792" columnWidth="572" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" whenNoDataType="AllSectionsNoDetail">
+	<parameter name="PLAN_ID" class="java.lang.Integer"/>
+	<parameter name="LOCATION" class="java.lang.String"/>
+	<parameter name="COMPANY" class="java.lang.String"/>
+	<parameter name="PLAN_NAME" class="java.lang.String"/>
+	<parameter name="PLAN_DATE" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select p.reference, p.code, p.name, coalesce(c.name, 'Sin categoría') as category
+from stockcount_lines l
+join products p on p.id = l.product
+left join categories c on c.id = p.category
+where l.plan_id = $P{PLAN_ID}
+order by category, p.name]]>
+	</queryString>
+	<field name="reference" class="java.lang.String"/>
+	<field name="code" class="java.lang.String"/>
+	<field name="name" class="java.lang.String"/>
+	<field name="category" class="java.lang.String"/>
+	<group name="categoria">
+		<groupExpression><![CDATA[$F{category}]]></groupExpression>
+		<groupHeader>
+			<band height="22">
+				<textField>
+					<reportElement x="0" y="4" width="572" height="16" backcolor="#E6E6EB" mode="Opaque"/>
+					<textElement verticalAlignment="Middle"><font isBold="true" size="10"/><paragraph leftIndent="4"/></textElement>
+					<textFieldExpression><![CDATA[$F{category}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<title>
+		<band height="62">
+			<textField>
+				<reportElement x="0" y="0" width="572" height="20"/>
+				<textElement textAlignment="Center"><font size="15" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{COMPANY} == null || $P{COMPANY}.isEmpty() ? "HOJA DE CONTEO" : $P{COMPANY}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="22" width="572" height="16"/>
+				<textElement textAlignment="Center"><font size="11"/></textElement>
+				<textFieldExpression><![CDATA["HOJA DE CONTEO - " + $P{PLAN_NAME} + " (#" + $P{PLAN_ID} + ")"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="40" width="572" height="14"/>
+				<textElement textAlignment="Center"><font size="9"/></textElement>
+				<textFieldExpression><![CDATA["Fecha programada: " + $P{PLAN_DATE} + "     Contó: ______________________"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="20">
+			<staticText><reportElement x="0" y="2" width="90" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement verticalAlignment="Middle"><font isBold="true"/><paragraph leftIndent="4"/></textElement><text><![CDATA[Referencia]]></text></staticText>
+			<staticText><reportElement x="90" y="2" width="110" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement verticalAlignment="Middle"><font isBold="true"/><paragraph leftIndent="4"/></textElement><text><![CDATA[Código]]></text></staticText>
+			<staticText><reportElement x="200" y="2" width="262" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement verticalAlignment="Middle"><font isBold="true"/><paragraph leftIndent="4"/></textElement><text><![CDATA[Producto]]></text></staticText>
+			<staticText><reportElement x="462" y="2" width="110" height="16" mode="Opaque" backcolor="#333366" forecolor="#FFFFFF"/><textElement textAlignment="Center" verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[Contado]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="22">
+			<textField isBlankWhenNull="true"><reportElement x="0" y="0" width="90" height="22"/><textElement verticalAlignment="Middle"><font size="9"/><paragraph leftIndent="4"/></textElement><textFieldExpression><![CDATA[$F{reference}]]></textFieldExpression></textField>
+			<textField isBlankWhenNull="true"><reportElement x="90" y="0" width="110" height="22"/><textElement verticalAlignment="Middle"><font size="9"/><paragraph leftIndent="4"/></textElement><textFieldExpression><![CDATA[$F{code}]]></textFieldExpression></textField>
+			<textField isBlankWhenNull="true"><reportElement x="200" y="0" width="262" height="22"/><textElement verticalAlignment="Middle"><font size="9"/><paragraph leftIndent="4"/></textElement><textFieldExpression><![CDATA[$F{name}]]></textFieldExpression></textField>
+			<rectangle><reportElement x="477" y="3" width="80" height="16"/></rectangle>
+			<line><reportElement x="0" y="21" width="572" height="1" forecolor="#CCCCCC"/></line>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="16">
+			<textField>
+				<reportElement x="0" y="2" width="572" height="12"/>
+				<textElement textAlignment="Right"><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="50">
+			<textField>
+				<reportElement x="0" y="8" width="572" height="14"/>
+				<textElement><font size="9"/></textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT} + " productos a contar"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="352" y="32" width="220" height="14"/>
+				<textElement textAlignment="Center"><font size="9"/></textElement>
+				<text><![CDATA[Firma: ______________________]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

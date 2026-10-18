@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ejemplo de informe propio para "Conteos programados → Otro informe (.jrxml)".
+     Chromis Admin le pasa estos parámetros:
+       PLAN_ID (Integer)  número del conteo
+       PRODUCT_IDS (List) ids de los productos del conteo → úsalo con $X{IN, p.id, PRODUCT_IDS}
+       LOCATION, COMPANY, PLAN_NAME, PLAN_DATE (String)
+     Para adaptar un informe que ya usan, declara el parámetro PRODUCT_IDS y agrega
+     "and $X{IN, p.id, PRODUCT_IDS}" a su consulta (p = la tabla products). -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="ejemplo_informe_propio" language="java" pageWidth="612" pageHeight="792" columnWidth="572" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<parameter name="PLAN_NAME" class="java.lang.String"/>
+	<parameter name="PRODUCT_IDS" class="java.util.Collection"/>
+	<queryString>
+		<![CDATA[select p.reference, p.name, p.pricesell, p.pricebuy
+from products p
+where $X{IN, p.id, PRODUCT_IDS}
+order by p.name]]>
+	</queryString>
+	<field name="reference" class="java.lang.String"/>
+	<field name="name" class="java.lang.String"/>
+	<field name="pricesell" class="java.math.BigDecimal"/>
+	<field name="pricebuy" class="java.math.BigDecimal"/>
+	<title>
+		<band height="30">
+			<textField>
+				<reportElement x="0" y="0" width="572" height="20"/>
+				<textElement textAlignment="Center"><font size="14" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["Precios de los productos del conteo: " + $P{PLAN_NAME}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="18">
+			<staticText><reportElement x="0" y="0" width="100" height="16"/><textElement><font isBold="true"/></textElement><text><![CDATA[Referencia]]></text></staticText>
+			<staticText><reportElement x="100" y="0" width="292" height="16"/><textElement><font isBold="true"/></textElement><text><![CDATA[Producto]]></text></staticText>
+			<staticText><reportElement x="392" y="0" width="90" height="16"/><textElement textAlignment="Right"><font isBold="true"/></textElement><text><![CDATA[Costo]]></text></staticText>
+			<staticText><reportElement x="482" y="0" width="90" height="16"/><textElement textAlignment="Right"><font isBold="true"/></textElement><text><![CDATA[Precio]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="16">
+			<textField isBlankWhenNull="true"><reportElement x="0" y="0" width="100" height="16"/><textFieldExpression><![CDATA[$F{reference}]]></textFieldExpression></textField>
+			<textField isBlankWhenNull="true"><reportElement x="100" y="0" width="292" height="16"/><textFieldExpression><![CDATA[$F{name}]]></textFieldExpression></textField>
+			<textField pattern="#,##0.00"><reportElement x="392" y="0" width="90" height="16"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA[$F{pricebuy}]]></textFieldExpression></textField>
+			<textField pattern="#,##0.00"><reportElement x="482" y="0" width="90" height="16"/><textElement textAlignment="Right"/><textFieldExpression><![CDATA[$F{pricesell}]]></textFieldExpression></textField>
+		</band>
+	</detail>
+</jasperReport>
