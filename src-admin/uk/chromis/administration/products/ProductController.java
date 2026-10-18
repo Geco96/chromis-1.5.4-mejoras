@@ -172,6 +172,7 @@ public class ProductController extends BasePanelController implements Initializa
    public TextField txtAddBarcode;
    public TextField txtAge;
    public TextField txtBarcode;
+   public Button btnGenerateCode;
    public TextField txtCatalogOrder;
    public TextField txtBurnValue;
    public TextField txtDescription;
@@ -358,6 +359,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.enableNumericWithDecimalNoListener(this.txtSellingQty);
       this.setTextTrimListener(this.txtReference);
       this.setTextTrimListener(this.txtBarcode);
+      this.btnGenerateCode.disableProperty().bind(this.txtBarcode.disableProperty().or(this.txtBarcode.editableProperty().not()));
       this.setTextTrimListener(this.txtDescription);
       this.setTextListener(this.txtShortName);
       this.setTextListener(this.txtCatalogOrder);
@@ -1714,6 +1716,48 @@ public class ProductController extends BasePanelController implements Initializa
             }
          );
       this.cmbLocations.setItemList(locations);
+   }
+
+   /**
+    * Fills the barcode with the consonants of the ticket description (or of
+    * the reference), as Code 128, for products that come without a barcode.
+    */
+   public void generateCode() {
+      String source = this.txtDescription.getText();
+      if (ConsonantCode.fromName(source).isEmpty()) {
+         source = this.txtReference.getText();
+      }
+
+      String code = ConsonantCode.fromName(source);
+      if (code.isEmpty()) {
+         Dialogs.showDialog(8, "Escribe primero la descripción (o la referencia) del producto: el código se arma con sus consonantes.",
+            (Stage)this.apAnchor.getScene().getWindow(), true);
+         return;
+      }
+
+      String current = this.txtBarcode.getText() == null ? "" : this.txtBarcode.getText().trim();
+      if (ConsonantCode.isRetailBarcode(current)
+         && Dialogs.showDialog(
+               7,
+               "Este producto ya tiene el código de barras " + current + ".\n¿Reemplazarlo por un código generado con las consonantes del nombre?",
+               (Stage)this.apAnchor.getScene().getWindow(),
+               true
+            )
+            != 0) {
+         return;
+      }
+
+      try {
+         code = ConsonantCode.unique(
+            SessionFactory.getInstance().getSession().getConnection(), code, this.selectedProduct == null ? null : this.selectedProduct.getId()
+         );
+      } catch (SQLException var4) {
+         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo revisar si el código ya existe", var4);
+      }
+
+      this.txtBarcode.setText(code);
+      this.txtBarcode.requestFocus();
+      this.txtBarcode.positionCaret(code.length());
    }
 
    private void resetPricingPanel(int count) {
