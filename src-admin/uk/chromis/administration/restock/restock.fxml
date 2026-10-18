@@ -2,6 +2,7 @@
 
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ColorPicker?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Separator?>
@@ -36,7 +37,7 @@
 
         <Label layoutX="15.0" layoutY="122.0" text="Escribe Mínimo, Reserva y Máximo en la tabla: se guardan al presionar Enter o al salir de la celda. Pedir = Máximo − Stock, y lo puedes cambiar antes de generar el PDF." AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" wrapText="true" />
 
-        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="148.0" AnchorPane.bottomAnchor="100.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="148.0">
+        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="148.0" AnchorPane.bottomAnchor="135.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="148.0">
             <columns>
                 <TableColumn fx:id="colSelected" prefWidth="40.0" sortable="false" text="✔" />
                 <TableColumn fx:id="colReference" prefWidth="120.0" text="Referencia" />
@@ -50,7 +51,7 @@
             </columns>
         </TableView>
 
-        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="55.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="90.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
             <children>
                 <Button mnemonicParsing="false" onAction="#selectAttention" text="Marcar los que requieren atención" />
                 <Button mnemonicParsing="false" onAction="#selectNone" text="Desmarcar todos" />
@@ -59,11 +60,20 @@
             </children>
         </HBox>
 
-        <HBox alignment="CENTER_LEFT" spacing="20.0" AnchorPane.bottomAnchor="15.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+        <HBox alignment="CENTER_LEFT" spacing="20.0" AnchorPane.bottomAnchor="52.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
             <children>
                 <CheckBox fx:id="chkPosAlerts" onAction="#saveSettings" text="Mostrar avisos en la caja" />
                 <CheckBox fx:id="chkAlertReserve" onAction="#saveSettings" text="Avisar también cuando un producto entra en reserva" />
                 <Label fx:id="lblMessage" textFill="#b00020" />
+            </children>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" spacing="12.0" AnchorPane.bottomAnchor="15.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <CheckBox fx:id="chkCatalogStock" onAction="#saveCatalogStock" text="Mostrar existencias en los botones del catálogo de la caja" />
+                <Label text="Color:" />
+                <ColorPicker fx:id="cpStockColor" onAction="#saveCatalogStock" />
+                <Label text="(se ve después de la siguiente venta o al cambiar de categoría)" textFill="#666666" />
             </children>
         </HBox>
     </children>

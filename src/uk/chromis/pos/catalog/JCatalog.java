@@ -13,12 +13,22 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.lang.ref.WeakReference;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.swing.AbstractListModel;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -47,6 +57,7 @@ import uk.chromis.pos.sales.TaxesLogic;
 import uk.chromis.pos.scripting.ScriptEngine;
 import uk.chromis.pos.scripting.ScriptException;
 import uk.chromis.pos.scripting.ScriptFactory;
+import uk.chromis.pos.settings.PosSettings;
 import uk.chromis.pos.ticket.CategoryInfo;
 import uk.chromis.pos.ticket.ProductInfoExt;
 import uk.chromis.pos.ticket.TaxInfo;
@@ -68,6 +79,13 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
    private CategoryInfo showingcategory = null;
    private String siteGuid;
    private int categoriesPanelWidth;
+   // Stock under the product buttons (set in Chromis Admin → Reposición)
+   private static final List<WeakReference<JCatalog>> INSTANCES = new CopyOnWriteArrayList<>();
+   private boolean showStock = false;
+   private String stockColor = PosSettings.DEFAULT_STOCK_COLOR;
+   private final Map<String, JCatalogTab> categoryTabs = new HashMap<>();
+   private String currentCategory = null;
+   private boolean showingProductPanel = false;
    private JPanel jPanel1;
    private JPanel jPanel2;
    private JPanel jPanel3;
@@ -96,6 +114,7 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
       this.pricevisible = pricevisible;
       this.taxesincluded = taxesincluded;
       this.initComponents();
+      INSTANCES.add(new WeakReference<>(this));
       this.m_jListCategories.addListSelectionListener(this);
       this.m_jscrollcat.getVerticalScrollBar().setPreferredSize(new Dimension(25, 25));
       if (SystemProperty.HISTORICPRODUCTICON) {
@@ -152,9 +171,11 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
    @Override
    public void loadCatalog(String siteGuid) throws BasicException {
       this.siteGuid = siteGuid;
+      this.loadStockSettings();
       this.m_jProducts.removeAll();
       this.m_productsset.clear();
       this.m_categoriesset.clear();
+      this.categoryTabs.clear();
       this.showingcategory = null;
       this.taxeslogic = new TaxesLogic(this.m_dlSales.getTaxList(siteGuid).list());
       List categories;
@@ -239,12 +260,21 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
    }
 
    private void selectCategoryPanel(String catid) {
+      this.currentCategory = catid;
+      this.showingProductPanel = false;
+      this.reloadStockSettings();
+      if (this.showStock && this.m_categoriesset.contains(catid)) {
+         // Rebuilt every time it is shown so the stock is current (other terminals sell too)
+         this.removeCategoryTab(catid);
+      }
+
       try {
          if (!this.m_categoriesset.contains(catid)) {
             JCatalogTab jcurrTab = new JCatalogTab();
             jcurrTab.applyComponentOrientation(this.getComponentOrientation());
             this.m_jProducts.add(jcurrTab, catid);
             this.m_categoriesset.add(catid);
+            this.categoryTabs.put(catid, jcurrTab);
             if (SystemProperty.CATBYNUMBERORDER) {
                this.categories = this.m_dlSales.getSubcategoriesByCatOrder(catid, this.siteGuid);
                this.categories.addAll(this.m_dlSales.getSubcategoriesByName(catid, this.siteGuid));
@@ -265,17 +295,20 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
             }
 
             // Auxiliary products are listed in the catalog like any other product
-            for (ProductInfoExt prod : this.m_dlSales.getProductCatalog(catid, this.siteGuid)) {
+            List<ProductInfoExt> products = this.m_dlSales.getProductCatalog(catid, this.siteGuid);
+            Map<String, Double> stock = this.showStock ? this.loadStock(products) : new HashMap<>();
+            for (ProductInfoExt prod : products) {
+               String label = this.withStock(this.getProductLabel(prod), stock.get(prod.getID()));
                if (SystemProperty.HISTORICPRODUCTICON) {
-                  jcurrTab.addButton(new ImageIcon(this.tnbbutton.getThumbNailText(prod.getImage(), this.getProductLabel(prod))), new JCatalog.MouseTimer(prod));
+                  jcurrTab.addButton(new ImageIcon(this.tnbbutton.getThumbNailText(prod.getImage(), label)), new JCatalog.MouseTimer(prod));
                } else if (prod.getImage() == null) {
                   jcurrTab.addButton(
                      IconFactory.getResizedIcon("newproduct.png", new Dimension(SystemProperty.PRODUCTBUTTONWIDTH, SystemProperty.PRODUCTBUTTONHEIGHT)),
-                     this.getProductLabel(prod),
+                     label,
                      new JCatalog.MouseTimer(prod)
                   );
                } else {
-                  jcurrTab.addButton(new ImageIcon(this.tnbbutton.getThumbNailText(prod.getImage(), this.getProductLabel(prod))), new JCatalog.MouseTimer(prod));
+                  jcurrTab.addButton(new ImageIcon(this.tnbbutton.getThumbNailText(prod.getImage(), label)), new JCatalog.MouseTimer(prod));
                }
             }
          }
@@ -284,6 +317,119 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
          cl.show(this.m_jProducts, catid);
       } catch (BasicException var6) {
          JMessageDialog.showMessage(this, new MessageInf(-33554432, AppLocal.getIntString("message.notactive"), var6));
+      }
+   }
+
+   private void loadStockSettings() {
+      try {
+         Connection con = SessionFactory.getSession().getConnection();
+         this.showStock = "1".equals(PosSettings.get(con, PosSettings.CATALOG_STOCK, "0"));
+         this.stockColor = PosSettings.normalizeColor(PosSettings.get(con, PosSettings.CATALOG_STOCK_COLOR, PosSettings.DEFAULT_STOCK_COLOR));
+      } catch (SQLException ex) {
+         this.showStock = false;
+      }
+   }
+
+   /** Units in stock (all locations) of the products that manage stock. */
+   private Map<String, Double> loadStock(List<ProductInfoExt> products) {
+      Map<String, Double> stock = new HashMap<>();
+      List<String> ids = new ArrayList<>();
+      for (ProductInfoExt p : products) {
+         if (Boolean.TRUE.equals(p.isManagedStock()) && !Boolean.TRUE.equals(p.isService())) {
+            ids.add(p.getID());
+            stock.put(p.getID(), 0.0);
+         }
+      }
+
+      if (ids.isEmpty()) {
+         return stock;
+      }
+
+      StringBuilder sql = new StringBuilder("select product, sum(units) from stockcurrent where product in (");
+      for (int i = 0; i < ids.size(); i++) {
+         sql.append(i == 0 ? "?" : ", ?");
+      }
+
+      sql.append(") group by product");
+
+      try (PreparedStatement ps = SessionFactory.getSession().getConnection().prepareStatement(sql.toString())) {
+         for (int i = 0; i < ids.size(); i++) {
+            ps.setString(i + 1, ids.get(i));
+         }
+
+         try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+               stock.put(rs.getString(1), rs.getDouble(2));
+            }
+         }
+      } catch (SQLException ex) {
+         stock.clear(); // without stock the buttons are shown as before
+      }
+
+      return stock;
+   }
+
+   private String withStock(String label, Double units) {
+      if (units == null) {
+         return label;
+      }
+
+      String body = label == null ? "" : label;
+      if (body.regionMatches(true, 0, "<html>", 0, 6)) {
+         body = body.substring(6);
+      } else {
+         body = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+      }
+
+      String qty = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT)).format(units);
+      return "<html><center>" + body + "<br><font color='" + this.stockColor + "'>Stock: " + qty + "</font>";
+   }
+
+   private void removeCategoryTab(String catid) {
+      JCatalogTab tab = this.categoryTabs.remove(catid);
+      if (tab != null) {
+         this.m_jProducts.remove(tab);
+      }
+
+      this.m_categoriesset.remove(catid);
+   }
+
+   /** Reads the settings again; when they changed, the cached categories are dropped. */
+   private boolean reloadStockSettings() {
+      boolean wasShowing = this.showStock;
+      String oldColor = this.stockColor;
+      this.loadStockSettings();
+      if (wasShowing == this.showStock && oldColor.equals(this.stockColor)) {
+         return false;
+      }
+
+      for (String catid : new ArrayList<>(this.categoryTabs.keySet())) {
+         this.removeCategoryTab(catid);
+      }
+
+      return true;
+   }
+
+   /** Rebuilds the category on screen with the current stock and settings. */
+   public void refreshStock() {
+      boolean wasShowing = this.showStock;
+      boolean changed = this.reloadStockSettings();
+      if ((this.showStock || changed || wasShowing) && this.currentCategory != null && !this.showingProductPanel) {
+         this.selectCategoryPanel(this.currentCategory);
+         this.m_jProducts.revalidate();
+         this.m_jProducts.repaint();
+      }
+   }
+
+   /** After a sale: every catalog of this POS shows the new stock. */
+   public static void refreshAllStock() {
+      for (WeakReference<JCatalog> ref : INSTANCES) {
+         JCatalog catalog = ref.get();
+         if (catalog == null) {
+            INSTANCES.remove(ref);
+         } else {
+            catalog.refreshStock();
+         }
       }
    }
 
@@ -364,6 +510,7 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
                   JCatalogTab jcurrTab = new JCatalogTab();
                   jcurrTab.applyComponentOrientation(this.getComponentOrientation());
                   this.m_jProducts.add(jcurrTab, "PRODUCT." + id);
+                  this.showingProductPanel = true;
 
                   for (ProductInfoExt prod : products) {
                      jcurrTab.addButton(
@@ -385,6 +532,7 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
             }
          }
       } else {
+         this.showingProductPanel = true;
          this.selectIndicatorPanel(new ImageIcon(this.tnbbutton.getThumbNail(product.getImage())), product.getName());
          CardLayout cl = (CardLayout)this.m_jProducts.getLayout();
          cl.show(this.m_jProducts, "PRODUCT." + id);

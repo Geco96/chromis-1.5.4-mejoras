@@ -33,6 +33,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
@@ -42,6 +43,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import uk.chromis.administration.DatabaseLogic;
 import uk.chromis.administration.main.Start;
@@ -49,6 +51,7 @@ import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.globals.Company;
 import uk.chromis.pos.restock.RestockStore;
 import uk.chromis.pos.restock.RestockStore.Status;
+import uk.chromis.pos.settings.PosSettings;
 
 /**
  * Restock screen: stock against minimum / reserve / maximum, thresholds
@@ -107,6 +110,10 @@ public class RestockController implements Initializable {
     public CheckBox chkAlertReserve;
     @FXML
     public Label lblMessage;
+    @FXML
+    public CheckBox chkCatalogStock;
+    @FXML
+    public ColorPicker cpStockColor;
 
     private final ObservableList<RestockItem> items = FXCollections.observableArrayList();
     private final FilteredList<RestockItem> filtered = new FilteredList<>(items);
@@ -142,6 +149,10 @@ public class RestockController implements Initializable {
             chkPosAlerts.setSelected(s.posAlerts);
             chkAlertReserve.setSelected(s.alertReserve);
             chkAlertReserve.setDisable(!s.posAlerts);
+            chkCatalogStock.setSelected("1".equals(PosSettings.get(con, PosSettings.CATALOG_STOCK, "0")));
+            cpStockColor.setValue(Color.web(PosSettings.normalizeColor(
+                    PosSettings.get(con, PosSettings.CATALOG_STOCK_COLOR, PosSettings.DEFAULT_STOCK_COLOR))));
+            cpStockColor.setDisable(!chkCatalogStock.isSelected());
         } catch (SQLException ex) {
             showError("No se pudo leer la configuración de reposición", ex);
         }
@@ -455,6 +466,22 @@ public class RestockController implements Initializable {
             lblMessage.setText("");
         } catch (SQLException ex) {
             showError("No se pudo guardar la configuración de avisos", ex);
+        }
+    }
+
+    @FXML
+    public void saveCatalogStock() {
+        Color c = cpStockColor.getValue() == null ? Color.web(PosSettings.DEFAULT_STOCK_COLOR) : cpStockColor.getValue();
+        String hex = String.format("#%02X%02X%02X", (int) Math.round(c.getRed() * 255),
+                (int) Math.round(c.getGreen() * 255), (int) Math.round(c.getBlue() * 255));
+        cpStockColor.setDisable(!chkCatalogStock.isSelected());
+        try {
+            Connection con = connection();
+            PosSettings.put(con, PosSettings.CATALOG_STOCK, chkCatalogStock.isSelected() ? "1" : "0");
+            PosSettings.put(con, PosSettings.CATALOG_STOCK_COLOR, hex);
+            lblMessage.setText("");
+        } catch (SQLException ex) {
+            showError("No se pudo guardar la configuración del catálogo", ex);
         }
     }
 

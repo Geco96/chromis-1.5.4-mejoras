@@ -29,7 +29,11 @@ originales, las clases que se modificaron.
    cantidad, el precio se recalcula al nivel correspondiente; si se cambia el
    precio, se respeta.
 3. **Productos auxiliares**: aparecen en el catálogo como cualquier producto y
-   ya no se descartan si no hay una línea seleccionada.
+   ya no se descartan si no hay una línea seleccionada. Solo se cuelgan debajo
+   de un producto (y se borran junto con él) si en Admin están dados de alta
+   como auxiliares de **ese** producto; cualquier otro auxiliar es una línea
+   independiente. Antes, al borrar un producto se borraban todos los
+   auxiliares que tuviera debajo aunque no tuvieran relación.
 4. **Precio sobre costo por cliente**: ciertos clientes pagan *costo + margen %*.
    Tiene prioridad sobre niveles y descuentos. Si un producto no tiene costo,
    se avisa y no se permite venderlo a ese cliente.
@@ -63,6 +67,10 @@ originales, las clases que se modificaron.
      stock, Chromis volvía a escribir el stock que tenía cuando se abrió el
      producto; las ventas hechas mientras estaba abierto se perdían del
      inventario. Ahora el stock no se toca al guardar.
+8. **Existencias en los botones del catálogo**: debajo del nombre se muestra
+   "Stock: 15" (productos con *Controlar stock*). Se activa y se elige el color
+   en Admin → Stock Management → Reposición. Se actualiza tras cada venta y al
+   cambiar de categoría (así también se ven las ventas de la otra caja).
 7. **Inicio de sesión de Admin**: el usuario se elige de una lista con los
    usuarios registrados (visibles) y el cursor pasa directo a la contraseña.
    Recuerda el último usuario que entró en esa PC. Se puede seguir escribiendo
@@ -83,6 +91,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `backup_settings` | Configuración y estado de los respaldos (una fila, `id = 1`). |
 | `restock_reserve (location, product, reserve)` | Nivel de reserva por producto. |
 | `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
+| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 
@@ -117,6 +126,8 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
 | Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
+| Borrar producto con auxiliar debajo | Original: al borrar Arroz se borraba también la Espiral (auxiliar sin relación). Mejorado: la Espiral se queda; la Bolsa (auxiliar de Arroz en Admin) sí se borra con él. |
+| Existencias en botones | "Stock: 20" en Espiral; tras vender 2 pasa a "Stock: 18" sin reiniciar; cambio de color y apagado desde Admin se ven al cambiar de categoría. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 

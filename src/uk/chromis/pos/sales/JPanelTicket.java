@@ -23,7 +23,11 @@ import java.lang.reflect.Method;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -67,6 +71,7 @@ import uk.chromis.globals.SystemProperty;
 import uk.chromis.pos.auditing.Audit;
 import uk.chromis.pos.barcodes.Barcode;
 import uk.chromis.pos.backup.BackupService;
+import uk.chromis.pos.catalog.JCatalog;
 import uk.chromis.pos.customers.CustomerInfo;
 import uk.chromis.pos.customers.CustomerInfoExt;
 import uk.chromis.pos.customers.JCustomerFinder;
@@ -133,6 +138,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    protected DataLogicReceipts dlReceipts;
    private CostPricing costPricing;
    private RestockAlerts restockAlerts;
+   private final Map<String, Boolean> auxiliaryLinks = new HashMap<>();
    protected DataLogicSystem dlSystem;
    protected DataLogicSales dlSales;
    protected DataLogicCustomers dlCustomers;
@@ -465,20 +471,22 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                msg.show(this);
             }
          } else {
-            int i = this.m_ticketlines.getSelectedIndex();
-            if (i >= 0 && !this.m_oTicket.getLine(i).isProductCom()) {
-               i++;
+            // Product the selected line belongs to (the selected line itself, or the one above its auxiliaries)
+            int parent = this.m_ticketlines.getSelectedIndex();
+            while (parent >= 0 && this.m_oTicket.getLine(parent).isProductCom()) {
+               parent--;
             }
 
-            while (i >= 0 && i < this.m_oTicket.getLinesCount() && this.m_oTicket.getLine(i).isProductCom()) {
-               i++;
-            }
+            if (parent >= 0 && this.isAuxiliaryOf(this.m_oTicket.getLine(parent).getProductID(), oLine.getProductID())) {
+               int i = parent + 1;
+               while (i < this.m_oTicket.getLinesCount() && this.m_oTicket.getLine(i).isProductCom()) {
+                  i++;
+               }
 
-            if (i >= 0) {
                this.m_oTicket.insertLine(i, oLine);
                this.m_ticketlines.insertTicketLine(i, oLine);
             } else {
-               // No line selected to attach it to: add it at the end instead of discarding it
+               // Not an auxiliary of that product (or nothing selected): it is a line of its own
                this.m_oTicket.addLine(oLine);
                this.m_ticketlines.addTicketLine(oLine);
             }
@@ -830,12 +838,19 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                this.m_oTicket.removeLine(i);
                this.m_ticketlines.removeTicketLine(i);
             } else {
+               String parentId = this.m_oTicket.getLine(i).getProductID();
                this.m_oTicket.removeLine(i);
                this.m_ticketlines.removeTicketLine(i);
 
-               while (i < this.m_oTicket.getLinesCount() && this.m_oTicket.getLine(i).isProductCom()) {
-                  this.m_oTicket.removeLine(i);
-                  this.m_ticketlines.removeTicketLine(i);
+               // Only the auxiliaries of this product go with it; other products below stay in the ticket
+               int j = i;
+               while (j < this.m_oTicket.getLinesCount() && this.m_oTicket.getLine(j).isProductCom()) {
+                  if (this.isAuxiliaryOf(parentId, this.m_oTicket.getLine(j).getProductID())) {
+                     this.m_oTicket.removeLine(j);
+                     this.m_ticketlines.removeTicketLine(j);
+                  } else {
+                     j++;
+                  }
                }
             }
 
@@ -1412,6 +1427,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                         AppConfig.put("lastticket.number", Integer.toString(ticket.getTicketId()));
                         AppConfig.put("lastticket.type", Integer.toString(ticket.getTicketType().getId()));
                         this.restockAlerts.afterSale(ticket);
+                        JCatalog.refreshAllStock();
                      } catch (BasicException var10) {
                         MessageInf msg = new MessageInf(-67108864, AppLocal.getIntString("message.nosaveticket"), var10);
                         msg.show(this);
@@ -1840,6 +1856,35 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          default:
             return !this.m_jPrice.getFont().canDisplay(c);
       }
+   }
+
+   /** True when aux is set up in Admin as an auxiliary of product (table products_com). */
+   private boolean isAuxiliaryOf(String product, String aux) {
+      if (product == null || aux == null) {
+         return false;
+      }
+
+      String key = product + "|" + aux;
+      Boolean linked = this.auxiliaryLinks.get(key);
+      if (linked == null) {
+         linked = false;
+
+         try (PreparedStatement ps = this.m_App.getSession().getConnection()
+               .prepareStatement("select 1 from products_com where product = ? and product2 = ?")) {
+            ps.setString(1, product);
+            ps.setString(2, aux);
+
+            try (ResultSet rs = ps.executeQuery()) {
+               linked = rs.next();
+            }
+         } catch (SQLException ex) {
+            // Without the link the auxiliary is treated as a line of its own, so nothing is deleted by mistake
+         }
+
+         this.auxiliaryLinks.put(key, linked);
+      }
+
+      return linked;
    }
 
    private void stateTransition(char cTrans) {
@@ -3133,9 +3178,12 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                this.m_oTicket.getLine(i).getPrice(),
                this.m_oTicket.getLine(i).getProperty("orgLine")
             );
+            String parentId = this.m_oTicket.getLine(i).getProductID();
             this.removeTicketLine(i, true);
 
-            while (i < this.m_oTicket.getLinesCount() && this.m_oTicket.getLine(i).isProductCom()) {
+            while (i < this.m_oTicket.getLinesCount()
+               && this.m_oTicket.getLine(i).isProductCom()
+               && this.isAuxiliaryOf(parentId, this.m_oTicket.getLine(i).getProductID())) {
                JRefundLines.addBackLine(
                   this.m_oTicket.getLine(i).printName(),
                   this.m_oTicket.getLine(i).getMultiply(),
