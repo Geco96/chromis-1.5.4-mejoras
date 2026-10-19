@@ -1,12 +1,12 @@
 # Descargas: Chromis 1.5.4 con mejoras
 
-Archivos compilados de la rama `mejoras` (commit `43db270`), listos para instalar.
+Archivos compilados de la rama `mejoras` (commit `84eb1c6`), listos para instalar.
 Las instrucciones completas están en el README de la rama `mejoras`.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `795286a928b5bea7438a639a23762c4157a1f9fb31fec3c4dcf2f708068f1f3a` |
-| `admin.jar` | Carpeta de instalación de Chromis Admin | `f97015186cd6229b032b1c1a3662b6514320b8b9e2120c8a157acd1306ee07e7` |
+| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `45dc01c5c42707cad0f881efaeee7c1d32730b5a85090481d9bc287fae72fbc8` |
+| `admin.jar` | Carpeta de instalación de Chromis Admin | `c31848d9895743212af42735ef3d09f1fffdde9f2765bd11b5cf0218b9d49f07` |
 
 ## Instalar (en cada PC)
 
