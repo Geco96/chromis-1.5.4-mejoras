@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane fx:id="apAnchor" minHeight="700.0" minWidth="1020.0" prefWidth="1216.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="uk.chromis.administration.receiving.PriceApprovalController">
+    <children>
+        <Label layoutX="10.0" layoutY="57.0" prefHeight="25.0" prefWidth="600.0" text="Autorizar cambios de costo (recepción de mercancía)">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label>
+        <Separator layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
+
+        <VBox spacing="8.0" AnchorPane.bottomAnchor="15.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="88.0">
+            <children>
+                <Label maxWidth="1100.0" text="Al recibir mercancía con un costo distinto al registrado, el producto conserva su costo hasta que aquí se autorice. Al autorizar se cambia el costo y, si está marcado &quot;Cambiar venta&quot;, también el precio de venta (el sugerido conserva el margen actual y se puede corregir)." wrapText="true" />
+                <TableView fx:id="table" editable="true" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colSelected" maxWidth="40.0" minWidth="35.0" prefWidth="36.0" sortable="false" text="✔" />
+                        <TableColumn fx:id="colDate" prefWidth="95.0" text="Fecha" />
+                        <TableColumn fx:id="colOrder" prefWidth="100.0" text="Pedido" />
+                        <TableColumn fx:id="colRef" prefWidth="100.0" text="Referencia" />
+                        <TableColumn fx:id="colName" prefWidth="250.0" text="Producto" />
+                        <TableColumn fx:id="colOldCost" prefWidth="95.0" style="-fx-alignment: CENTER-RIGHT;" text="Costo actual" />
+                        <TableColumn fx:id="colNewCost" prefWidth="95.0" style="-fx-alignment: CENTER-RIGHT;" text="Costo nuevo" />
+                        <TableColumn fx:id="colVariation" prefWidth="75.0" style="-fx-alignment: CENTER-RIGHT;" text="Var. %" />
+                        <TableColumn fx:id="colOldPrice" prefWidth="95.0" style="-fx-alignment: CENTER-RIGHT;" text="Venta actual" />
+                        <TableColumn fx:id="colApplyPrice" prefWidth="105.0" sortable="false" text="Cambiar venta" />
+                        <TableColumn fx:id="colNewPrice" prefWidth="100.0" text="Venta nueva" />
+                    </columns>
+                </TableView>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <children>
+                        <Button mnemonicParsing="false" onAction="#selectAll" text="Marcar todos" />
+                        <Button mnemonicParsing="false" onAction="#selectNone" text="Desmarcar todos" />
+                        <Button fx:id="btnApprove" mnemonicParsing="false" onAction="#approve" style="-fx-font-weight: bold; -fx-base: #c8e6c9;" text="Autorizar marcados" />
+                        <Button fx:id="btnReject" mnemonicParsing="false" onAction="#reject" text="Rechazar marcados" />
+                        <Button mnemonicParsing="false" onAction="#refresh" text="Actualizar" />
+                        <Label fx:id="lblSummary" />
+                    </children>
+                </HBox>
+                <Label fx:id="lblMessage" textFill="#b00020" wrapText="true" />
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>

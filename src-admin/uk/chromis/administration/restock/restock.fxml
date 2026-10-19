@@ -35,28 +35,33 @@
             </children>
         </HBox>
 
-        <Label layoutX="15.0" layoutY="122.0" text="Escribe Mínimo, Reserva y Máximo en la tabla: se guardan al presionar Enter o al salir de la celda. Pedir = Máximo − Stock, y lo puedes cambiar antes de generar el PDF." AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" wrapText="true" />
+        <Label layoutX="15.0" layoutY="122.0" text="Mínimo, Reserva y Máximo se guardan al presionar Enter o al salir de la celda. Pedir = Máximo − Stock − En camino (o lo que faltó antes); se puede cambiar." AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" wrapText="true" />
 
-        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="148.0" AnchorPane.bottomAnchor="135.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="148.0">
+        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="148.0" AnchorPane.bottomAnchor="150.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="148.0">
             <columns>
                 <TableColumn fx:id="colSelected" prefWidth="40.0" sortable="false" text="✔" />
                 <TableColumn fx:id="colReference" prefWidth="120.0" text="Referencia" />
-                <TableColumn fx:id="colName" prefWidth="330.0" text="Producto" />
+                <TableColumn fx:id="colName" prefWidth="250.0" text="Producto" />
                 <TableColumn fx:id="colCurrent" prefWidth="80.0" style="-fx-alignment: CENTER-RIGHT;" text="Stock" />
                 <TableColumn fx:id="colMinimum" prefWidth="90.0" text="Mínimo" />
                 <TableColumn fx:id="colReserve" prefWidth="90.0" text="Reserva" />
                 <TableColumn fx:id="colMaximum" prefWidth="90.0" text="Máximo" />
                 <TableColumn fx:id="colStatus" prefWidth="100.0" text="Estado" />
+                <TableColumn fx:id="colOnOrder" prefWidth="80.0" style="-fx-alignment: CENTER-RIGHT;" text="En camino" />
+                <TableColumn fx:id="colCarry" prefWidth="150.0" style="-fx-alignment: CENTER;" text="Faltó (ped. ant.)" />
                 <TableColumn fx:id="colOrder" prefWidth="90.0" text="Pedir" />
             </columns>
         </TableView>
 
-        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="90.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+        <Label fx:id="lblSummary" AnchorPane.bottomAnchor="124.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+
+        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="88.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
             <children>
-                <Button mnemonicParsing="false" onAction="#selectAttention" text="Marcar los que requieren atención" />
-                <Button mnemonicParsing="false" onAction="#selectNone" text="Desmarcar todos" />
-                <Button fx:id="btnPdf" defaultButton="true" mnemonicParsing="false" onAction="#generatePdf" text="Generar PDF de pedido..." />
-                <Label fx:id="lblSummary" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#selectAttention" text="Marcar los que requieren atención" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#selectNone" text="Desmarcar todos" />
+                <Label minWidth="-Infinity" text="Proveedor:" />
+                <ComboBox fx:id="cmbSupplier" minWidth="-Infinity" prefWidth="200.0" />
+                <Button fx:id="btnPdf" defaultButton="true" minWidth="-Infinity" mnemonicParsing="false" onAction="#generatePdf" text="Generar PDF de pedido..." />
             </children>
         </HBox>
 

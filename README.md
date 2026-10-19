@@ -121,6 +121,42 @@ originales, las clases que se modificaron.
       ese día y se abre la de hoy.
     - La caja muestra un aviso "Entrada registrada" / "Salida registrada".
     - La pantalla de Admin muestra los últimos registros con las horas.
+12. **Pedido con código de barras y recepción de mercancía** (Admin → Stock
+    Management):
+    - **Reposición → Generar PDF de pedido** ahora guarda el pedido en las
+      tablas de pedidos de Chromis (`supplierorders`) y el PDF lleva el folio
+      (`PED-000123`) en **Code 128**. El código solo lleva el folio; los
+      productos, cantidades y costos se leen de la base al escanearlo, así que
+      no importa si son 5 o 500 productos.
+    - Se elige el proveedor; si no hay ninguno registrado se usa
+      **Proveedor general**, que se crea solo.
+    - Columna **En camino**: lo pedido que no ha llegado se resta de lo
+      sugerido, para no pedirlo dos veces.
+    - **Recepción de mercancía** (permiso de *Orders*): se escanea el folio del
+      PDF (o se elige de la lista de pendientes) y aparece lo que debe llegar.
+      - **✔ Llegó todo correcto**: un clic y entra todo al stock.
+      - Si hay diferencias: se escribe lo recibido y el costo de factura por
+        producto, o se escanea pieza por pieza (al escanear el primero, lo
+        recibido empieza en 0 y cada lectura suma). Los productos que no venían
+        en el pedido se agregan al escanearlos. Faltantes en rojo, sobrantes en
+        azul, cambios de costo en amarillo.
+      - Al confirmar entra al stock solo lo recibido (diario de stock motivo 9,
+        "Pedido PED-000123", como la recepción de Chromis) y se genera el
+        **contrarecibo** en PDF (pedido, recibido, diferencia, costos,
+        importes, totales y firmas de quien entrega y quien recibe).
+      - **Faltantes**: quedan registrados y aparecen en Reposición en la
+        columna *Faltó (ped. ant.)*, marcados para el siguiente pedido; en el
+        PDF del siguiente pedido se anota "Incluye N que faltaron en
+        PED-000123".
+      - **Costos**: la recepción **no cambia el costo** del producto (la de
+        Chromis sí). Un costo distinto queda **por autorizar**.
+      - **Reimprimir pedido** y **Reimprimir contrarecibo**.
+    - **Autorizar costos** (permiso de *Products*): lista de cambios de costo
+      con costo actual y nuevo, variación en % y precio de venta sugerido que
+      conserva el margen (editable). Al autorizar se cambia el costo y, si está
+      marcado *Cambiar venta*, el precio de venta; también se puede rechazar.
+      Queda registrado quién y cuándo lo decidió.
+    - Los pedidos se ven también en la pantalla *Orders* original de Chromis.
 
 ### Tablas nuevas
 
@@ -138,6 +174,8 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
 | `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`), conteo rotativo (`stockcount.rotation.*`) y asistencia (`attendance.*`). |
 | `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
+| `order_carryover` | Faltantes de cada pedido recibido y el pedido al que pasaron. |
+| `price_changes` | Cambios de costo encontrados al recibir: pendientes, autorizados o rechazados. |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 
@@ -177,6 +215,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Conteos programados | Conteo de 3 productos: Arroz escaneado 3 veces (sistema 11), Bolsa 5 (sistema 3), Espiral 18 en la tabla; hoja, resultado (−$160 / +$2) e informe propio solo con esos 3; tras vender 2 Arroz después de contar, al cerrar Arroz queda en 1 (9 − 8) y Bolsa en 5, con movimientos "Conteo #5" en el diario. Rotativo de 2 productos toma los nunca contados y programa el siguiente a 7 días. |
 | Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
 | Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
+| Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 

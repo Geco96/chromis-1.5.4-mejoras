@@ -85,6 +85,16 @@ menuItem option - text              chromispos.properties entry to use
                     text = "Reposición"
                     actionClass="uk.chromis.administration.restock.Restock"
                     accessName="Orders"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Recepción de mercancía"
+                    actionClass="uk.chromis.administration.receiving.Receiving"
+                    accessName="Orders"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Autorizar costos"
+                    actionClass="uk.chromis.administration.receiving.PriceApproval"
+                    accessName="Products"
                     actionMethod="showPanel"/>     
     </menuTitle>            
                             

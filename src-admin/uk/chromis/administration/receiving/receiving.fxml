@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane fx:id="apAnchor" minHeight="700.0" minWidth="1020.0" prefWidth="1216.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="uk.chromis.administration.receiving.ReceivingController">
+    <children>
+        <Label layoutX="10.0" layoutY="57.0" prefHeight="25.0" prefWidth="500.0" text="Recepción de mercancía">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label>
+        <Separator layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
+
+        <VBox spacing="8.0" AnchorPane.bottomAnchor="15.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="88.0">
+            <children>
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <children>
+                        <Label minWidth="-Infinity" prefWidth="135.0" text="Pedido" style="-fx-font-weight: bold;" />
+                        <TextField fx:id="txtFolio" onAction="#loadFromField" prefWidth="230.0" promptText="Escanea el código del pedido" />
+                        <Label text="o elige uno pendiente:" />
+                        <ComboBox fx:id="cmbOpen" prefWidth="170.0" />
+                        <ComboBox fx:id="cmbLocation" prefWidth="160.0" />
+                        <Button mnemonicParsing="false" onAction="#refresh" text="Actualizar" />
+                        <Button fx:id="btnReprintOrder" mnemonicParsing="false" onAction="#reprintOrder" text="Reimprimir pedido" />
+                    </children>
+                </HBox>
+                <Label fx:id="lblOrder" style="-fx-font-weight: bold; -fx-font-size: 13px;" text="Escanea el código de barras del PDF del pedido para ver lo que debe llegar." />
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <children>
+                        <Label minWidth="-Infinity" prefWidth="135.0" text="Escanear producto" />
+                        <TextField fx:id="txtScan" onAction="#scanProduct" prefWidth="230.0" promptText="Para contar pieza por pieza" />
+                        <Label text="Cantidad" />
+                        <TextField fx:id="txtScanQty" onAction="#scanProduct" prefWidth="60.0" text="1" />
+                        <Button fx:id="btnZero" mnemonicParsing="false" onAction="#countFromZero" text="Contar desde cero" />
+                        <Label text="Al escanear el primer producto lo recibido empieza en 0 y cada lectura suma." textFill="#666666" wrapText="true" />
+                    </children>
+                </HBox>
+                <TableView fx:id="table" editable="true" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colRef" prefWidth="100.0" text="Referencia" />
+                        <TableColumn fx:id="colName" prefWidth="270.0" text="Producto" />
+                        <TableColumn fx:id="colOrdered" prefWidth="70.0" style="-fx-alignment: CENTER-RIGHT;" text="Pedido" />
+                        <TableColumn fx:id="colReceived" prefWidth="90.0" text="Recibido" />
+                        <TableColumn fx:id="colDiff" prefWidth="90.0" style="-fx-alignment: CENTER;" text="Diferencia" />
+                        <TableColumn fx:id="colOrderCost" prefWidth="110.0" style="-fx-alignment: CENTER-RIGHT;" text="Costo pedido" />
+                        <TableColumn fx:id="colReceivedCost" prefWidth="115.0" text="Costo factura" />
+                        <TableColumn fx:id="colAmount" prefWidth="100.0" style="-fx-alignment: CENTER-RIGHT;" text="Importe" />
+                        <TableColumn fx:id="colObservation" prefWidth="225.0" text="Observación" />
+                    </columns>
+                </TableView>
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <children>
+                        <Label minWidth="-Infinity" prefWidth="135.0" text="Factura / remisión" />
+                        <TextField fx:id="txtInvoice" prefWidth="180.0" promptText="Opcional" />
+                        <Label fx:id="lblSummary" />
+                    </children>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <children>
+                        <Button fx:id="btnAllOk" mnemonicParsing="false" onAction="#receiveAll" style="-fx-font-weight: bold; -fx-base: #c8e6c9;" text="✔ Llegó todo correcto" />
+                        <Button fx:id="btnConfirm" mnemonicParsing="false" onAction="#confirm" style="-fx-font-weight: bold;" text="Confirmar recepción con diferencias" />
+                        <Button fx:id="btnReceipt" mnemonicParsing="false" onAction="#reprintReceipt" text="Reimprimir contrarecibo" />
+                        <Label fx:id="lblPrices" textFill="#8a5a00" style="-fx-font-weight: bold;" />
+                    </children>
+                </HBox>
+                <Label fx:id="lblMessage" minHeight="-Infinity" textFill="#b00020" wrapText="true" />
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>
