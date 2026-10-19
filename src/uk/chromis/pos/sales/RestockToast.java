@@ -27,7 +27,7 @@ import uk.chromis.pos.restock.RestockStore.Status;
  * the keyboard focus (the barcode scanner types into the ticket), closes by
  * itself after a while and closes earlier when clicked.
  */
-final class RestockToast extends JWindow {
+public final class RestockToast extends JWindow {
 
     private static final int WIDTH = 340;
     private static final int GAP = 6;
@@ -92,7 +92,7 @@ final class RestockToast extends JWindow {
         }
     }
 
-    static void show(Component owner, String title, String message, Color color) {
+    public static void show(Component owner, String title, String message, Color color) {
         Window parent = owner == null ? null : SwingUtilities.getWindowAncestor(owner);
         RestockToast toast = new RestockToast(parent, owner, title, message, color);
         ACTIVE.add(toast);

@@ -107,6 +107,20 @@ originales, las clases que se modificaron.
     - Si otro producto ya tiene ese código, termina en 2, 3... sin pasar de 12
       (`SRRNBLSNGR2`).
     - Chromis lo guarda como `CODE128`.
+11. **Asistencia automática** (Admin → Users → Asistencia automática). Cada
+    opción se activa por separado:
+    - **Entrada (check in)** al entrar a Chromis POS, solo si pasaron al menos
+      N horas (6 por omisión) desde su última salida; volver a entrar el mismo
+      turno no abre otra entrada.
+    - **Salida (check out)** al hacer el corte de caja (la de quien lo hace;
+      también cierra un descanso abierto).
+    - Usa el registro propio de Chromis (`shifts`), así que la pantalla
+      *Check In/Out* y sus reportes siguen funcionando y se puede marcar a mano.
+    - Si alguien quedó con la entrada abierta de un día anterior (sin corte),
+      al entrar de nuevo esa entrada se cierra a la hora de su última venta de
+      ese día y se abre la de hoy.
+    - La caja muestra un aviso "Entrada registrada" / "Salida registrada".
+    - La pantalla de Admin muestra los últimos registros con las horas.
 
 ### Tablas nuevas
 
@@ -122,7 +136,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `backup_settings` | Configuración y estado de los respaldos (una fila, `id = 1`). |
 | `restock_reserve (location, product, reserve)` | Nivel de reserva por producto. |
 | `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
-| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`) y conteo rotativo (`stockcount.rotation.*`). |
+| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`), conteo rotativo (`stockcount.rotation.*`) y asistencia (`attendance.*`). |
 | `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
@@ -162,6 +176,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Existencias en botones | "Stock: 20" en Espiral; tras vender 2 pasa a "Stock: 18" sin reiniciar; cambio de color y apagado desde Admin se ven al cambiar de categoría. |
 | Conteos programados | Conteo de 3 productos: Arroz escaneado 3 veces (sistema 11), Bolsa 5 (sistema 3), Espiral 18 en la tabla; hoja, resultado (−$160 / +$2) e informe propio solo con esos 3; tras vender 2 Arroz después de contar, al cerrar Arroz queda en 1 (9 − 8) y Bolsa en 5, con movimientos "Conteo #5" en el diario. Rotativo de 2 productos toma los nunca contados y programa el siguiente a 7 días. |
 | Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
+| Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 

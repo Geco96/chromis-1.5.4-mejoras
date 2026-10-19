@@ -90,6 +90,11 @@ menuItem option - text              chromispos.properties entry to use
                             
     <menuTitle text = "menu.users">
         <menuEntry  type="menuitem"
+                    text = "Asistencia automática"
+                    actionClass="uk.chromis.administration.attendance.Attendance"
+                    accessName="EmployeeHolidays"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
                     text = "menu.leaves"
                     actionClass="uk.chromis.administration.employees.EmployeeAbsences"
                     accessName="EmployeeHolidays"

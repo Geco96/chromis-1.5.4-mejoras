@@ -17,6 +17,11 @@ public final class PosSettings {
     /** Colour of that text, as #RRGGBB. */
     public static final String CATALOG_STOCK_COLOR = "catalog.stock.color";
     public static final String DEFAULT_STOCK_COLOR = "#D00000";
+    /** "1" to check users in on their first login after ATTENDANCE_HOURS without a check out. */
+    public static final String ATTENDANCE_CHECKIN = "attendance.checkin.auto";
+    public static final String ATTENDANCE_HOURS = "attendance.checkin.hours";
+    /** "1" to check users out when they close the cash. */
+    public static final String ATTENDANCE_CHECKOUT = "attendance.checkout.auto";
 
     private PosSettings() {
     }
