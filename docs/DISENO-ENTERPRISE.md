@@ -147,7 +147,7 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 |---|---|
 | 1. Pedido tentativo diario (16:30), revisión y envío | **Hecha.** Mejora 13 del README; envío como pedido de Chromis con PDF. |
 | 2. Mostrador / Entrega en la caja | **Hecha.** Mejora 14 del README: botón en el ticket, pregunta al cobrar, datos de entrega desde el cliente en `customer_delivery`, pantalla Admin → Entregas. |
-| 3. Gestor de entregas (cuadrantes, estados, liquidación) | Pendiente |
+| 3. Gestor de entregas (cuadrantes, estados, liquidación) | **Hecha, salvo la liquidación**, que llega con la fase 5 (hoy las entregas de la caja se cobran al vender). Web: `AgendaClientes`, rama `enterprise` (`ENTERPRISE.md`); puente: `chromis-monitor`, rama `enterprise` (`services/entregas_sync.py`). |
 | 4. Nube y conectores (catálogo, pedido y confirmación) | Pendiente |
 | 5. Pedidos de clientes en la distribuidora (apartados) | Pendiente |
 | 6. Precio especial por cliente con excepciones | Pendiente |
