@@ -43,12 +43,13 @@ los revisa y aprueba una persona**.
 | Tema | Decisión |
 |---|---|
 | Sistema de la distribuidora | Chromis con las mejoras |
-| Pedido tentativo | Diario, a hora programada, sin depender del cierre de caja. Terminal designada; si estaba apagada, se arma al encender. Un borrador por proveedor; el del día anterior sin revisar se reemplaza. |
+| Pedido tentativo | Diario, **4:30 por omisión, configurable** (`pos_settings`), sin depender del cierre de caja. Terminal designada; si estaba apagada, se arma al encender. Un borrador por proveedor; el del día anterior sin revisar se reemplaza. |
 | Envío | Nunca automático. Revisión, ajuste y "Enviar" con permiso de *Orders*; se registra quién y cuándo. |
 | Proveedor por producto | Preferente de la tienda → distribuidora (si está suscrita, el producto está en el catálogo y hay disponible) → último proveedor. "Preferir distribuidora" se puede apagar. |
 | Confirmación en la distribuidora | Siempre manual, línea por línea (completo / parcial / agotado). |
 | Pago | **Al recibir.** Confirmar crea una venta en espera (`sharedtickets`) marcada Entrega + apartado de stock. El repartidor ajusta y cobra al entregar; ahí se descuenta stock. Cancelar libera el apartado. |
-| Disponible | stock − apartado (catálogo, confirmaciones y, de preferencia, cajas de la distribuidora). |
+| Disponible | stock − apartado en el catálogo y las confirmaciones. |
+| Venta en caja de lo apartado | **Solo se avisa**, no se bloquea. El aviso dice qué pedido lo tiene apartado. |
 | Precio de lista | General, igual para todos. |
 | Precio dominante | **Se configura por cliente**; excepciones por producto para ese cliente (ver abajo). |
 | Costo | Nunca se publica; a cada tienda se le publica su precio ya calculado. |
@@ -103,6 +104,6 @@ Tablas nuevas propuestas (las originales no cambian, como en `mejoras`):
 
 ## Pendiente de definir
 
-- Hora por omisión del borrador diario y quién recibe el aviso.
-- Si las cajas de la distribuidora deben bloquear o solo avisar al vender lo apartado.
-- Clave nueva de Google Maps (la anterior se desactivó).
+- 4:30 ¿a. m. o p. m.?
+- Quién recibe el aviso de "borrador listo" (propuesta: usuarios con permiso de *Orders*).
+- Clave nueva de Google Maps: restringida al dominio de Render, en `GOOGLE_MAPS_API_KEY`.
