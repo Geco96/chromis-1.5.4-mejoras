@@ -8,20 +8,27 @@ import java.text.Normalizer;
 
 /**
  * Code 128 for products without a printed barcode: the consonants and digits
- * of the product name, at most 12 characters, e.g. "ASERRIN BOLSA NEGRO"
- * gives SRRNBLSNGR and "BOLSA 5KG" gives BLS5KG. Accents are dropped (Ñ
- * becomes N) so the code only uses A-Z and 0-9, which every scanner and label
- * printer handles.
+ * of the product name, cut to a maximum length (8 by default, set in Admin),
+ * e.g. "ASERRIN BOLSA NEGRO" gives SRRNBLSN and "BOLSA 5KG" gives BLS5KG.
+ * Accents are dropped (Ñ becomes N) so the code only uses A-Z and 0-9, which
+ * every scanner and label printer handles.
  */
 public final class ConsonantCode {
 
+    public static final int DEFAULT_LENGTH = 8;
+    public static final int MIN_LENGTH = 4;
     public static final int MAX_LENGTH = 12;
 
     private ConsonantCode() {
     }
 
-    /** Consonants and digits of the text in upper case, cut to 12; empty if there are none. */
+    /** Consonants and digits of the text in upper case, cut to the default length; empty if there are none. */
     public static String fromName(String text) {
+        return fromName(text, DEFAULT_LENGTH);
+    }
+
+    /** Consonants and digits of the text in upper case, cut to maxLength; empty if there are none. */
+    public static String fromName(String text, int maxLength) {
         if (text == null) {
             return "";
         }
@@ -32,7 +39,21 @@ public final class ConsonantCode {
                 sb.append(c);
             }
         }
-        return sb.length() > MAX_LENGTH ? sb.substring(0, MAX_LENGTH) : sb.toString();
+        int max = clampLength(maxLength);
+        return sb.length() > max ? sb.substring(0, max) : sb.toString();
+    }
+
+    /** The length setting within 4..12; the default when it is not a number. */
+    public static int clampLength(int length) {
+        return Math.max(MIN_LENGTH, Math.min(MAX_LENGTH, length));
+    }
+
+    public static int parseLength(String text) {
+        try {
+            return clampLength(Integer.parseInt(text.trim()));
+        } catch (RuntimeException ex) {
+            return DEFAULT_LENGTH;
+        }
     }
 
     /** True for codes that already look like a retail barcode (EAN-8/13, UPC-A/E). */
@@ -43,19 +64,24 @@ public final class ConsonantCode {
     /**
      * The code, or the code ending in 2, 3... when another product already
      * uses it (as main code or as an extra barcode). The end of the code is
-     * cut when needed so it stays within 12 characters.
+     * cut when needed so it stays within maxLength characters.
      */
     public static String unique(Connection con, String code, String productId) throws SQLException {
+        return unique(con, code, productId, MAX_LENGTH);
+    }
+
+    public static String unique(Connection con, String code, String productId, int maxLength) throws SQLException {
+        int max = Math.max(clampLength(maxLength), code.length());
         String candidate = code;
         for (int n = 2; inUse(con, candidate, productId); n++) {
             String suffix = String.valueOf(n);
-            String base = code.length() + suffix.length() > MAX_LENGTH ? code.substring(0, MAX_LENGTH - suffix.length()) : code;
+            String base = code.length() + suffix.length() > max ? code.substring(0, max - suffix.length()) : code;
             candidate = base + suffix;
         }
         return candidate;
     }
 
-    private static boolean inUse(Connection con, String code, String productId) throws SQLException {
+    static boolean inUse(Connection con, String code, String productId) throws SQLException {
         String exclude = productId == null ? "" : productId;
         try (PreparedStatement ps = con.prepareStatement("SELECT 1 FROM products WHERE code = ? AND id <> ? "
                 + "UNION SELECT 1 FROM barcodes WHERE barcode = ? AND productid <> ? LIMIT 1")) {

@@ -23,6 +23,11 @@ public final class PosSettings {
     /** "1" to check users out when they close the cash. */
     public static final String ATTENDANCE_CHECKOUT = "attendance.checkout.auto";
 
+    /** Code made when a product is saved without one in Admin: "CODE128" or "EAN13". */
+    public static final String PRODUCT_CODE_TYPE = "product.code.type";
+    /** Maximum length of the Code 128 made from the product name. */
+    public static final String PRODUCT_CODE_LENGTH = "product.code.maxlength";
+
     private PosSettings() {
     }
 
