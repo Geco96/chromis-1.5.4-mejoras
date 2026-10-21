@@ -111,7 +111,11 @@ Confirmado ─► Preparado ─► En ruta ─► Completado ─► Liquidado (e
 
 **Cobro y liquidación**: el repartidor no registra montos. Al regresar entrega el dinero y, en la caja de la
 distribuidora, la **liquidación del repartidor** lista sus pedidos *Completados*: el cajero cierra cada venta en
-espera (ajustando si hubo rechazo) y cuadra el efectivo. Ahí se descuenta el stock y se libera el apartado.
+espera y cuadra el efectivo. Ahí se descuenta el stock y se libera el apartado.
+
+**Rechazos**: el repartidor no anota nada; trae de vuelta lo rechazado. El **cajero** lo revisa al liquidar,
+quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto regresa al stock disponible
+(nunca se descontó) y, del lado de la tienda, aparece como faltante para su siguiente pedido.
 
 **Límite de Google**: una ruta de Directions admite 25 paradas; un cuadrante con más se parte en tandas.
 
