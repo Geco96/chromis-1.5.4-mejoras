@@ -92,26 +92,26 @@ pines por estado, asignación de ruta y Ruta Óptima. Se amplía para los pedido
 **Cuadrantes**
 - El admin dibuja los cuadrantes en el mapa (polígonos) y les pone nombre y color.
 - Cada cliente cae en un cuadrante por sus coordenadas; al moverle el pin, se recalcula.
-- Cada cuadrante se asigna a quien lo atiende; los pedidos confirmados de sus clientes le llegan solos.
+- El **despachador** asigna los cuadrantes a los repartidores; un repartidor puede tener **varios** cuadrantes.
+  Los pedidos confirmados de los clientes de esos cuadrantes le llegan solos.
 - Un cliente sin ubicar aparece en "sin ubicar" hasta que se le ponga el pin.
 
 **Estados de una entrega**
 
 ```
-Confirmado ─► Preparado ─► En ruta ─► Entregado y cobrado ─► Liquidado
-                                   ├─► Entrega parcial (rechazo) ─┘
-                                   └─► No entregado ─► reprogramar / cancelar (libera apartado)
+Confirmado ─► Preparado ─► En ruta ─► Completado ─► Liquidado (en la caja)
+                                   └─► No entregado (con nota) ─► reprogramar / cancelar (libera apartado)
 ```
 
 | Rol | Qué hace |
 |---|---|
-| Admin | Cuadrantes y su asignación, usuarios, colores, ve todo. |
-| Despachador | Ve los pedidos de su(s) cuadrante(s), surte y marca **Preparado**, arma la carga y la salida a ruta. |
-| Repartidor | Ve su ruta del día con Ruta Óptima, marca entregado / parcial / no entregado y lo cobrado. |
+| Admin | Dibuja los cuadrantes, usuarios, colores, ve todo. |
+| Despachador | Asigna cuadrantes a repartidores, surte y marca **Preparado**, da la salida a ruta. |
+| Repartidor | Solo la web en el celular, **sin Chromis**: ve su ruta con Ruta Óptima y marca **Completado** (o No entregado con nota). |
 
-**Cobro y liquidación**: el repartidor registra en la web lo cobrado; al regresar, en la caja de la distribuidora
-se hace la **liquidación del repartidor**: se cierra cada venta en espera con lo realmente entregado y cobrado,
-y se cuadra el efectivo. Ahí se descuenta el stock y se libera el apartado.
+**Cobro y liquidación**: el repartidor no registra montos. Al regresar entrega el dinero y, en la caja de la
+distribuidora, la **liquidación del repartidor** lista sus pedidos *Completados*: el cajero cierra cada venta en
+espera (ajustando si hubo rechazo) y cuadra el efectivo. Ahí se descuenta el stock y se libera el apartado.
 
 **Límite de Google**: una ruta de Directions admite 25 paradas; un cuadrante con más se parte en tandas.
 
