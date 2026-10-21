@@ -43,7 +43,7 @@ los revisa y aprueba una persona**.
 | Tema | Decisión |
 |---|---|
 | Sistema de la distribuidora | Chromis con las mejoras |
-| Pedido tentativo | Diario, **4:30 por omisión, configurable** (`pos_settings`), sin depender del cierre de caja. Terminal designada; si estaba apagada, se arma al encender. Un borrador por proveedor; el del día anterior sin revisar se reemplaza. |
+| Pedido tentativo | Diario, **16:30 por omisión, configurable** (`pos_settings`), sin depender del cierre de caja. Terminal designada; si estaba apagada, se arma al encender. Aviso de "borrador listo" a los usuarios con permiso de *Orders*. Un borrador por proveedor; el del día anterior sin revisar se reemplaza. |
 | Envío | Nunca automático. Revisión, ajuste y "Enviar" con permiso de *Orders*; se registra quién y cuándo. |
 | Proveedor por producto | Preferente de la tienda → distribuidora (si está suscrita, el producto está en el catálogo y hay disponible) → último proveedor. "Preferir distribuidora" se puede apagar. |
 | Confirmación en la distribuidora | Siempre manual, línea por línea (completo / parcial / agotado). |
@@ -104,6 +104,4 @@ Tablas nuevas propuestas (las originales no cambian, como en `mejoras`):
 
 ## Pendiente de definir
 
-- 4:30 ¿a. m. o p. m.?
-- Quién recibe el aviso de "borrador listo" (propuesta: usuarios con permiso de *Orders*).
 - Clave nueva de Google Maps: restringida al dominio de Render, en `GOOGLE_MAPS_API_KEY`.
