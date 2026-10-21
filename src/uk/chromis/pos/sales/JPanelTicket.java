@@ -23,9 +23,12 @@ import java.lang.reflect.Method;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.HashSet;
@@ -42,6 +45,8 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.GroupLayout;
 import javax.swing.JButton;
+import uk.chromis.pos.delivery.DeliveryStore;
+import uk.chromis.pos.settings.PosSettings;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -139,6 +144,8 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    private CostPricing costPricing;
    private RestockAlerts restockAlerts;
    private DraftOrderAlerts draftOrderAlerts;
+   private JButton btnOrderType;
+   private boolean orderTypeAsk = true;
    private final Map<String, Boolean> auxiliaryLinks = new HashMap<>();
    protected DataLogicSystem dlSystem;
    protected DataLogicSales dlSales;
@@ -290,6 +297,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.m_TTP = new TicketParser(this.m_App.getDeviceTicket(), this.dlSystem);
       this.m_jbtnconfig = new JPanelButtons("Ticket.Buttons", this);
       this.m_jButtonsExt.add(this.m_jbtnconfig);
+      this.createOrderTypeButton();
       this.southcomponent = this.getSouthComponent();
       this.catcontainer.add(this.southcomponent, "Center");
       this.southcomponent.setPreferredSize(new Dimension(0, 320));
@@ -394,6 +402,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                   this.deliveryInfo = (CustomerDeliveryInfo)result[1];
                   this.m_oTicket.setDeliveryInfo(this.deliveryInfo);
                   this.m_oTicket.setNoDelivery("1");
+                  this.setDelivery(this.deliveryInfo);
                }
             }
          case "xxx999_999xxx_x9x9x9":
@@ -617,6 +626,9 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
             this.m_jList.setVisible(true);
             this.m_oTicket = oTicket;
             this.m_oTicketExt = oTicketExt;
+            // The delivery data belong to the ticket, not to the panel (Chromis kept the last one for the next sales)
+            this.deliveryInfo = this.restoreDelivery(oTicket);
+            this.refreshOrderTypeButton();
             if (this.m_oTicket != null) {
                this.m_oTicket.setUser(this.m_App.getAppUserView().getUser().getUserInfo());
                this.m_oTicket.setActiveCash(this.m_App.getActiveCashIndex());
@@ -734,6 +746,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.m_jbtnconfig.setPermissions(this.m_App.getAppUserView().getUser());
       this.m_ticketsbag.activate();
       this.draftOrderAlerts.activated(this, () -> this.m_App.getAppUserView().getUser().getId());
+      this.loadOrderTypeSettings();
 
       try {
          this.defaultProduct = this.dlSales.getDefaultProductInfo("DefaultProduct", this.siteGuid);
@@ -1183,7 +1196,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
             this.removeTicketLine(i, true);
             this.m_oTicket.setNoDelivery("0");
-            this.deliveryInfo = null;
+            this.clearDelivery();
             return;
          }
 
@@ -1376,6 +1389,11 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       AutoLogoff.getInstance().deactivateTimer();
       boolean resultok = false;
       if (AppUser.hasPermission("sales.Total")) {
+         if (!this.confirmOrderType(ticket)) {
+            AutoLogoff.getInstance().activateTimer();
+            return false;
+         }
+
          this.warrantyCheck(ticket);
 
          try {
@@ -2299,6 +2317,184 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       }
    }
 
+   // ---------------- Mostrador / Entrega ----------------
+   private static final String DELIVERY_PREFIX = "entrega.";
+   private static final Color DELIVERY_COLOR = new Color(0x1E, 0x6F, 0xC8);
+
+   private void createOrderTypeButton() {
+      this.btnOrderType = new JButton();
+      this.btnOrderType.setFocusPainted(false);
+      this.btnOrderType.setFocusable(false);
+      this.btnOrderType.setRequestFocusEnabled(false);
+      this.btnOrderType.setFont(this.btnOrderType.getFont().deriveFont(java.awt.Font.BOLD, 14.0F));
+      this.btnOrderType.setMargin(new Insets(0, 8, 0, 8));
+      this.btnOrderType.setPreferredSize(new Dimension(130, 40));
+      this.btnOrderType.setMinimumSize(new Dimension(130, 40));
+      this.btnOrderType.setMaximumSize(new Dimension(130, 40));
+      this.btnOrderType.setToolTipText("Mostrador o entrega a domicilio");
+      this.btnOrderType.addActionListener(e -> this.orderTypeAction());
+      this.m_jButtonsExt.add(this.btnOrderType);
+      this.loadOrderTypeSettings();
+      this.refreshOrderTypeButton();
+   }
+
+   private void loadOrderTypeSettings() {
+      try {
+         Connection con = this.m_App.getSession().getConnection();
+         this.btnOrderType.setVisible(!"0".equals(PosSettings.get(con, PosSettings.DELIVERY_BUTTON, "1")));
+         this.orderTypeAsk = !"0".equals(PosSettings.get(con, PosSettings.DELIVERY_ASK, "1"));
+      } catch (SQLException var2) {
+         Logger.getLogger(JPanelTicket.class.getName()).log(Level.WARNING, "No se pudo leer la configuración de entregas", var2);
+      }
+   }
+
+   private boolean isDelivery() {
+      return this.m_oTicket != null
+         && (this.deliveryInfo != null || DeliveryStore.DELIVERY.equals(this.m_oTicket.getProperty(DeliveryStore.ORDER_TYPE)));
+   }
+
+   private void refreshOrderTypeButton() {
+      if (this.btnOrderType == null) {
+         return;
+      }
+
+      boolean delivery = this.isDelivery();
+      this.btnOrderType.setEnabled(this.m_oTicket != null && !this.m_oTicket.isRefund());
+      this.btnOrderType.setText(delivery ? "ENTREGA" : "MOSTRADOR");
+      this.btnOrderType.setForeground(delivery ? DELIVERY_COLOR : Color.DARK_GRAY);
+   }
+
+   private void orderTypeAction() {
+      if (this.m_oTicket != null && !this.m_oTicket.isRefund()) {
+         this.chooseOrderType(this.isDelivery());
+      }
+   }
+
+   /** Shows the choice; false if the cashier cancelled. */
+   private boolean chooseOrderType(boolean startWithDelivery) {
+      OrderTypeDialog.Result r = OrderTypeDialog.show(
+         this, this.m_oTicket.getId(), this.m_oTicket.getCustomer(), this.deliveryInfo, startWithDelivery
+      );
+      if (r == null) {
+         return false;
+      }
+
+      if (r.delivery) {
+         this.setDelivery(r.info);
+      } else if ("1".equals(this.m_oTicket.getNoDelivery())) {
+         // Chromis ties its delivery charge line to the delivery data
+         JAlertPane.messageBox(1, "Este ticket tiene cargo de envío. Quítalo para que sea venta de mostrador.", 16, new Dimension(125, 50), 4);
+         return false;
+      } else {
+         this.clearDelivery();
+      }
+
+      return true;
+   }
+
+   /**
+    * Before charging: a ticket with a customer that was not marked is asked
+    * (if enabled); everything else is a counter sale. False stops the charge.
+    */
+   private boolean confirmOrderType(TicketInfo ticket) {
+      if (ticket != this.m_oTicket || ticket.isRefund()) {
+         return true;
+      }
+
+      if (this.isDelivery()) {
+         if (this.deliveryInfo != null) {
+            this.setDelivery(this.deliveryInfo);
+         }
+
+         return true;
+      }
+
+      if (ticket.getProperty(DeliveryStore.ORDER_TYPE) == null
+         && this.orderTypeAsk
+         && this.btnOrderType.isVisible()
+         && ticket.hasCustomer()) {
+         return this.chooseOrderType(false);
+      }
+
+      if (ticket.getProperty(DeliveryStore.ORDER_TYPE) == null) {
+         ticket.setProperty(DeliveryStore.ORDER_TYPE, DeliveryStore.COUNTER);
+      }
+
+      return true;
+   }
+
+   /** Marks the ticket as a delivery; the data also go in its properties so a held ticket keeps them. */
+   private void setDelivery(CustomerDeliveryInfo info) {
+      this.deliveryInfo = info;
+      this.m_oTicket.setDeliveryInfo(info);
+      this.m_oTicket.setProperty(DeliveryStore.ORDER_TYPE, DeliveryStore.DELIVERY);
+      if (info != null) {
+         this.putDeliveryProperty("nombre", info.fetchName());
+         this.putDeliveryProperty("direccion1", info.fetchAddressLine1());
+         this.putDeliveryProperty("direccion2", info.fetchAddressLine2());
+         this.putDeliveryProperty("direccion3", info.fetchAddressLine3());
+         this.putDeliveryProperty("cp", info.fetchPostCode());
+         this.putDeliveryProperty("telefono", info.fetchPhone());
+         this.putDeliveryProperty("indicaciones", info.fetchComments());
+         this.putDeliveryProperty("fecha", info.fetchDeliveryDate() == null ? null : new SimpleDateFormat("yyyy-MM-dd").format(info.fetchDeliveryDate()));
+      }
+
+      this.refreshOrderTypeButton();
+   }
+
+   private void putDeliveryProperty(String name, String value) {
+      if (value == null || value.isEmpty()) {
+         this.m_oTicket.getProperties().remove(DELIVERY_PREFIX + name);
+      } else {
+         this.m_oTicket.setProperty(DELIVERY_PREFIX + name, value);
+      }
+   }
+
+   private void clearDelivery() {
+      this.deliveryInfo = null;
+      if (this.m_oTicket != null) {
+         this.m_oTicket.setDeliveryInfo(null);
+         this.m_oTicket.setProperty(DeliveryStore.ORDER_TYPE, DeliveryStore.COUNTER);
+         this.m_oTicket.getProperties().keySet().removeIf(k -> k.toString().startsWith(DELIVERY_PREFIX));
+      }
+
+      this.refreshOrderTypeButton();
+   }
+
+   /** Delivery data of the ticket, rebuilt from its properties when Chromis lost them (held tickets). */
+   private CustomerDeliveryInfo restoreDelivery(TicketInfo ticket) {
+      if (ticket == null) {
+         return null;
+      }
+
+      CustomerDeliveryInfo info = ticket.fetchDeliveryInfo();
+      if (info == null && DeliveryStore.DELIVERY.equals(ticket.getProperty(DeliveryStore.ORDER_TYPE))
+         && ticket.getProperty(DELIVERY_PREFIX + "direccion1") != null) {
+         Date when = null;
+         try {
+            String date = ticket.getProperty(DELIVERY_PREFIX + "fecha");
+            when = date == null ? null : new SimpleDateFormat("yyyy-MM-dd").parse(date);
+         } catch (ParseException var5) {
+         }
+
+         info = new CustomerDeliveryInfo(
+            ticket.getId(),
+            ticket.getProperty(DELIVERY_PREFIX + "nombre"),
+            ticket.getProperty(DELIVERY_PREFIX + "direccion1"),
+            ticket.getProperty(DELIVERY_PREFIX + "direccion2"),
+            ticket.getProperty(DELIVERY_PREFIX + "direccion3"),
+            ticket.getProperty(DELIVERY_PREFIX + "cp"),
+            ticket.getProperty(DELIVERY_PREFIX + "telefono"),
+            when == null ? new Date() : when,
+            false,
+            ticket.getProperty(DELIVERY_PREFIX + "indicaciones")
+         );
+         ticket.setDeliveryInfo(info);
+      }
+
+      return info;
+   }
+
    private void btnCustomerAction() {
       AutoLogoff.getInstance().deactivateTimer();
       if (this.m_oTicket.hasCustomer()) {
@@ -2569,6 +2765,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
                this.deliveryInfo = this.dlCustomers.fetchCustomerDelivery(this.m_ticket.getId());
                this.printTicket("Printer.ReprintLastTicket", this.m_ticket, null, false);
+               this.deliveryInfo = this.restoreDelivery(this.m_oTicket);
             }
          } catch (BasicException var4) {
             MessageInf msg = new MessageInf(-33554432, AppLocal.getIntString("message.cannotloadticket"), var4);
@@ -3173,7 +3370,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
             }
 
             this.m_oTicket.setNoDelivery("0");
-            this.deliveryInfo = null;
+            this.clearDelivery();
          }
 
          if (this.m_oTicket.isRefund() && !this.m_oTicket.getLine(i).isProductCom()) {

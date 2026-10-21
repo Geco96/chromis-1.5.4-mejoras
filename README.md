@@ -13,7 +13,7 @@ originales, las clases que se modificaron.
 | `original-createdb/` | `dbcreator.jar` 1.5.4 (crea la base; solo se usó para pruebas). |
 | `src/` | Clases modificadas o nuevas de Chromis POS. |
 | `src-admin/` | Clases y pantallas (FXML) modificadas o nuevas de Chromis Admin. |
-| `src-common/` | Código que va en ambos: respaldos, precio sobre costo, umbrales de reposición y pedido tentativo. |
+| `src-common/` | Código que va en ambos: respaldos, precio sobre costo, umbrales de reposición, pedido tentativo y entregas. |
 | `tools/PatchJar.java` | Genera cada jar final: copia el original y reemplaza solo lo compilado. |
 | `tools/javafx-11.0.2/` | JavaFX, solo para compilar Admin (en ejecución se usa el del JRE instalado). |
 | `tests/` | Pruebas manuales contra MySQL/MariaDB (no van dentro del jar). |
@@ -180,6 +180,31 @@ originales, las clases que se modificaron.
       igual que *Reposición → Generar PDF de pedido*. Se recibe en *Recepción de
       mercancía*. Queda registrado quién lo envió o descartó y cuándo.
     - Un borrador sin revisar se reemplaza por el del día siguiente.
+14. **Mostrador o Entrega** (versión *Enterprise*):
+    - En la barra del ticket hay un botón que dice **MOSTRADOR** o **ENTREGA**.
+      Al tocarlo se elige el tipo de pedido; para una entrega se muestran los
+      datos de entrega **ya llenos con los del cliente** (recibe, dirección,
+      colonia, ciudad, C.P., teléfono), la fecha de entrega (hoy por omisión) y
+      las indicaciones para el repartidor. Una entrega necesita un cliente
+      asignado.
+    - Al cobrar a un cliente sin haber marcado nada, la caja pregunta (con
+      Mostrador preseleccionado). Sin cliente es venta de mostrador y no
+      pregunta. Se puede apagar la pregunta o el botón en Admin → Customers →
+      **Entregas**.
+    - Usa la entrega propia de Chromis: se guarda en `customer_delivery` (con el
+      mismo id que el ticket) y el ticket impreso lleva el bloque de entrega
+      (`Printer.Delivery`). El cargo de envío de Chromis (producto
+      *Delivery-Charge*) sigue funcionando y también deja el ticket como entrega.
+      Además el ticket guarda `tipo_pedido` (`mostrador` / `entrega`) y los
+      datos de entrega en sus propiedades, así que una venta en espera los
+      conserva.
+    - Corrección: en Chromis original los datos de entrega se quedaban en la
+      pantalla después de cobrar, y la siguiente venta también se guardaba e
+      imprimía como entrega. Ahora pertenecen al ticket activo.
+    - Admin → Customers → **Entregas**: entregas pendientes (ticket, fecha de
+      venta y de entrega, cliente, quién recibe, dirección, teléfono,
+      indicaciones y total) para marcarlas como entregadas; también se ven las
+      entregadas de los últimos 7 días.
 
 ### Tablas nuevas
 
@@ -199,6 +224,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
 | `order_carryover` | Faltantes de cada pedido recibido y el pedido al que pasaron. |
 | `price_changes` | Cambios de costo encontrados al recibir: pendientes, autorizados o rechazados. |
+| *(ninguna para entregas)* | Las entregas usan la tabla original `customer_delivery`; el botón y la pregunta al cobrar van en `pos_settings` (`delivery.button`, `delivery.ask`). |
 | `restock_drafts`, `restock_draft_lines` | Pedidos tentativos por proveedor y sus productos: borrador, enviado (con su folio), descartado o reemplazado. Su hora, caja y último resultado van en `pos_settings` (`restock.draft.*`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
@@ -242,6 +268,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
+| Mostrador / Entrega | En Chromis POS: cliente asignado escaneando su tarjeta, botón → Entrega con los datos llenos desde el cliente y una indicación; al cobrar se guardó en `customer_delivery` (ticket 1) y en las propiedades del ticket, y el ticket siguiente volvió a Mostrador. Venta al mismo cliente sin marcar: preguntó al cobrar y quedó como mostrador sin entrega. Venta sin cliente: no preguntó. Entrega sin cliente: pide asignarlo. Con el botón apagado en Admin no aparece. En Admin → Entregas se vio la entrega y se marcó como entregada. `tests/DeliveryTest.java` (19 comprobaciones). |
 | Pedido tentativo | `tests/DraftOrderTest.java` (54 comprobaciones): horario (antes y después de la hora, caja apagada a la hora, caja designada, apagado), cantidades (bajo, agotado, reserva con pedido en camino, faltante), proveedor por producto, reemplazo, edición, descartar y enviar. Con Chromis POS abierto y la hora ya pasada, la caja armó los borradores al minuto y mostró *Pedido tentativo listo*; en Admin se cambió una cantidad, se quitó un producto, se agregó otro escaneando y se envió como PED-000009 con su PDF. |
 
 El botón de editar línea solo aparece a usuarios con el permiso

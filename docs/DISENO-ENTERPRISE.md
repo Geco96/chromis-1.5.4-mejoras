@@ -138,7 +138,7 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 
 ## Ya prototipado en la rama `ccr-f5ab2a7d-9n1yfk` (salió de `main`, no se reutiliza tal cual)
 
-- Marca Mostrador / Entrega por scripts BeanShell → en `enterprise` va nativo en `JPanelTicket`.
+- Marca Mostrador / Entrega por scripts BeanShell → ya va nativo en `JPanelTicket` (fase 2).
 - Sincronizador de clientes y entregas hacia Supabase y la web de rutas → se integra al conector.
 
 ## Avance
@@ -146,7 +146,7 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 | Fase | Estado |
 |---|---|
 | 1. Pedido tentativo diario (16:30), revisión y envío | **Hecha.** Mejora 13 del README; envío como pedido de Chromis con PDF. |
-| 2. Mostrador / Entrega en la caja | Pendiente |
+| 2. Mostrador / Entrega en la caja | **Hecha.** Mejora 14 del README: botón en el ticket, pregunta al cobrar, datos de entrega desde el cliente en `customer_delivery`, pantalla Admin → Entregas. |
 | 3. Gestor de entregas (cuadrantes, estados, liquidación) | Pendiente |
 | 4. Nube y conectores (catálogo, pedido y confirmación) | Pendiente |
 | 5. Pedidos de clientes en la distribuidora (apartados) | Pendiente |

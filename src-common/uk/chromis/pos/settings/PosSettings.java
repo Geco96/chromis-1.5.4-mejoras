@@ -22,6 +22,10 @@ public final class PosSettings {
     public static final String ATTENDANCE_HOURS = "attendance.checkin.hours";
     /** "1" to check users out when they close the cash. */
     public static final String ATTENDANCE_CHECKOUT = "attendance.checkout.auto";
+    /** "1" to show the Mostrador / Entrega button on the sales screen (default on). */
+    public static final String DELIVERY_BUTTON = "delivery.button";
+    /** "1" to ask Mostrador or Entrega when charging a ticket that has a customer and was not marked (default on). */
+    public static final String DELIVERY_ASK = "delivery.ask";
 
     private PosSettings() {
     }
