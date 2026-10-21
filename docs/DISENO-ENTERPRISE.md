@@ -57,6 +57,10 @@ los revisa y aprueba una persona**.
 
 ## Precio dominante
 
+Alrededor del 95 % de los clientes pagan el precio de lista; las excepciones son pocas. Por eso la
+configuración es opcional: un cliente sin configuración paga lista (con volumen), y solo los pocos
+especiales se configuran. Es de las últimas fases.
+
 Opciones: **Lista**, **Por volumen** (`tierpricing`), **Sobre costo (+ %)**.
 
 Prioridad al calcular el precio de un producto para una tienda:
@@ -79,6 +83,37 @@ Tablas nuevas propuestas (las originales no cambian, como en `mejoras`):
 | `stock_reservado (order_id, product, location, units)` | Apartados por pedido confirmado. |
 | `restock_drafts`, `restock_draft_lines` | Borradores diarios por proveedor. |
 | `distributor_link (customer, tienda_id)` | Liga el cliente de la distribuidora con la cuenta de la tienda en la nube. |
+
+## Gestor de entregas (web en Render, ampliado)
+
+La web de clientes ya tiene roles **admin**, **despachador** (Centro de Distribución) y **repartidor**,
+pines por estado, asignación de ruta y Ruta Óptima. Se amplía para los pedidos confirmados de la distribuidora.
+
+**Cuadrantes**
+- El admin dibuja los cuadrantes en el mapa (polígonos) y les pone nombre y color.
+- Cada cliente cae en un cuadrante por sus coordenadas; al moverle el pin, se recalcula.
+- Cada cuadrante se asigna a quien lo atiende; los pedidos confirmados de sus clientes le llegan solos.
+- Un cliente sin ubicar aparece en "sin ubicar" hasta que se le ponga el pin.
+
+**Estados de una entrega**
+
+```
+Confirmado ─► Preparado ─► En ruta ─► Entregado y cobrado ─► Liquidado
+                                   ├─► Entrega parcial (rechazo) ─┘
+                                   └─► No entregado ─► reprogramar / cancelar (libera apartado)
+```
+
+| Rol | Qué hace |
+|---|---|
+| Admin | Cuadrantes y su asignación, usuarios, colores, ve todo. |
+| Despachador | Ve los pedidos de su(s) cuadrante(s), surte y marca **Preparado**, arma la carga y la salida a ruta. |
+| Repartidor | Ve su ruta del día con Ruta Óptima, marca entregado / parcial / no entregado y lo cobrado. |
+
+**Cobro y liquidación**: el repartidor registra en la web lo cobrado; al regresar, en la caja de la distribuidora
+se hace la **liquidación del repartidor**: se cierra cada venta en espera con lo realmente entregado y cobrado,
+y se cuadra el efectivo. Ahí se descuenta el stock y se libera el apartado.
+
+**Límite de Google**: una ruta de Directions admite 25 paradas; un cuadrante con más se parte en tandas.
 
 ## Arquitectura
 
