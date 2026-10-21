@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agenda Corporativa Markhoor</title>
+    <style>
+        body, html { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f4; overflow: hidden; }
+        #mapa { height: 100%; width: 100%; }
+        
+        #panel-formulario { position: absolute; top: 20px; left: 20px; z-index: 5; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 320px; }
+        .form-content { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+        
+        #panel-configuracion { display: none; position: absolute; top: 20px; right: 20px; z-index: 5; background-color: #2b2b2b; color: white; padding: 24px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); width: 280px; flex-direction: column; gap: 12px; max-height: 80vh; overflow-y: auto; }
+        
+        #panel-rutas { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 5; background-color: #ffffff; padding: 10px 20px; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: flex; gap: 10px; align-items: center; }
+
+        /* NUEVO: Panel de leyenda oculto por defecto y con nueva posición */
+        #leyenda-mapa { display: none; position: absolute; bottom: 90px; left: 20px; z-index: 5; background-color: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 200px; flex-direction: column; gap: 10px; }
+        .item-leyenda { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #333; cursor: pointer; transition: opacity 0.3s ease; }
+        .item-leyenda:hover { opacity: 0.7 !important; }
+        .color-muestra { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #ccc; flex-shrink: 0; }
+
+        h2 { margin: 0; font-size: 18px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        #panel-formulario h2 { color: #333333; }
+        #leyenda-mapa h3 { margin: 0; font-size: 14px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        
+        input[type="text"], input[type="tel"], input[type="email"], input[type="password"], textarea, select { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #cccccc; border-radius: 4px; box-sizing: border-box; outline: none; }
+        textarea { resize: none; height: 60px; }
+        
+        button { background-color: #333333; color: #ffffff; border: none; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #555555; }
+
+        .btn-ruta { background-color: #2A9D8F; border-radius: 20px; padding: 8px 15px; font-size: 13px; }
+        .btn-ruta-limpiar { background-color: #E63946; border-radius: 20px; padding: 8px 15px; font-size: 13px; display: none; }
+        .btn-ruta-navegar { background-color: #4A90E2; color: white; border-radius: 20px; padding: 8px 15px; font-size: 13px; display: none; border: none; cursor: pointer; font-weight: bold; }
+        
+        /* BOTONES FLOTANTES */
+        .btn-leyenda { position: absolute; bottom: 30px; left: 20px; z-index: 5; background-color: #ffffff; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; }
+        .btn-logout { position: absolute; bottom: 30px; right: 20px; z-index: 5; background-color: #E63946; color: white; border-radius: 50%; width: 50px; height: 50px; font-size: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; }
+        .btn-admin { position: absolute; bottom: 90px; right: 20px; z-index: 5; background-color: #4A90E2; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; }
+        .btn-ubicacion { position: absolute; bottom: 150px; right: 20px; z-index: 5; background-color: #ffffff; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); cursor: pointer; }
+
+        .regla-color { display: flex; align-items: center; justify-content: space-between; background: #3c3c3c; padding: 8px; border-radius: 4px; font-size: 13px; }
+        .color-picker { width: 30px; height: 30px; padding: 0; border: none; cursor: pointer; border-radius: 4px; }
+        
+        .instruccion-drag { font-size: 11px; color: #E63946; margin-top: -8px; margin-bottom: 5px; font-style: italic; display: none; }
+
+        @media (max-width: 768px) {
+            #panel-rutas { top: 10px; left: 10px; right: 10px; transform: none; width: auto; border-radius: 8px; flex-wrap: wrap; justify-content: center; padding: 10px; }
+            #panel-formulario { top: 90px; left: 10px; right: 10px; width: auto; max-height: 60vh; overflow-y: auto; padding: 15px; }
+            #panel-configuracion { top: 90px; left: 10px; right: 10px; width: auto; }
+            
+            /* Ajuste responsivo de los botones flotantes */
+            .btn-leyenda { bottom: 20px; left: 10px; width: 45px; height: 45px; font-size: 20px; }
+            #leyenda-mapa { bottom: 80px; left: 10px; width: 140px; padding: 10px; }
+            .item-leyenda { font-size: 11px; }
+
+            .btn-logout { bottom: 20px; right: 10px; width: 45px; height: 45px; font-size: 18px; }
+            .btn-admin { bottom: 80px; right: 10px; width: 45px; height: 45px; font-size: 20px; }
+            .btn-ubicacion { bottom: 140px; right: 10px; width: 45px; height: 45px; font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="panel-formulario">
+        <h2>
+            <span id="texto_titulo_panel">Registro de Cliente</span>
+            <span id="btn-toggle-form" onclick="toggleFormulario()" style="font-size: 16px; cursor: pointer; color: #4A90E2; padding: 5px;">➖</span>
+        </h2>
+        
+        <div id="contenido-formulario" class="form-content">
+            <input type="text" id="nombre_comercial" placeholder="Nombre Comercial" required>
+            <input type="tel" id="telefono" placeholder="Teléfono" required>
+            
+            <!-- NUEVO: Botón adjunto para soltar el pin manualmente -->
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="buscador_direccion" placeholder="Buscar dirección completa..." style="flex: 1;" required>
+                <button type="button" onclick="soltarPinManual()" style="width: 45px; background-color: #4A90E2; padding: 0; font-size: 18px;" title="Poner pin al centro del mapa">📌</button>
+            </div>
+            
+            <div id="instruccion_pin" class="instruccion-drag">📍 Puedes arrastrar el pin en el mapa para ajustar la ubicación.</div>
+            
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 12px; color: #555;">Estado Principal:</label>
+                <select id="estado_logistico">
+                    <option value="nuevo">Nuevo / Prospecto</option>
+                    <option value="cautivo">Cliente Cautivo</option>
+                    <option value="pendiente_visita">Pendiente de Visita</option>
+                </select>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 12px; color: #555;">Estado Secundario (Opcional):</label>
+                <select id="estado_secundario">
+                    <option value="ninguno">-- Ninguno --</option>
+                    <option value="pedido_activo">Pedido Activo</option>
+                    <option value="pendiente_visita">Pendiente de Visita</option>
+                </select>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 12px; color: #555;">Asignar Ruta A:</label>
+                <select id="asignado_a">
+                    <option value="sin_asignar">-- Sin asignar --</option>
+                </select>
+            </div>
+
+            <textarea id="notas" placeholder="Notas internas de la visita..."></textarea>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="btn_guardar" onclick="prepararDatos()" style="flex: 2;">Guardar Cliente</button>
+                <button id="btn_cancelar" onclick="cancelarEdicion()" style="flex: 1; background-color: #999; display: none;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-rutas">
+        <button id="btn-toggle-vista" class="btn-ruta" onclick="toggleVistaEmpleado()" style="display: none; background-color: #9C27B0;">👁️ Ver Todo</button>
+        <span style="font-size: 14px; font-weight: bold; color: #333; margin: 0 5px;">🚚</span>
+        <button id="btn-calcular-ruta" class="btn-ruta" onclick="calcularRutaOptima()">Ruta Óptima</button>
+        <button id="btn-navegar-ruta" class="btn-ruta-navegar">🗺️ Navegar</button>
+        <button id="btn-limpiar-ruta" class="btn-ruta-limpiar" onclick="limpiarRuta()">Limpiar</button>
+    </div>
+
+    <!-- NUEVO: Botón desplegable para simbología -->
+    <div class="btn-leyenda" onclick="toggleLeyenda()" title="Ver Simbología">🗂️</div>
+    
+    <div id="leyenda-mapa">
+        <h3>Simbología (Filtrar)</h3>
+        <div id="contenido-leyenda"></div>
+        <div id="estadisticas-rutas" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+            <h3 style="margin: 0 0 5px 0; font-size: 13px; color: #333;">Carga de Trabajo</h3>
+            <div id="contenido-estadisticas" style="font-size: 12px; color: #555;"></div>
+        </div>
+    </div>
+
+    <!-- BOTONES FLOTANTES -->
+    <div class="btn-ubicacion" onclick="centrarEnUbicacion()" title="Centrar en mi ubicación">📍</div>
+    <div id="btn-admin" class="btn-admin" onclick="toggleConfiguracion()" title="Configuración de Administrador" style="display: none;">⚙️</div>
+    <div class="btn-logout" onclick="cerrarSesion()" title="Cerrar Sesión">🚪</div>
+
+    <div id="panel-configuracion">
+        <h2>Colores Corporativos</h2>
+        <p style="font-size: 12px; color: #ccc; margin-top: 0;">Asigna 1 color sólido a cada estatus posible.</p>
+        <div class="regla-color"><span>Nuevo / Prospecto</span><input type="color" id="cfg_nuevo" class="color-picker"></div>
+        <div class="regla-color"><span>Cliente Cautivo</span><input type="color" id="cfg_cautivo" class="color-picker"></div>
+        <div class="regla-color"><span>Pendiente de Visita</span><input type="color" id="cfg_pendiente" class="color-picker"></div>
+        <div class="regla-color"><span>Pedido Activo</span><input type="color" id="cfg_pedido" class="color-picker"></div>
+        <button onclick="guardarConfiguracionColores()" style="background-color: #2A9D8F; margin-top: 15px;">Aplicar al Mapa</button>
+        
+        <hr style="border-color: #444; width: 100%; margin: 25px 0 15px 0;">
+        
+        <h2>Nueva Cuenta</h2>
+        <p style="font-size: 12px; color: #ccc; margin-top: 0;">Crea accesos para Centro de Distribución o Repartidores.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <input type="email" id="nuevo_emp_email" placeholder="Correo del empleado" style="background: #3c3c3c; color: white; border: 1px solid #555;">
+            <input type="password" id="nuevo_emp_password" placeholder="Contraseña (Mín. 6 letras)" style="background: #3c3c3c; color: white; border: 1px solid #555;">
+            <select id="nuevo_emp_rol" style="background: #3c3c3c; color: white; border: 1px solid #555;">
+                <option value="empleado">Repartidor (Empleado)</option>
+                <option value="despachador">Centro de Distribución</option>
+            </select>
+            <button onclick="crearCuentaEmpleado()" style="background-color: #4A90E2; margin-top: 5px;">Crear Cuenta</button>
+        </div>
+
+        <hr style="border-color: #444; width: 100%; margin: 25px 0 15px 0;">
+        
+        <h2>Gestión de Personal</h2>
+        <p style="font-size: 12px; color: #ccc; margin-top: 0;">Activa o desactiva accesos al sistema.</p>
+        
+        <div id="lista-usuarios-admin" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; margin-top: 10px;">
+        </div>
+        <hr style="border-color: #444; width: 100%; margin: 25px 0 15px 0;">
+
+        <h2>Chromis POS</h2>
+        <p style="font-size: 12px; color: #ccc; margin-top: 0;">Envía la agenda de clientes al punto de venta.</p>
+        <div id="estado-chromis" style="font-size: 12px; color: #ccc;">Sin verificar.</div>
+        <button onclick="sincronizarChromis()" id="btn-sync-chromis" style="background-color: #F4A261; margin-top: 10px;">Sincronizar con Chromis</button>
+    </div>
+
+    <div id="mapa"></div>
+
+    <script>
+        let latitudSeleccionada = null;
+        let longitudSeleccionada = null;
+        let direccionCompleta = "";
+        let listaClientesGlobal = []; 
+        let clienteEditandoId = null;
+        
+        let miRolActual = 'empleado';
+        let miCorreoActual = ''; 
+        let modoVistaEmpleado = 'mi_ruta'; 
+        let infoWindowActiva = null; 
+
+        let marcadoresGlobales = []; 
+        let visibilidadEstatus = { 'nuevo': true, 'cautivo': true, 'pendiente_visita': true, 'pedido_activo': true };
+        let reglasColores = JSON.parse(localStorage.getItem('markhoor_reglas_colores_v2')) || { 'nuevo': '#F4A261', 'cautivo': '#E63946', 'pendiente_visita': '#1D3557', 'pedido_activo': '#2A9D8F' };
+
+        const paletaRepartidores = ["#9C27B0", "#FF9800", "#00BCD4", "#E91E63", "#8BC34A", "#3F51B5", "#FFEB3B"];
+        let coloresAsignadosRepartidores = {};
+        
+        let mapaGlobal; 
+        let directionsService;
+        let directionsRenderer;
+        let geocoder;
+        let marcadorBuscador; 
+        let marcadorUsuario;  
+        let coordenadasGPSActual = null; // Guardar GPS para el botón de centrar
+
+        function obtenerColorRepartidor(correo) {
+            if (!correo || correo === 'sin_asignar') return "transparent";
+            if (!coloresAsignadosRepartidores[correo]) {
+                const indice = Object.keys(coloresAsignadosRepartidores).length % paletaRepartidores.length;
+                coloresAsignadosRepartidores[correo] = paletaRepartidores[indice];
+            }
+            return coloresAsignadosRepartidores[correo];
+        }
+
+        window.cerrarVentanaMapa = function() {
+            if (infoWindowActiva) { infoWindowActiva.close(); infoWindowActiva = null; }
+        };
+
+        function toggleLeyenda() {
+            const panel = document.getElementById("leyenda-mapa");
+            if (panel.style.display === "flex") { panel.style.display = "none"; }
+            else { panel.style.display = "flex"; }
+        }
+
+        // NUEVO: Funcionalidad para el botón "Poner Pin"
+        window.soltarPinManual = function() {
+            if (!mapaGlobal) return;
+            const centro = mapaGlobal.getCenter();
+            
+            marcadorBuscador.setPosition(centro);
+            marcadorBuscador.setVisible(true);
+            document.getElementById("instruccion_pin").style.display = "block";
+            
+            latitudSeleccionada = centro.lat();
+            longitudSeleccionada = centro.lng();
+            
+            // Actualizar la caja de texto buscando la dirección
+            geocoder.geocode({ location: centro }, (results, status) => {
+                if (status === "OK" && results[0]) {
+                    direccionCompleta = results[0].formatted_address;
+                    document.getElementById("buscador_direccion").value = direccionCompleta;
+                } else {
+                    document.getElementById("buscador_direccion").value = "Ubicación manual (Arrastra para ajustar)";
+                    direccionCompleta = "Ubicación manual";
+                }
+            });
+        };
+
+        // NUEVO: Botón de centrado
+        window.centrarEnUbicacion = function() {
+            if (coordenadasGPSActual && mapaGlobal) {
+                mapaGlobal.setCenter(coordenadasGPSActual);
+                mapaGlobal.setZoom(16);
+            } else {
+                alert("Aún estamos obteniendo tu ubicación GPS. Asegúrate de dar los permisos en el navegador.");
+            }
+        };
+
+        async function verificarPermisos() {
+            try {
+                const respuesta = await fetch('/api/sesion');
+                if (respuesta.ok) {
+                    const info = await respuesta.json();
+                    miRolActual = info.rol;
+                    miCorreoActual = info.correo; 
+
+                    if (info.rol === 'admin') {
+                        document.getElementById('btn-admin').style.display = 'flex';
+                    }
+                    if (info.rol === 'empleado') {
+                        document.getElementById('asignado_a').disabled = true;
+                        document.getElementById('asignado_a').title = "No tienes permisos para reasignar clientes.";
+                        document.getElementById('btn-toggle-vista').style.display = 'block';
+                    }
+                }
+            } catch (error) { console.error("Error al validar permisos:", error); }
+        }
+
+        function toggleVistaEmpleado() {
+            const btn = document.getElementById('btn-toggle-vista');
+            if (modoVistaEmpleado === 'mi_ruta') {
+                modoVistaEmpleado = 'todos';
+                btn.innerText = "🎯 Mi Ruta";
+                btn.style.backgroundColor = "#F4A261"; 
+            } else {
+                modoVistaEmpleado = 'mi_ruta';
+                btn.innerText = "👁️ Ver Todo";
+                btn.style.backgroundColor = "#9C27B0"; 
+            }
+            filtrarMarcadoresMapa();
+        }
+
+        async function cargarListaRepartidores() {
+            try {
+                const respuesta = await fetch('/api/repartidores');
+                if (respuesta.ok) {
+                    const repartidores = await respuesta.json();
+                    const select = document.getElementById('asignado_a');
+                    select.innerHTML = '<option value="sin_asignar">-- Sin asignar --</option>';
+                    repartidores.forEach(rep => {
+                        const option = document.createElement('option');
+                        option.value = rep.correo; option.text = rep.correo.split('@')[0]; select.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error("No se pudo cargar la lista de repartidores"); }
+        }
+
+        async function cargarUsuariosAdmin() {
+            try {
+                const respuesta = await fetch('/api/usuarios_admin'); 
+                if (respuesta.ok) {
+                    const usuarios = await respuesta.json();
+                    const contenedor = document.getElementById('lista-usuarios-admin');
+                    contenedor.innerHTML = '';
+                    
+                    usuarios.forEach(usr => {
+                        const esActivo = usr.activo;
+                        const colorBtn = esActivo ? '#E63946' : '#2A9D8F'; 
+                        const textoBtn = esActivo ? 'Desactivar' : 'Activar';
+                        const opacidad = esActivo ? '1' : '0.5';
+                        
+                        contenedor.innerHTML += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #3c3c3c; padding: 8px; border-radius: 4px; opacity: ${opacidad}; margin-bottom: 5px;">
+                                <div style="display: flex; flex-direction: column; color: white;">
+                                    <span style="font-size: 13px; font-weight: bold;">${usr.correo}</span>
+                                    <span style="font-size: 11px; color: #aaa;">Rol: ${usr.rol}</span>
+                                </div>
+                                <button onclick="toggleEstadoUsuario('${usr.correo}', ${!esActivo})" style="background-color: ${colorBtn}; padding: 5px 10px; font-size: 11px; width: auto; margin: 0; border: none; cursor: pointer; color: white; border-radius: 4px;">
+                                    ${textoBtn}
+                                </button>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error("Error al cargar gestión de usuarios", error);
+            }
+        }
+
+        async function toggleEstadoUsuario(correo, nuevoEstado) {
+            try {
+                const respuesta = await fetch('/api/usuarios/estado', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ correo: correo, activo: nuevoEstado }) });
+                if (respuesta.ok) { cargarUsuariosAdmin(); cargarListaRepartidores(); } 
+                else { const data = await respuesta.json(); alert("Error: " + data.error); }
+            } catch (error) { alert("Error de conexión al actualizar usuario."); }
+        }
+
+        function toggleFormulario() {
+            const contenido = document.getElementById("contenido-formulario");
+            const btn = document.getElementById("btn-toggle-form");
+            if (contenido.style.display === "none") { contenido.style.display = "flex"; btn.innerText = "➖"; } 
+            else { contenido.style.display = "none"; btn.innerText = "➕"; }
+        }
+
+        function alternarFiltro(estatus) { visibilidadEstatus[estatus] = !visibilidadEstatus[estatus]; actualizarLeyenda(); filtrarMarcadoresMapa(); }
+
+        function filtrarMarcadoresMapa() {
+            marcadoresGlobales.forEach(item => {
+                let visiblePorEstatus = visibilidadEstatus[item.estado_principal];
+                if (item.estado_secundario !== 'ninguno') { visiblePorEstatus = visiblePorEstatus || visibilidadEstatus[item.estado_secundario]; }
+                let visiblePorRol = true;
+                if (miRolActual === 'empleado' && modoVistaEmpleado === 'mi_ruta') { visiblePorRol = (item.correo_asignado === miCorreoActual); }
+                item.marcador.setVisible(visiblePorEstatus && visiblePorRol);
+            });
+        }
+
+        function actualizarLeyenda() {
+            const contenido = document.getElementById("contenido-leyenda");
+            const items = Object.keys(reglasColores).map(estatus => {
+                const opacidad = visibilidadEstatus[estatus] ? "1" : "0.4";
+                return `
+                    <div class="item-leyenda" onclick="alternarFiltro('${estatus}')" style="opacity: ${opacidad};">
+                        <div class="color-muestra" style="background: ${reglasColores[estatus]}"></div>
+                        <span style="text-transform: capitalize;">${estatus.replace('_', ' ')}</span>
+                    </div>
+                `;
+            }).join('');
+            contenido.innerHTML = items + `<div style="margin-top: 5px; font-size: 10px; color: #777; line-height: 1.2;">* Pines bicolores = Múltiples estatus.<br>* Esfera = Repartidor asignado.</div>`;
+        }
+
+        function actualizarEstadisticas() {
+            if (miRolActual === 'empleado') return; 
+            document.getElementById('estadisticas-rutas').style.display = 'block';
+            const conteo = {};
+            
+            listaClientesGlobal.forEach(c => {
+                const asigCorreo = (c.asignado_a && c.asignado_a !== 'sin_asignar') ? c.asignado_a : 'sin_asignar';
+                const asigNombre = asigCorreo !== 'sin_asignar' ? asigCorreo.split('@')[0] : 'Sin asignar';
+                if (!conteo[asigNombre]) { conteo[asigNombre] = { total: 0, correo: asigCorreo }; }
+                conteo[asigNombre].total += 1;
+            });
+
+            let html = '';
+            for (let rep in conteo) {
+                const color = obtenerColorRepartidor(conteo[rep].correo);
+                const bolita = color !== 'transparent' ? `<span style="display:inline-block; width:10px; height:10px; background-color:${color}; border-radius:50%; margin-right:4px; vertical-align:middle;"></span>` : '';
+                html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>${bolita}${rep}</span><strong>${conteo[rep].total}</strong>
+                         </div>`;
+            }
+            document.getElementById('contenido-estadisticas').innerHTML = html || 'No hay clientes registrados.';
+        }
+
+        function toggleConfiguracion() {
+            const panel = document.getElementById("panel-configuracion");
+            if (panel.style.display === "flex") { panel.style.display = "none"; } 
+            else {
+                document.getElementById("cfg_nuevo").value = reglasColores['nuevo'];
+                document.getElementById("cfg_cautivo").value = reglasColores['cautivo'];
+                document.getElementById("cfg_pendiente").value = reglasColores['pendiente_visita'];
+                document.getElementById("cfg_pedido").value = reglasColores['pedido_activo'];
+                cargarUsuariosAdmin(); cargarEstadoChromis(); panel.style.display = "flex";
+            }
+        }
+
+        function guardarConfiguracionColores() {
+            reglasColores = { 'nuevo': document.getElementById("cfg_nuevo").value, 'cautivo': document.getElementById("cfg_cautivo").value, 'pendiente_visita': document.getElementById("cfg_pendiente").value, 'pedido_activo': document.getElementById("cfg_pedido").value };
+            localStorage.setItem('markhoor_reglas_colores_v2', JSON.stringify(reglasColores));
+            alert("Paleta corporativa actualizada."); window.location.reload();
+        }
+
+        async function crearCuentaEmpleado() {
+            const email = document.getElementById("nuevo_emp_email").value; const password = document.getElementById("nuevo_emp_password").value; const rol = document.getElementById("nuevo_emp_rol").value;
+            if (!email || !password) return alert("Por favor, llena ambos campos.");
+            try {
+                const respuesta = await fetch('/api/usuarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: password, rol: rol }) });
+                const data = await respuesta.json();
+                if (respuesta.ok) { alert(data.mensaje); document.getElementById("nuevo_emp_email").value = ""; document.getElementById("nuevo_emp_password").value = ""; cargarUsuariosAdmin(); } 
+                else { alert("Error al crear cuenta: " + data.error); }
+            } catch (error) { alert("Error de conexión al intentar crear el usuario."); }
+        }
+
+        async function cargarEstadoChromis() {
+            const caja = document.getElementById('estado-chromis');
+            try {
+                const respuesta = await fetch('/api/chromis/estado'); const data = await respuesta.json();
+                caja.innerText = data.conectado ? `Conectado · ${data.clientes_pos} clientes en POS (${data.clientes_desde_web} desde la web)` : `Sin conexión: ${data.error}`;
+            } catch (error) { caja.innerText = "Sin conexión con el servidor."; }
+        }
+
+        async function sincronizarChromis() {
+            const btn = document.getElementById('btn-sync-chromis');
+            btn.disabled = true; btn.innerText = "Sincronizando...";
+            try {
+                const respuesta = await fetch('/api/chromis/sincronizar', { method: 'POST' }); const data = await respuesta.json();
+                if (respuesta.ok) {
+                    let msg = `Sincronización terminada.\n\nNuevos en POS: ${data.insertados}\nActualizados: ${data.actualizados}`;
+                    if (data.errores.length) msg += `\nCon error: ${data.errores.length}\n\n` + data.errores.slice(0, 5).map(e => `#${e.id_cliente}: ${e.error}`).join('\n');
+                    alert(msg);
+                } else { alert("Error: " + data.error); }
+            } catch (error) { alert("Error de conexión al sincronizar."); }
+            btn.disabled = false; btn.innerText = "Sincronizar con Chromis"; cargarEstadoChromis();
+        }
+
+        function crearPinBicolor(colorIzquierdo, colorDerecho, colorRepartidor) {
+            let circuloRepartidor = "";
+            if (colorRepartidor !== "transparent") { circuloRepartidor = `<circle cx="255.5" cy="470" r="45" fill="${colorRepartidor}" stroke="#ffffff" stroke-width="15"/>`; }
+            const svg = `<svg width="512" height="512" version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><g stroke-width=".6663"><path d="m80.776 173.24c0 129.62 167.89 336.57 174.8 332.58v-477.8c-34.981 0-174.8 15.59-174.8 145.21z" fill="${colorIzquierdo}"/><path d="m430.37 173.24c0 129.62-167.89 336.57-174.8 332.58v-477.8c35.559 0 174.8 15.59 174.8 145.21z" fill="${colorDerecho}"/>${circuloRepartidor}</g></svg>`;
+            return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+        }
+
+        function actualizarMarcadorGPS(posicion, mapa) {
+            coordenadasGPSActual = { lat: posicion.coords.latitude, lng: posicion.coords.longitude };
+            if (!marcadorUsuario) {
+                marcadorUsuario = new google.maps.Marker({
+                    position: coordenadasGPSActual, map: mapa,
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#4A90E2', fillOpacity: 1, strokeWeight: 2, strokeColor: '#FFFFFF' },
+                    title: "Tu ubicación", zIndex: 9999
+                });
+            } else {
+                marcadorUsuario.setPosition(coordenadasGPSActual);
+            }
+        }
+
+        function iniciarRastreoUbicacion(mapa) {
+            if (navigator.geolocation) {
+                // 1. Forzar una lectura inmediata (Útil en PC)
+                navigator.geolocation.getCurrentPosition(
+                    (posicion) => { actualizarMarcadorGPS(posicion, mapa); },
+                    (error) => { console.warn("Aviso: No se pudo obtener la ubicación inicial.", error); },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+
+                // 2. Iniciar rastreo continuo
+                navigator.geolocation.watchPosition(
+                    (posicion) => { actualizarMarcadorGPS(posicion, mapa); },
+                    (error) => { console.warn("Aviso de GPS continuo", error); },
+                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+                );
+            }
+        }
+
+        function iniciarMapa() {
+            verificarPermisos(); actualizarLeyenda(); cargarListaRepartidores();
+            const coordenadasCentro = { lat: 19.4116, lng: -98.9928 }; 
+            mapaGlobal = new google.maps.Map(document.getElementById("mapa"), { zoom: 13, center: coordenadasCentro, mapTypeControl: false, streetViewControl: false, fullscreenControl: false });
+            mapaGlobal.addListener("click", () => { cerrarVentanaMapa(); });
+            
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({ map: mapaGlobal, suppressMarkers: true });
+            geocoder = new google.maps.Geocoder(); 
+
+            const input = document.getElementById("buscador_direccion");
+            const autocomplete = new google.maps.places.Autocomplete(input); 
+            autocomplete.bindTo("bounds", mapaGlobal);
+
+            marcadorBuscador = new google.maps.Marker({ 
+                map: mapaGlobal, 
+                anchorPoint: new google.maps.Point(0, -29),
+                draggable: true 
+            });
+
+            marcadorBuscador.addListener('dragend', function(event) {
+                latitudSeleccionada = event.latLng.lat();
+                longitudSeleccionada = event.latLng.lng();
+                
+                geocoder.geocode({ location: event.latLng }, (results, status) => {
+                    if (status === "OK" && results[0]) {
+                        direccionCompleta = results[0].formatted_address;
+                        document.getElementById("buscador_direccion").value = direccionCompleta;
+                    }
+                });
+            });
+
+            autocomplete.addListener("place_changed", () => {
+                marcadorBuscador.setVisible(false); const place = autocomplete.getPlace();
+                if (!place.geometry || !place.geometry.location) { alert("Selecciona una dirección."); return; }
+                if (place.geometry.viewport) { mapaGlobal.fitBounds(place.geometry.viewport); } else { mapaGlobal.setCenter(place.geometry.location); mapaGlobal.setZoom(17); }
+                
+                marcadorBuscador.setPosition(place.geometry.location); 
+                marcadorBuscador.setVisible(true);
+                document.getElementById("instruccion_pin").style.display = "block"; 
+                
+                latitudSeleccionada = place.geometry.location.lat(); longitudSeleccionada = place.geometry.location.lng(); direccionCompleta = place.formatted_address;
+            });
+            
+            cargarClientes(mapaGlobal);
+            iniciarRastreoUbicacion(mapaGlobal); 
+            
+            if (window.innerWidth <= 768) { toggleFormulario(); }
+        }
+
+        async function cargarClientes(mapa) {
+            try {
+                const respuesta = await fetch('/api/clientes'); const clientes = await respuesta.json();
+                listaClientesGlobal = clientes; marcadoresGlobales = []; 
+                if (respuesta.ok) {
+                    if (clientes.length === 0) return;
+                    const limites = new google.maps.LatLngBounds(); let pinesContadosParaZoom = 0; 
+                    clientes.forEach(cliente => {
+                        const lat = parseFloat(cliente.latitud); const lng = parseFloat(cliente.longitud);
+                        if (isNaN(lat) || isNaN(lng)) return;
+                        const estado1 = cliente.estado_logistico || 'nuevo'; const estado2 = cliente.estado_secundario || 'ninguno';
+                        const colorIzquierdo = reglasColores[estado1] || reglasColores['nuevo']; const colorDerecho = (estado2 !== 'ninguno') ? (reglasColores[estado2] || colorIzquierdo) : colorIzquierdo;
+                        const colorRepartidor = obtenerColorRepartidor(cliente.asignado_a);
+
+                        const marcador = new google.maps.Marker({
+                            position: { lat: lat, lng: lng }, map: mapa, title: cliente.nombre_comercial,
+                            icon: { url: crearPinBicolor(colorIzquierdo, colorDerecho, colorRepartidor), scaledSize: new google.maps.Size(36, 36), anchor: new google.maps.Point(18, 36) }
+                        });
+
+                        if (miRolActual !== 'empleado' || cliente.asignado_a === miCorreoActual) { limites.extend(marcador.getPosition()); pinesContadosParaZoom++; }
+                        marcadoresGlobales.push({ marcador: marcador, estado_principal: estado1, estado_secundario: estado2, correo_asignado: cliente.asignado_a });
+
+                        const textoEstatus1 = estado1.replace('_', ' '); const textoEstatus2 = (estado2 !== 'ninguno') ? ` / ${estado2.replace('_', ' ')}` : '';
+                        const nombreRepartidor = cliente.asignado_a && cliente.asignado_a !== 'sin_asignar' ? cliente.asignado_a.split('@')[0] : 'Sin asignar';
+                        const bolitaColor = colorRepartidor !== 'transparent' ? `<span style="display:inline-block; width:12px; height:12px; background-color:${colorRepartidor}; border-radius:50%; margin-right:4px; vertical-align:middle;"></span>` : '';
+
+                        const infoWindow = new google.maps.InfoWindow({
+                            content: `
+                                <div style="font-family: Arial, sans-serif; padding: 5px; min-width: 150px;">
+                                    <h3 style="margin: 0 0 5px 0;">${cliente.nombre_comercial}</h3>
+                                    <p style="margin: 0 0 5px 0;"><strong>Tel:</strong> ${cliente.telefono || 'N/A'}</p>
+                                    <p style="margin: 0 0 5px 0;"><strong>Estado:</strong> <span style="text-transform: capitalize;">${textoEstatus1}${textoEstatus2}</span></p>
+                                    <p style="margin: 0 0 5px 0;"><strong>Ruta:</strong> ${bolitaColor}${nombreRepartidor}</p>
+                                    <p style="margin: 0 0 10px 0; font-size: 12px; color: #555;">${cliente.notas_internas || ''}</p>
+                                    <div style="display: flex; gap: 5px; margin-top: 10px;">
+                                        <button onclick="activarEdicion('${cliente.id_cliente}')" style="flex: 1; padding: 8px; background-color: #4A90E2; color: white; border: none; border-radius: 4px; cursor: pointer;">✏️ Editar</button>
+                                        <button onclick="cerrarVentanaMapa()" style="flex: 1; padding: 8px; background-color: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer;">❌ Cerrar</button>
+                                    </div>
+                                </div>
+                            `
+                        });
+                        marcador.addListener("click", () => { cerrarVentanaMapa(); infoWindow.open(mapa, marcador); infoWindowActiva = infoWindow; });
+                    });
+                    if (pinesContadosParaZoom > 0) { mapa.fitBounds(limites); }
+                    filtrarMarcadoresMapa(); actualizarEstadisticas();
+                }
+            } catch (error) { console.error("Error al cargar pines:", error); }
+        }
+
+        function calcularRutaOptima() {
+            const clientesConPedido = marcadoresGlobales.filter(item => { return (item.estado_principal === 'pedido_activo' || item.estado_secundario === 'pedido_activo') && (miRolActual !== 'empleado' || item.correo_asignado === miCorreoActual); });
+            if (clientesConPedido.length === 0) { alert("No tienes ningún Pedido Activo en TU ruta para trazar."); return; }
+            if (clientesConPedido.length > 25) { alert("Google Maps permite un máximo de 25 entregas por ruta."); return; }
+            if (!navigator.geolocation) { alert("Tu navegador no soporta la geolocalización."); return; }
+
+            const btnCalcular = document.getElementById("btn-calcular-ruta");
+            btnCalcular.innerText = "Ubicando..."; btnCalcular.disabled = true;
+
+            navigator.geolocation.getCurrentPosition((posicion) => {
+                btnCalcular.innerText = "Ruta Óptima"; btnCalcular.disabled = false; btnCalcular.style.display = "none";
+                document.getElementById("btn-limpiar-ruta").style.display = "block";
+
+                const origenCoordenadas = new google.maps.LatLng(posicion.coords.latitude, posicion.coords.longitude);
+                const clienteDestino = clientesConPedido[clientesConPedido.length - 1];
+                const destinoCoordenadas = clienteDestino.marcador.getPosition();
+
+                const waypointsParaOptimizar = [];
+                for (let i = 0; i < clientesConPedido.length - 1; i++) { waypointsParaOptimizar.push({ location: clientesConPedido[i].marcador.getPosition(), stopover: true }); }
+
+                directionsService.route({ origin: origenCoordenadas, destination: destinoCoordenadas, waypoints: waypointsParaOptimizar, optimizeWaypoints: true, travelMode: google.maps.TravelMode.DRIVING }, (resultado, estatus) => {
+                    if (estatus === google.maps.DirectionsStatus.OK) { 
+                        directionsRenderer.setDirections(resultado); 
+                        const ordenOptimizado = resultado.routes[0].waypoint_order; let waypointsString = "";
+                        ordenOptimizado.forEach((indexOriginal, i) => {
+                            const clienteIntermedio = clientesConPedido[indexOriginal];
+                            const lat = clienteIntermedio.marcador.getPosition().lat(); const lng = clienteIntermedio.marcador.getPosition().lng();
+                            waypointsString += `${lat},${lng}`; if (i < ordenOptimizado.length - 1) waypointsString += "%7C";
+                        });
+                        const origenStr = `${posicion.coords.latitude},${posicion.coords.longitude}`; const destinoStr = `${destinoCoordenadas.lat()},${destinoCoordenadas.lng()}`;
+                        let urlNavegacion = `https://www.google.com/maps/dir/?api=1&origin=${origenStr}&destination=${destinoStr}&travelmode=driving`;
+                        if (waypointsString !== "") { urlNavegacion += `&waypoints=${waypointsString}`; }
+                        const btnNavegar = document.getElementById("btn-navegar-ruta");
+                        btnNavegar.style.display = "block"; btnNavegar.onclick = () => window.open(urlNavegacion, '_blank');
+                    } 
+                    else { alert("Error al trazar ruta vehicular."); limpiarRuta(); }
+                });
+            }, (error) => {
+                btnCalcular.innerText = "Ruta Óptima"; btnCalcular.disabled = false;
+                alert("No pudimos acceder a tu GPS. Asegúrate de tener encendida la ubicación en tu dispositivo.");
+            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        }
+
+        function limpiarRuta() {
+            directionsRenderer.setDirections({routes: []});
+            document.getElementById("btn-calcular-ruta").style.display = "block";
+            document.getElementById("btn-limpiar-ruta").style.display = "none";
+            document.getElementById("btn-navegar-ruta").style.display = "none";
+        }
+
+        window.activarEdicion = function(id_buscado) {
+            cerrarVentanaMapa(); 
+            const cliente = listaClientesGlobal.find(c => c.id_cliente == id_buscado); if (!cliente) return;
+            clienteEditandoId = cliente.id_cliente; 
+            document.getElementById("nombre_comercial").value = cliente.nombre_comercial || ''; document.getElementById("telefono").value = cliente.telefono || '';
+            document.getElementById("estado_logistico").value = cliente.estado_logistico || 'nuevo'; document.getElementById("estado_secundario").value = cliente.estado_secundario || 'ninguno';
+            document.getElementById("notas").value = cliente.notas_internas || ''; document.getElementById("buscador_direccion").value = cliente.direccion_completa || '';
+            document.getElementById("asignado_a").value = cliente.asignado_a || 'sin_asignar';
+            latitudSeleccionada = parseFloat(cliente.latitud); longitudSeleccionada = parseFloat(cliente.longitud); direccionCompleta = cliente.direccion_completa;
+
+            if (marcadorBuscador) {
+                const posActual = { lat: latitudSeleccionada, lng: longitudSeleccionada };
+                marcadorBuscador.setPosition(posActual);
+                marcadorBuscador.setVisible(true);
+                document.getElementById("instruccion_pin").style.display = "block";
+            }
+
+            document.getElementById("texto_titulo_panel").innerText = "Editar Cliente";
+            const btn = document.getElementById("btn_guardar"); btn.innerText = "Actualizar"; btn.style.backgroundColor = "#E63946"; 
+            document.getElementById("btn_cancelar").style.display = "block"; 
+            const contenido = document.getElementById("contenido-formulario"); if (contenido.style.display === "none") { toggleFormulario(); }
+        };
+
+        function cancelarEdicion() {
+            clienteEditandoId = null;
+            document.getElementById("nombre_comercial").value = ''; document.getElementById("telefono").value = '';
+            document.getElementById("estado_logistico").value = 'nuevo'; document.getElementById("estado_secundario").value = 'ninguno';
+            document.getElementById("notas").value = ''; document.getElementById("buscador_direccion").value = ''; document.getElementById("asignado_a").value = 'sin_asignar';
+            latitudSeleccionada = null; longitudSeleccionada = null; direccionCompleta = "";
+
+            if (marcadorBuscador) marcadorBuscador.setVisible(false);
+            document.getElementById("instruccion_pin").style.display = "none";
+
+            document.getElementById("texto_titulo_panel").innerText = "Registro de Cliente";
+            const btn = document.getElementById("btn_guardar"); btn.innerText = "Guardar Cliente"; btn.style.backgroundColor = "#333333";
+            document.getElementById("btn_cancelar").style.display = "none"; 
+            if (window.innerWidth <= 768) { const contenido = document.getElementById("contenido-formulario"); if (contenido.style.display !== "none") { toggleFormulario(); } }
+        }
+
+        async function prepararDatos() {
+            const nombre = document.getElementById("nombre_comercial").value; const telefono = document.getElementById("telefono").value;
+            const estado1 = document.getElementById("estado_logistico").value; const estado2 = document.getElementById("estado_secundario").value;
+            const notas = document.getElementById("notas").value; const asignado = document.getElementById("asignado_a").value;
+            if (!nombre || !latitudSeleccionada) { alert("El Nombre Comercial y la Dirección son obligatorios."); return; }
+
+            const paqueteDatos = { nombre_comercial: nombre, telefono: telefono, direccion_completa: direccionCompleta, latitud: latitudSeleccionada, longitud: longitudSeleccionada, estado_logistico: estado1, estado_secundario: estado2, notas_internas: notas, asignado_a: asignado };
+            const url = clienteEditandoId ? `/api/clientes/${clienteEditandoId}` : '/api/clientes';
+            const metodoHTTP = clienteEditandoId ? 'PUT' : 'POST';
+
+            try {
+                const respuesta = await fetch(url, { method: metodoHTTP, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(paqueteDatos) });
+                if (respuesta.ok) { alert(clienteEditandoId ? "¡Cliente actualizado!" : "¡Cliente guardado exitosamente!"); window.location.reload(); 
+                } else { const error = await respuesta.json(); alert("Error al guardar: " + error.error); }
+            } catch (error) { console.error("Error en la conexión:", error); alert("No se pudo conectar con el servidor."); }
+        }
+
+        async function cerrarSesion() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEva85frH1jX0YQmoYI9GWAXK9drPQW-M&libraries=places&callback=iniciarMapa"></script>
+</body>
+</html>

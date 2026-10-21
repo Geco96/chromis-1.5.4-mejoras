@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markhoor - Acceso</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-container { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 320px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; background-color: #333; color: white; border: none; padding: 12px; font-size: 15px; border-radius: 4px; cursor: pointer; margin-top: 10px; font-weight: bold; transition: 0.2s; }
+        button:hover { background-color: #555; }
+        h2 { color: #333; margin-top: 0; margin-bottom: 20px; }
+        .link { color: #4A90E2; font-size: 13px; text-decoration: none; cursor: pointer; display: block; margin-top: 15px; }
+        .link:hover { text-decoration: underline; }
+        
+        #panel-recuperar, #panel-nueva-pass { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        
+        <!-- PANEL 1: LOGIN NORMAL -->
+        <div id="panel-login">
+            <h2>Acceso Routix</h2>
+            <input type="email" id="email" placeholder="Correo electrónico" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+            <button onclick="iniciarSesion()">Ingresar</button>
+            <span class="link" onclick="mostrarPanel('panel-recuperar')">¿Olvidaste tu contraseña?</span>
+        </div>
+
+        <!-- PANEL 2: SOLICITAR RECUPERACIÓN -->
+        <div id="panel-recuperar">
+            <h2>Recuperar Acceso</h2>
+            <p style="font-size: 13px; color: #666;">Te enviaremos un enlace seguro a tu correo.</p>
+            <input type="email" id="email-recuperar" placeholder="Tu correo electrónico" required>
+            <button style="background-color: #4A90E2;" onclick="solicitarRecuperacion()">Enviar enlace</button>
+            <span class="link" onclick="mostrarPanel('panel-login')">Volver al inicio</span>
+        </div>
+
+        <!-- PANEL 3: CREAR NUEVA CONTRASEÑA -->
+        <div id="panel-nueva-pass">
+            <h2>Nueva Contraseña</h2>
+            <p style="font-size: 13px; color: #666;">Ingresa tu nueva contraseña (mínimo 6 caracteres).</p>
+            <input type="password" id="nueva-pass" placeholder="Nueva contraseña" required>
+            <button style="background-color: #2A9D8F;" onclick="actualizarPassword()">Guardar contraseña</button>
+        </div>
+
+    </div>
+
+    <script>
+        let accessTokenRecuperacion = null;
+        let refreshTokenRecuperacion = null;
+
+        // Detector mejorado de tokens de recuperación en la URL (soporta hash y parámetros normales)
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            
+            accessTokenRecuperacion = urlParams.get('access_token') || hashParams.get('access_token');
+            refreshTokenRecuperacion = urlParams.get('refresh_token') || hashParams.get('refresh_token');
+
+            if (accessTokenRecuperacion) {
+                mostrarPanel('panel-nueva-pass');
+            }
+        };
+
+        function mostrarPanel(idPanel) {
+            document.getElementById('panel-login').style.display = 'none';
+            document.getElementById('panel-recuperar').style.display = 'none';
+            document.getElementById('panel-nueva-pass').style.display = 'none';
+            document.getElementById(idPanel).style.display = 'block';
+        }
+
+        async function iniciarSesion() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            try {
+                const respuesta = await fetch('/api/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: password })
+                });
+                if (respuesta.ok) { 
+                    window.location.href = '/'; 
+                } else { 
+                    // Se agregó captura del error del backend para mostrar si la cuenta está desactivada
+                    const data = await respuesta.json().catch(() => ({}));
+                    alert(data.error || "Credenciales inválidas."); 
+                }
+            } catch (e) { alert("Error de conexión."); }
+        }
+
+        async function solicitarRecuperacion() {
+            const email = document.getElementById("email-recuperar").value;
+            if(!email) return alert("Ingresa tu correo");
+            
+            try {
+                const respuesta = await fetch('/api/recuperar-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                if (respuesta.ok) {
+                    alert("Si el correo está registrado, recibirás un enlace en unos segundos. (Revisa spam si no lo ves)");
+                    mostrarPanel('panel-login');
+                } else { 
+                    const data = await respuesta.json();
+                    alert("Aviso: " + (data.error || "Espera unos minutos antes de solicitar otro correo.")); 
+                }
+            } catch (e) { alert("Error de red."); }
+        }
+
+        async function actualizarPassword() {
+            const nuevaPass = document.getElementById("nueva-pass").value;
+            if(nuevaPass.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
+
+            try {
+                const respuesta = await fetch('/api/actualizar-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        access_token: accessTokenRecuperacion, 
+                        refresh_token: refreshTokenRecuperacion, 
+                        new_password: nuevaPass 
+                    })
+                });
+                
+                if (respuesta.ok) {
+                    alert("¡Contraseña actualizada correctamente! Ya puedes iniciar sesión con tu nueva clave.");
+                    window.location.href = '/login'; 
+                } else { 
+                    const data = await respuesta.json();
+                    alert("Error: " + (data.error || "El enlace expiró o es inválido. Solicita uno nuevo.")); 
+                    mostrarPanel('panel-login');
+                }
+            } catch (e) { alert("Error al actualizar contraseña."); }
+        }
+    </script>
+</body>
+</html>
