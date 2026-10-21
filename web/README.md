@@ -22,6 +22,10 @@ El botón de sincronizar del panel solo funciona si además defines `CHROMIS_DB_
 y la base de Chromis es accesible desde internet (no recomendado); en ese caso agrega
 `PyMySQL` a `requirements.txt`.
 
+## Google Maps
+La clave ya no está escrita en `index.html`: define `GOOGLE_MAPS_API_KEY` en Render.
+(También `FLASK_SECRET_KEY`.)
+
 ## Variables de entorno
 - `SUPABASE_URL`, `SUPABASE_KEY`: igual que antes.
 - `CHROMIS_DB_URL`: base de Chromis, p. ej. `mysql://usuario:clave@192.168.1.10:3306/chromispos`

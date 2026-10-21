@@ -12,7 +12,8 @@ registro en lugar de duplicarlo. Los clientes creados directamente en el POS
 no se tocan.
 """
 import os
-from datetime import datetime
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
 from urllib.parse import urlparse, unquote
 
 PREFIJO_ID = "web-"
@@ -124,3 +125,92 @@ def estado_conexion():
         return {"conectado": True, "clientes_pos": total, "clientes_desde_web": web}
     finally:
         con.close()
+
+
+# --- PEDIDOS DE ENTREGA (Chromis -> web) ---
+
+def _leer_propiedades(blob):
+    """receipts.attributes es un java.util.Properties guardado con storeToXML."""
+    if not blob:
+        return {}
+    try:
+        raiz = ET.fromstring(bytes(blob))
+        return {e.get("key"): (e.text or "") for e in raiz.iter("entry")}
+    except ET.ParseError:
+        return {}
+
+
+def leer_entregas(dias=7):
+    """Tickets de venta de los últimos días marcados como "entrega"."""
+    desde = datetime.now() - timedelta(days=dias)
+    con = conectar()
+    try:
+        cur = con.cursor()
+        cur.execute(
+            "SELECT r.id, r.datenew, r.attributes, t.ticketid, t.customer, "
+            "c.name, c.phone, c.address, c.address2, c.city, "
+            "(SELECT SUM(p.total) FROM payments p WHERE p.receipt = r.id) "
+            "FROM receipts r JOIN tickets t ON t.id = r.id "
+            "LEFT JOIN customers c ON c.id = t.customer "
+            "WHERE t.tickettype = 0 AND r.datenew >= %s", (desde,))
+        entregas = []
+        for (id_ticket, fecha, attrs, numero, id_customer, nombre, tel,
+             dir1, dir2, ciudad, total) in cur.fetchall():
+            props = _leer_propiedades(attrs)
+            if props.get("tipo_pedido") != "entrega" or not id_customer:
+                continue
+            direccion = ", ".join(x for x in (dir1, ciudad) if x)
+            if dir2 and not dir2.startswith("GPS "):
+                direccion = ", ".join(x for x in (dir1, dir2, ciudad) if x)
+            entregas.append({
+                "id_ticket": id_ticket,
+                "numero_ticket": numero,
+                "fecha": fecha.isoformat(),
+                "total": float(total) if total is not None else None,
+                "notas": props.get("entrega_notas") or None,
+                "chromis_customer": id_customer,
+                "cliente_nombre": nombre,
+                "cliente_telefono": tel,
+                "cliente_direccion": direccion or None,
+            })
+        return entregas
+    finally:
+        con.close()
+
+
+def id_cliente_web(id_customer):
+    """Si el cliente de Chromis vino de la web ("web-12"), regresa 12 como texto."""
+    if id_customer and id_customer.startswith(PREFIJO_ID):
+        return id_customer[len(PREFIJO_ID):]
+    return None
+
+
+# --- INSTALACIÓN DE LOS RECURSOS ENTERPRISE EN CHROMIS ---
+
+def instalar_recurso(cur, nombre, contenido, extension="txt"):
+    cur.execute("SELECT id FROM resources WHERE name = %s", (nombre,))
+    fila = cur.fetchone()
+    datos = contenido.encode("utf-8")
+    if fila:
+        cur.execute("UPDATE resources SET content = %s WHERE id = %s", (datos, fila[0]))
+    else:
+        import uuid
+        cur.execute("INSERT INTO resources (id, name, restype, content, extension) "
+                    "VALUES (%s, %s, 0, %s, %s)", (str(uuid.uuid4()), nombre, datos, extension))
+
+
+def agregar_a_recurso(cur, nombre, fragmento, antes_de, marca):
+    """Inserta un fragmento en un recurso existente (una sola vez, identificado por 'marca')."""
+    cur.execute("SELECT id, content FROM resources WHERE name = %s", (nombre,))
+    fila = cur.fetchone()
+    if not fila:
+        raise RuntimeError(f"No existe el recurso {nombre} en Chromis.")
+    texto = bytes(fila[1]).decode("utf-8")
+    if marca in texto:
+        return False
+    if antes_de not in texto:
+        raise RuntimeError(f"No encontré '{antes_de}' en {nombre}; agrégalo a mano.")
+    i = texto.rindex(antes_de) if antes_de.startswith("</") else texto.index(antes_de)
+    texto = texto[:i] + fragmento + texto[i:]
+    cur.execute("UPDATE resources SET content = %s WHERE id = %s", (texto.encode("utf-8"), fila[0]))
+    return True

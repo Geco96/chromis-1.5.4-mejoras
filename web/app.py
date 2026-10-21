@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import chromis_sync
 
 app = Flask(__name__, static_folder='static')
-app.secret_key = "clave_secreta_markhoor_2026" 
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "clave_secreta_markhoor_2026")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -153,7 +153,9 @@ def obtener_repartidores():
 @app.route('/')
 def index():
     if 'usuario_id' not in session: return redirect('/login')
-    return send_from_directory('static', 'index.html')
+    with open(os.path.join(app.static_folder, 'index.html'), encoding='utf-8') as f:
+        html = f.read()
+    return html.replace('{{GOOGLE_MAPS_API_KEY}}', os.environ.get('GOOGLE_MAPS_API_KEY', ''))
 
 @app.route('/api/clientes', methods=['POST'])
 def crear_cliente():
@@ -214,6 +216,13 @@ def actualizar_cliente(id_cliente_url):
     }
     try:
         respuesta = supabase.table("clientes").update(datos_actualizar).eq("id_cliente", id_cliente_url).execute()
+        # Si el cliente deja de tener Pedido Activo, sus entregas del POS se dan por entregadas.
+        if "pedido_activo" not in (datos_actualizar["estado_logistico"], datos_actualizar["estado_secundario"]):
+            try:
+                supabase.table("entregas").update({"estado": "entregado"}) \
+                    .eq("id_cliente", str(id_cliente_url)).eq("estado", "pendiente").execute()
+            except Exception as e:
+                print("Aviso: no se pudieron cerrar las entregas:", e)
         return jsonify({"mensaje": "Cliente actualizado", "datos": respuesta.data}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -235,7 +244,7 @@ def chromis_sincronizar():
         return jsonify({"error": "No tienes permisos de Administrador"}), 403
     if not supabase: return jsonify({"error": "Error de BD"}), 500
     try:
-        clientes = supabase.table("clientes").select("*").execute().data
+        clientes = [c for c in supabase.table("clientes").select("*").execute().data if not c.get("chromis_id")]
         resumen = chromis_sync.sincronizar_clientes(clientes)
         return jsonify(resumen), 200
     except Exception as e:

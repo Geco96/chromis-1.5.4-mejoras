@@ -1,0 +1,17 @@
+/*
+    Chromis POS Enterprise - Evento ticket.total
+    Si al cobrar no se marcó el tipo de pedido, se pregunta. Por defecto: mostrador.
+*/
+import javax.swing.JOptionPane;
+
+if (ticket.getProperty("tipo_pedido") == null) {
+    int r = JOptionPane.NO_OPTION;
+    if (ticket.getCustomer() != null) {
+        r = JOptionPane.showConfirmDialog(null,
+                "¿Este pedido es para ENTREGA a " + ticket.getCustomer().getName() + "?\n(No = Mostrador)",
+                "Tipo de pedido", JOptionPane.YES_NO_OPTION);
+    }
+    ticket.setProperty("tipo_pedido", r == JOptionPane.YES_OPTION ? "entrega" : "mostrador");
+}
+
+return null;

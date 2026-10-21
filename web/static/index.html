@@ -122,6 +122,7 @@
         <button id="btn-calcular-ruta" class="btn-ruta" onclick="calcularRutaOptima()">Ruta Óptima</button>
         <button id="btn-navegar-ruta" class="btn-ruta-navegar">🗺️ Navegar</button>
         <button id="btn-limpiar-ruta" class="btn-ruta-limpiar" onclick="limpiarRuta()">Limpiar</button>
+        <button id="btn-sin-ubicar" class="btn-ruta" onclick="mostrarSinUbicar()" style="display: none; background-color: #E63946;"></button>
     </div>
 
     <!-- NUEVO: Botón desplegable para simbología -->
@@ -187,6 +188,7 @@
         let longitudSeleccionada = null;
         let direccionCompleta = "";
         let listaClientesGlobal = []; 
+        let clientesSinUbicar = []; // Pedidos de entrega del POS que aún no tienen pin
         let clienteEditandoId = null;
         
         let miRolActual = 'empleado';
@@ -549,13 +551,16 @@
         async function cargarClientes(mapa) {
             try {
                 const respuesta = await fetch('/api/clientes'); const clientes = await respuesta.json();
-                listaClientesGlobal = clientes; marcadoresGlobales = []; 
+                listaClientesGlobal = clientes; marcadoresGlobales = []; clientesSinUbicar = [];
                 if (respuesta.ok) {
                     if (clientes.length === 0) return;
                     const limites = new google.maps.LatLngBounds(); let pinesContadosParaZoom = 0; 
                     clientes.forEach(cliente => {
                         const lat = parseFloat(cliente.latitud); const lng = parseFloat(cliente.longitud);
-                        if (isNaN(lat) || isNaN(lng)) return;
+                        if (isNaN(lat) || isNaN(lng)) {
+                            if (cliente.estado_logistico === 'pedido_activo' || cliente.estado_secundario === 'pedido_activo') clientesSinUbicar.push(cliente);
+                            return;
+                        }
                         const estado1 = cliente.estado_logistico || 'nuevo'; const estado2 = cliente.estado_secundario || 'ninguno';
                         const colorIzquierdo = reglasColores[estado1] || reglasColores['nuevo']; const colorDerecho = (estado2 !== 'ninguno') ? (reglasColores[estado2] || colorIzquierdo) : colorIzquierdo;
                         const colorRepartidor = obtenerColorRepartidor(cliente.asignado_a);
@@ -590,9 +595,23 @@
                         marcador.addListener("click", () => { cerrarVentanaMapa(); infoWindow.open(mapa, marcador); infoWindowActiva = infoWindow; });
                     });
                     if (pinesContadosParaZoom > 0) { mapa.fitBounds(limites); }
+                    actualizarBotonSinUbicar();
                     filtrarMarcadoresMapa(); actualizarEstadisticas();
                 }
             } catch (error) { console.error("Error al cargar pines:", error); }
+        }
+
+        function actualizarBotonSinUbicar() {
+            const btn = document.getElementById('btn-sin-ubicar');
+            if (clientesSinUbicar.length === 0) { btn.style.display = 'none'; return; }
+            btn.innerText = `⚠️ ${clientesSinUbicar.length} sin ubicar`; btn.style.display = 'block';
+        }
+
+        function mostrarSinUbicar() {
+            const lista = clientesSinUbicar.map((c, i) => `${i + 1}. ${c.nombre_comercial} — ${c.direccion_completa || 'sin dirección'}`).join('\n');
+            const eleccion = prompt(`Entregas del punto de venta sin ubicación en el mapa:\n\n${lista}\n\nEscribe el número para ubicarlo:`);
+            const idx = parseInt(eleccion, 10) - 1;
+            if (!isNaN(idx) && clientesSinUbicar[idx]) { activarEdicion(clientesSinUbicar[idx].id_cliente); }
         }
 
         function calcularRutaOptima() {
@@ -655,7 +674,20 @@
             document.getElementById("asignado_a").value = cliente.asignado_a || 'sin_asignar';
             latitudSeleccionada = parseFloat(cliente.latitud); longitudSeleccionada = parseFloat(cliente.longitud); direccionCompleta = cliente.direccion_completa;
 
-            if (marcadorBuscador) {
+            if (marcadorBuscador && (isNaN(latitudSeleccionada) || isNaN(longitudSeleccionada))) {
+                latitudSeleccionada = null; longitudSeleccionada = null;
+                if (cliente.direccion_completa) {
+                    geocoder.geocode({ address: cliente.direccion_completa }, (results, status) => {
+                        if (status === "OK" && results[0]) {
+                            const pos = results[0].geometry.location;
+                            mapaGlobal.setCenter(pos); mapaGlobal.setZoom(17);
+                            marcadorBuscador.setPosition(pos); marcadorBuscador.setVisible(true);
+                            latitudSeleccionada = pos.lat(); longitudSeleccionada = pos.lng();
+                        } else { alert("No se encontró la dirección. Usa 📌 y arrastra el pin hasta el domicilio."); }
+                    });
+                } else { alert("Este cliente no tiene dirección. Usa 📌 y arrastra el pin hasta el domicilio."); }
+                document.getElementById("instruccion_pin").style.display = "block";
+            } else if (marcadorBuscador) {
                 const posActual = { lat: latitudSeleccionada, lng: longitudSeleccionada };
                 marcadorBuscador.setPosition(posActual);
                 marcadorBuscador.setVisible(true);
@@ -703,6 +735,6 @@
 
         async function cerrarSesion() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; }
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCEva85frH1jX0YQmoYI9GWAXK9drPQW-M&libraries=places&callback=iniciarMapa"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{GOOGLE_MAPS_API_KEY}}&libraries=places&callback=iniciarMapa"></script>
 </body>
 </html>

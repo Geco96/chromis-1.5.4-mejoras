@@ -1,0 +1,4 @@
+        #if ($ticket.getProperty("tipo_pedido") == "entrega")
+        <line><text align="center" length="42" bold="true">*** PEDIDO PARA ENTREGA ***</text></line>
+        <line><text>${ticket.getProperty("entrega_notas", "")}</text></line>
+        #end

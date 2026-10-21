@@ -1,0 +1,3 @@
+    <!-- ENTERPRISE: Tipo de pedido (Mostrador / Entrega) -->
+    <button key="button.tipopedido" title="Mostrador / Entrega" code="script.TipoPedido"/>
+    <event key="ticket.total" code="script.TipoPedido.Total"/>

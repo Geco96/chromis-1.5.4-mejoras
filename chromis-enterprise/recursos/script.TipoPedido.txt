@@ -1,0 +1,28 @@
+/*
+    Chromis POS Enterprise - Tipo de pedido (Mostrador / Entrega)
+    Botón de la barra del ticket. Guarda la propiedad "tipo_pedido" en el ticket.
+    Un pedido de entrega requiere un cliente asignado para ubicarlo en la ruta.
+*/
+import javax.swing.JOptionPane;
+
+Object[] opciones = { "Mostrador", "Entrega a domicilio" };
+int eleccion = JOptionPane.showOptionDialog(null,
+        "¿Cómo se entrega este pedido?", "Tipo de pedido",
+        JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE,
+        null, opciones, opciones[0]);
+
+if (eleccion == 0) {
+    ticket.setProperty("tipo_pedido", "mostrador");
+} else if (eleccion == 1) {
+    if (ticket.getCustomer() == null) {
+        JOptionPane.showMessageDialog(null,
+                "Para una entrega primero asigna el cliente al ticket.",
+                "Falta el cliente", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+    nota = JOptionPane.showInputDialog(null,
+            "Indicaciones para el repartidor (opcional):",
+            ticket.getProperty("entrega_notas", ""));
+    ticket.setProperty("tipo_pedido", "entrega");
+    if (nota != null) ticket.setProperty("entrega_notas", nota);
+}
