@@ -149,7 +149,7 @@ public class ReceivingTest {
             check("contrarecibo", contra.length() > 1000, true);
 
             // ---- Faltante pasa al siguiente pedido ----
-            Map<String, PurchaseOrderStore.Carry> carry = PurchaseOrderStore.carryover(c);
+            Map<String, uk.chromis.pos.restock.PendingOrders.Carry> carry = PurchaseOrderStore.carryover(c);
             check("faltante de arroz", carry.get(arroz) == null ? null : carry.get(arroz).units, 3.0);
             check("de qué pedido", carry.get(arroz) == null ? null : carry.get(arroz).describe(), o.ponumber);
             check("bolsa sin faltante", carry.containsKey(bolsa), false);

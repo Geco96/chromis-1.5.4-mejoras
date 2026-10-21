@@ -138,6 +138,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    protected DataLogicReceipts dlReceipts;
    private CostPricing costPricing;
    private RestockAlerts restockAlerts;
+   private DraftOrderAlerts draftOrderAlerts;
    private final Map<String, Boolean> auxiliaryLinks = new HashMap<>();
    protected DataLogicSystem dlSystem;
    protected DataLogicSales dlSales;
@@ -258,6 +259,9 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       );
       this.restockAlerts = new RestockAlerts(
          AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this.m_App.getInventoryLocation(), this
+      );
+      this.draftOrderAlerts = DraftOrderAlerts.start(
+         AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), AppConfig.getString("terminalID")
       );
 
       try {
@@ -729,6 +733,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.m_jNumberKey.setEqualsEnabled(AppUser.hasPermission("sales.Total"));
       this.m_jbtnconfig.setPermissions(this.m_App.getAppUserView().getUser());
       this.m_ticketsbag.activate();
+      this.draftOrderAlerts.activated(this, () -> this.m_App.getAppUserView().getUser().getId());
 
       try {
          this.defaultProduct = this.dlSales.getDefaultProductInfo("DefaultProduct", this.siteGuid);

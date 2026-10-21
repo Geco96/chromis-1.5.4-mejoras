@@ -13,7 +13,7 @@ originales, las clases que se modificaron.
 | `original-createdb/` | `dbcreator.jar` 1.5.4 (crea la base; solo se usó para pruebas). |
 | `src/` | Clases modificadas o nuevas de Chromis POS. |
 | `src-admin/` | Clases y pantallas (FXML) modificadas o nuevas de Chromis Admin. |
-| `src-common/` | Código que va en ambos: respaldos, precio sobre costo y umbrales de reposición. |
+| `src-common/` | Código que va en ambos: respaldos, precio sobre costo, umbrales de reposición y pedido tentativo. |
 | `tools/PatchJar.java` | Genera cada jar final: copia el original y reemplaza solo lo compilado. |
 | `tools/javafx-11.0.2/` | JavaFX, solo para compilar Admin (en ejecución se usa el del JRE instalado). |
 | `tests/` | Pruebas manuales contra MySQL/MariaDB (no van dentro del jar). |
@@ -157,6 +157,29 @@ originales, las clases que se modificaron.
       marcado *Cambiar venta*, el precio de venta; también se puede rechazar.
       Queda registrado quién y cuándo lo decidió.
     - Los pedidos se ven también en la pantalla *Orders* original de Chromis.
+13. **Pedido tentativo diario** (versión *Enterprise*; Admin → Stock Management
+    → **Pedido tentativo**, permiso de *Orders*):
+    - Todos los días a las **16:30** (se cambia en la misma pantalla) se arma
+      solo un borrador de pedido **por proveedor** con lo que necesita surtirse:
+      productos agotados, bajos o en reserva y lo que faltó en pedidos
+      anteriores, con las mismas cantidades que propone Reposición (máximo −
+      stock − en camino, o al menos lo que faltó). No depende del corte de caja.
+    - Lo arma la primera caja abierta (o la que se indique). Si a esa hora no
+      había ninguna encendida, se arma en cuanto se abre una. Si dos cajas
+      revisan al mismo tiempo, solo una lo arma.
+    - Proveedor de cada producto: el registrado en Admin → Productos →
+      Suppliers (si hay varios, al que se le pidió la última vez); si no tiene,
+      al que se le pidió la última vez; si nunca se pidió, **Proveedor general**.
+    - **Nunca se envía solo.** En la caja aparece el aviso *Pedido tentativo
+      listo* (una vez a cada usuario con permiso de *Orders*). En Admin se
+      revisa cada borrador: cambiar cantidades, quitar productos, agregar
+      escaneando o escribiendo el código, o descartarlo.
+    - **Enviar pedido...** pide confirmación con el resumen (productos,
+      unidades, costo estimado y, si alguno ya tiene pedido en camino, cuáles)
+      y entonces lo guarda como pedido normal de Chromis con su folio y su PDF,
+      igual que *Reposición → Generar PDF de pedido*. Se recibe en *Recepción de
+      mercancía*. Queda registrado quién lo envió o descartó y cuándo.
+    - Un borrador sin revisar se reemplaza por el del día siguiente.
 
 ### Tablas nuevas
 
@@ -176,6 +199,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
 | `order_carryover` | Faltantes de cada pedido recibido y el pedido al que pasaron. |
 | `price_changes` | Cambios de costo encontrados al recibir: pendientes, autorizados o rechazados. |
+| `restock_drafts`, `restock_draft_lines` | Pedidos tentativos por proveedor y sus productos: borrador, enviado (con su folio), descartado o reemplazado. Su hora, caja y último resultado van en `pos_settings` (`restock.draft.*`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 
@@ -218,6 +242,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
+| Pedido tentativo | `tests/DraftOrderTest.java` (54 comprobaciones): horario (antes y después de la hora, caja apagada a la hora, caja designada, apagado), cantidades (bajo, agotado, reserva con pedido en camino, faltante), proveedor por producto, reemplazo, edición, descartar y enviar. Con Chromis POS abierto y la hora ya pasada, la caja armó los borradores al minuto y mostró *Pedido tentativo listo*; en Admin se cambió una cantidad, se quitó un producto, se agregó otro escaneando y se envió como PED-000009 con su PDF. |
 
 El botón de editar línea solo aparece a usuarios con el permiso
 `button.lineeditor` (comportamiento original de Chromis; se asigna en Admin →

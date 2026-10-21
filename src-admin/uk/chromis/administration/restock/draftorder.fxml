@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane fx:id="apAnchor" minHeight="700.0" minWidth="1020.0" prefWidth="1216.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="uk.chromis.administration.restock.DraftOrderController">
+    <children>
+        <Label layoutX="10.0" layoutY="57.0" prefHeight="25.0" prefWidth="500.0" text="Pedido tentativo">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label>
+        <Separator layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
+
+        <HBox alignment="CENTER_LEFT" layoutX="15.0" layoutY="88.0" spacing="10.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <CheckBox fx:id="chkEnabled" minWidth="-Infinity" text="Armar el pedido tentativo todos los días a las" />
+                <TextField fx:id="txtTime" prefWidth="60.0" promptText="16:30" />
+                <Label minWidth="-Infinity" text="en la caja" />
+                <ComboBox fx:id="cmbTerminal" editable="true" prefWidth="170.0" promptText="cualquiera" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#saveSettings" text="Guardar" />
+                <Label fx:id="lblLastRun" textFill="#555555" wrapText="true" />
+            </children>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" layoutX="15.0" layoutY="124.0" spacing="10.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <Label minWidth="-Infinity" text="Pedido:" />
+                <ComboBox fx:id="cmbDraft" prefWidth="560.0" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#refresh" text="Actualizar" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#generateNow" text="Volver a armar ahora" />
+            </children>
+        </HBox>
+
+        <Label layoutX="15.0" layoutY="158.0" text="Lleva los productos agotados, bajos o en reserva de Reposición y lo que faltó antes, un pedido por proveedor. Nunca se envía solo: revisa y presiona Enviar." AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" wrapText="true" />
+
+        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="186.0" AnchorPane.bottomAnchor="110.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="186.0">
+            <columns>
+                <TableColumn fx:id="colReference" prefWidth="110.0" text="Referencia" />
+                <TableColumn fx:id="colName" prefWidth="250.0" text="Producto" />
+                <TableColumn fx:id="colCurrent" prefWidth="70.0" style="-fx-alignment: CENTER-RIGHT;" text="Stock" />
+                <TableColumn fx:id="colMinimum" prefWidth="70.0" style="-fx-alignment: CENTER-RIGHT;" text="Mínimo" />
+                <TableColumn fx:id="colMaximum" prefWidth="70.0" style="-fx-alignment: CENTER-RIGHT;" text="Máximo" />
+                <TableColumn fx:id="colStatus" prefWidth="90.0" text="Estado" />
+                <TableColumn fx:id="colOnOrder" prefWidth="80.0" style="-fx-alignment: CENTER-RIGHT;" text="En camino" />
+                <TableColumn fx:id="colCarry" prefWidth="140.0" style="-fx-alignment: CENTER;" text="Faltó (ped. ant.)" />
+                <TableColumn fx:id="colSuggested" prefWidth="80.0" style="-fx-alignment: CENTER-RIGHT;" text="Sugerido" />
+                <TableColumn fx:id="colQty" prefWidth="90.0" text="Pedir" />
+                <TableColumn fx:id="colRemove" prefWidth="80.0" sortable="false" />
+            </columns>
+        </TableView>
+
+        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="76.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <TextField fx:id="txtAdd" onAction="#addProduct" prefWidth="360.0" promptText="Agregar producto: escanea o escribe código o referencia" />
+                <Button minWidth="-Infinity" mnemonicParsing="false" onAction="#addProduct" text="Agregar" />
+                <Label fx:id="lblSummary" />
+            </children>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" spacing="10.0" AnchorPane.bottomAnchor="40.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <Button fx:id="btnDiscard" minWidth="-Infinity" mnemonicParsing="false" onAction="#discard" text="Descartar este pedido" />
+                <Button fx:id="btnSend" defaultButton="true" minWidth="-Infinity" mnemonicParsing="false" onAction="#send" text="Enviar pedido..." />
+            </children>
+        </HBox>
+
+        <Label fx:id="lblMessage" textFill="#b00020" wrapText="true" AnchorPane.bottomAnchor="12.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+    </children>
+</AnchorPane>

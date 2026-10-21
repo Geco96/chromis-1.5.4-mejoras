@@ -50,6 +50,7 @@ import uk.chromis.administration.main.Start;
 import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.administration.receiving.PurchaseOrderStore;
 import uk.chromis.globals.Company;
+import uk.chromis.pos.restock.PendingOrders;
 import uk.chromis.pos.restock.RestockStore;
 import uk.chromis.pos.restock.RestockStore.Status;
 import uk.chromis.pos.settings.PosSettings;
@@ -210,12 +211,12 @@ public class RestockController implements Initializable {
         }
         try {
             List<RestockItem> loaded = new ArrayList<>();
-            Map<String, PurchaseOrderStore.Carry> carry = PurchaseOrderStore.carryover(connection());
+            Map<String, PendingOrders.Carry> carry = PurchaseOrderStore.carryover(connection());
             Map<String, Double> onOrder = PurchaseOrderStore.onOrder(connection());
             for (RestockStore.Row r : RestockStore.load(connection(), location, null)) {
                 RestockItem item = new RestockItem(r);
                 item.setOnOrder(onOrder.getOrDefault(r.productId, 0.0));
-                PurchaseOrderStore.Carry c = carry.get(r.productId);
+                PendingOrders.Carry c = carry.get(r.productId);
                 if (c != null) {
                     item.setCarry(c.units, c.describe());
                 }
@@ -604,6 +605,12 @@ public class RestockController implements Initializable {
     /** Folder where order PDFs and contrarecibos are saved. */
     public static File pdfFolder() {
         return new File(PREFS.get("pdfFolder", System.getProperty("user.home")));
+    }
+
+    public static void rememberPdfFolder(File file) {
+        if (file.getParentFile() != null) {
+            PREFS.put("pdfFolder", file.getParentFile().getAbsolutePath());
+        }
     }
 
     public static void openFile(File file, Runnable fallback) {

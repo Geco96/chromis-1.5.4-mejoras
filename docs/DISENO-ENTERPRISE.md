@@ -141,6 +141,17 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 - Marca Mostrador / Entrega por scripts BeanShell → en `enterprise` va nativo en `JPanelTicket`.
 - Sincronizador de clientes y entregas hacia Supabase y la web de rutas → se integra al conector.
 
+## Avance
+
+| Fase | Estado |
+|---|---|
+| 1. Pedido tentativo diario (16:30), revisión y envío | **Hecha.** Mejora 13 del README; envío como pedido de Chromis con PDF. |
+| 2. Mostrador / Entrega en la caja | Pendiente |
+| 3. Gestor de entregas (cuadrantes, estados, liquidación) | Pendiente |
+| 4. Nube y conectores (catálogo, pedido y confirmación) | Pendiente |
+| 5. Pedidos de clientes en la distribuidora (apartados) | Pendiente |
+| 6. Precio especial por cliente con excepciones | Pendiente |
+
 ## Pendiente de definir
 
 - Clave nueva de Google Maps: restringida al dominio de Render, en `GOOGLE_MAPS_API_KEY`.

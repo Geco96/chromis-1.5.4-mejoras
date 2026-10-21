@@ -13,7 +13,7 @@ import javafx.scene.control.TextField;
  * Table cell with a text field that is always visible and commits on Enter
  * or when it loses the focus, as in the restock screen.
  */
-final class NumberCell<S> extends TableCell<S, Number> {
+public final class NumberCell<S> extends TableCell<S, Number> {
 
     private final TextField field = new TextField();
     private final Function<S, Double> getter;
@@ -23,7 +23,7 @@ final class NumberCell<S> extends TableCell<S, Number> {
     private final Consumer<String> error;
     private S editing;
 
-    NumberCell(Function<S, Double> getter, BiPredicate<S, Double> setter, Function<Double, String> format,
+    public NumberCell(Function<S, Double> getter, BiPredicate<S, Double> setter, Function<Double, String> format,
             Predicate<S> editable, Consumer<String> error) {
         this.getter = getter;
         this.setter = setter;
