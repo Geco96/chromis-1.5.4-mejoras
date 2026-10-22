@@ -167,7 +167,6 @@ public final class DeliveryStatusStore {
         }
     }
 
-    /** Status of a delivery without a row yet: delivered in Chromis = completed, else pending. */
     /** Marked delivered in Chromis (Admin → Entregas) counts as completed whatever the stored status says. */
     static String status(String stored, boolean delivered) {
         if (delivered && !CANCELLED.equals(stored)) {
@@ -193,6 +192,10 @@ public final class DeliveryStatusStore {
         return list;
     }
 
+    /** status() in SQL. */
+    private static final String STATUS_SQL = "IF(cd.delivered = 1 AND COALESCE(s.status, '') <> 'cancelado', 'completado', "
+            + "COALESCE(s.status, 'confirmado'))";
+
     private static final String SELECT = "SELECT cd.id, t.ticketid, r.datenew, cd.deliverydate, t.customer, c.name, "
             + "cd.name, cd.addressline1, cd.addressline2, cd.addressline3, cd.postcode, cd.phone, cd.comments, "
             + "(SELECT COALESCE(SUM(p.total), 0) FROM payments p WHERE p.receipt = r.id), "
@@ -211,7 +214,7 @@ public final class DeliveryStatusStore {
     public static List<Entry> load(Connection con, int closedDays) throws SQLException {
         createTables(con);
         List<ZoneStore.Zone> zones = ZoneStore.load(con, false);
-        String sql = SELECT + "AND (COALESCE(s.status, IF(cd.delivered = 1, 'completado', 'confirmado')) "
+        String sql = SELECT + "AND (" + STATUS_SQL + " "
                 + "IN ('confirmado', 'preparado', 'en_ruta', 'no_entregado')"
                 + (closedDays > 0 ? " OR COALESCE(s.updated, r.datenew) >= ?" : "") + ") "
                 + "ORDER BY cd.deliverydate, t.ticketid";
@@ -303,11 +306,8 @@ public final class DeliveryStatusStore {
         boolean autoCommit = con.getAutoCommit();
         con.setAutoCommit(false);
         try {
-            if (exists(con, c.opId)) {
-                con.commit();
-                return Outcome.ALREADY_APPLIED;
-            }
-            // Lock the delivery so two changes at the same time are done one after the other
+            // Lock the delivery first, so two changes at the same time are done one after the
+            // other and everything below (also the operation check) sees what the other one saved
             boolean delivered;
             try (PreparedStatement ps = con.prepareStatement("SELECT delivered FROM customer_delivery WHERE id = ? FOR UPDATE")) {
                 ps.setString(1, c.ticketId);
@@ -326,6 +326,10 @@ public final class DeliveryStatusStore {
                         stored = rs.getString(1);
                     }
                 }
+            }
+            if (exists(con, c.opId)) {
+                con.commit();
+                return Outcome.ALREADY_APPLIED;
             }
             Entry e = find(con, c.ticketId);
             e.status = status(stored, delivered);
@@ -456,8 +460,9 @@ public final class DeliveryStatusStore {
         }
     }
 
+    /** Current read (not the transaction snapshot): sees an operation another connection just committed. */
     private static boolean exists(Connection con, String opId) throws SQLException {
-        try (PreparedStatement ps = con.prepareStatement("SELECT 1 FROM delivery_events WHERE op_id = ?")) {
+        try (PreparedStatement ps = con.prepareStatement("SELECT 1 FROM delivery_events WHERE op_id = ? LOCK IN SHARE MODE")) {
             ps.setString(1, opId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();

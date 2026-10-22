@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de entregas · Chromis</title>
+<style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; color: #222; }
+    #mapa { position: absolute; top: 0; left: 380px; right: 0; bottom: 0; background: #e5e3df; }
+    #panel { position: absolute; top: 0; left: 0; bottom: 0; width: 380px; display: flex; flex-direction: column; border-right: 1px solid #ccc; background: #fff; }
+    #cab { padding: 10px 12px 4px; }
+    #cab h1 { font-size: 16px; margin: 0 0 2px; }
+    #cab .quien { color: #666; font-size: 12px; }
+    .pestanas, .chips, .barra { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 12px; }
+    button { border: 0; border-radius: 5px; padding: 6px 10px; background: #4A90E2; color: #fff; cursor: pointer; font-size: 12px; font-weight: 600; }
+    button.gris { background: #eee; color: #333; }
+    button.rojo { background: #E63946; }
+    button.verde { background: #2A9D8F; }
+    .pestanas button, .chips button { background: #eee; color: #333; border-radius: 14px; }
+    .pestanas button.activa, .chips button.activa { background: #333; color: #fff; }
+    #lista { overflow-y: auto; flex: 1; padding: 0 12px 12px; }
+    .tarjeta { border: 1px solid #e2e2e2; border-left: 6px solid #ccc; border-radius: 6px; padding: 7px 9px; margin-bottom: 7px; cursor: pointer; }
+    .tarjeta.sel { box-shadow: 0 0 0 3px #4A90E2; }
+    .tarjeta .f1 { display: flex; justify-content: space-between; gap: 6px; font-weight: 600; }
+    .tarjeta .det { color: #555; margin-top: 2px; line-height: 1.35; }
+    .estado { font-size: 11px; padding: 1px 7px; border-radius: 10px; color: #fff; white-space: nowrap; }
+    .aviso { background: #FFF3CD; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; line-height: 1.4; }
+    .error { background: #FDE2E4; color: #8B0000; }
+    .vacio { color: #777; text-align: center; padding: 18px 0; }
+    input[type=text], select { padding: 5px; font-size: 12px; border: 1px solid #bbb; border-radius: 4px; }
+    .fila { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+    #buscar { width: 100%; }
+    #mensaje { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; z-index: 10; display: none; background: #333; color: #fff; padding: 8px 14px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="panel">
+    <div id="cab"><h1>Mapa de entregas</h1><div class="quien" id="quien"></div></div>
+    <div class="pestanas" id="pestanas"></div>
+    <div class="barra" id="barra"></div>
+    <div id="lista"><div class="vacio">Cargando…</div></div>
+</div>
+<div id="mapa"></div>
+<div id="mensaje"></div>
+<script>
+(function () {
+    const CLAVE = '__CLAVE__';
+    const ESTADO = {
+        confirmado: { texto: 'Por surtir', color: '#F4A261' },
+        preparado: { texto: 'Preparada', color: '#9C27B0' },
+        en_ruta: { texto: 'En ruta', color: '#4A90E2' },
+        no_entregado: { texto: 'No entregada', color: '#E63946' },
+        completado: { texto: 'Completada', color: '#2A9D8F' },
+        cancelado: { texto: 'Cancelada', color: '#999999' }
+    };
+    const CLIENTE = {
+        cautivo: { texto: 'Cliente', color: '#457B9D' },
+        prospecto: { texto: 'Prospecto', color: '#E9C46A' },
+        pendiente_visita: { texto: 'Pendiente de visita', color: '#F77F00' }
+    };
+    const st = {
+        datos: null, mapa: null, pestana: 'entregas', filtro: null, busqueda: '', soloSinPin: true,
+        poligonos: [], marcadores: [], dibujo: null, editando: null, pin: null, sel: null, info: null
+    };
+
+    function esc(t) {
+        return String(t === null || t === undefined ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function dinero(v) { return '$' + Number(v || 0).toFixed(2); }
+    function aviso(t) {
+        const m = document.getElementById('mensaje');
+        m.textContent = t; m.style.display = 'block';
+        clearTimeout(aviso.t); aviso.t = setTimeout(() => m.style.display = 'none', 3500);
+    }
+    function ubicado(x) { return x.lat !== null && x.lat !== undefined; }
+    function ocupado() { return st.dibujo || st.editando || st.pin; }
+
+    async function api(ruta, cuerpo) {
+        const r = await fetch(ruta, {
+            method: cuerpo ? 'POST' : 'GET',
+            headers: { 'X-Clave': CLAVE, 'Content-Type': 'application/json' },
+            body: cuerpo ? JSON.stringify(cuerpo) : undefined
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+        return d;
+    }
+
+    // ---------------- Panel ----------------
+    function pintar() {
+        const d = st.datos;
+        const esAdmin = d.rol === 'admin';
+        document.getElementById('quien').textContent = d.usuario + ' · ' + (esAdmin ? 'administrador' : 'despachador');
+        const abiertas = d.entregas.length;
+        const sinPin = d.clientes.filter(c => !ubicado(c)).length;
+        document.getElementById('pestanas').innerHTML =
+            boton('entregas', 'Entregas (' + abiertas + ')') + boton('cuadrantes', 'Cuadrantes (' + d.cuadrantes.length + ')') +
+            boton('clientes', 'Clientes' + (sinPin ? ' · ' + sinPin + ' sin ubicar' : ''));
+        if (st.pestana === 'cuadrantes') return pintarCuadrantes(esAdmin);
+        if (st.pestana === 'clientes') return pintarClientes();
+        pintarEntregas();
+    }
+    function boton(p, texto) {
+        return `<button class="${st.pestana === p ? 'activa' : ''}" onclick="Mapa.pestana('${p}')">${esc(texto)}</button>`;
+    }
+
+    function pintarEntregas() {
+        const d = st.datos;
+        const estados = ['confirmado', 'preparado', 'en_ruta', 'no_entregado'];
+        document.getElementById('barra').innerHTML =
+            `<div class="chips" style="padding:0"><button class="${!st.filtro ? 'activa' : ''}" onclick="Mapa.filtro(null)">Todas</button>` +
+            estados.map(s => `<button class="${st.filtro === s ? 'activa' : ''}" onclick="Mapa.filtro('${s}')">${ESTADO[s].texto} (${d.entregas.filter(e => e.estado === s).length})</button>`).join('') + '</div>';
+        let lista = d.entregas;
+        if (st.filtro) lista = lista.filter(e => e.estado === st.filtro);
+        const cont = document.getElementById('lista');
+        if (!lista.length) { cont.innerHTML = '<div class="vacio">No hay entregas en este estado.</div>'; return; }
+        cont.innerHTML = '<div class="aviso">Los cambios de estado se hacen en Chromis Admin → Gestor de entregas.</div>' + lista.map(e => {
+            const est = ESTADO[e.estado] || { texto: e.estado_texto, color: '#777' };
+            return `<div class="tarjeta ${st.sel === e.ticket ? 'sel' : ''}" id="t-${esc(e.ticket)}" style="border-left-color:${est.color}" onclick="Mapa.verEntrega('${esc(e.ticket)}')">
+                <div class="f1"><span>#${esc(e.numero)} · ${esc(e.nombre || 'Cliente')}</span><span class="estado" style="background:${est.color}">${est.texto}</span></div>
+                <div class="det">${esc(e.direccion)}<br>${e.cuadrante ? '■ ' + esc(e.cuadrante) : '<i>Sin cuadrante</i>'} · 🚚 ${esc(e.repartidor || 'Sin repartidor')} · ${dinero(e.total)}
+                ${e.indicaciones ? '<br>📝 ' + esc(e.indicaciones) : ''}
+                ${ubicado(e) ? '' : '<br><b style="color:#E63946">📍 Cliente sin ubicar</b>' + (e.cliente ? ` <button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">Ubicar</button>` : '')}</div></div>`;
+        }).join('');
+    }
+
+    function pintarCuadrantes(esAdmin) {
+        const d = st.datos;
+        document.getElementById('barra').innerHTML = esAdmin && !ocupado() ? '<button class="verde" onclick="Mapa.nuevoCuadrante()">＋ Nuevo cuadrante</button>' : '';
+        let html = '';
+        if (st.dibujo) {
+            html += `<div class="aviso">Haz clic en el mapa para marcar las esquinas (${st.dibujo.puntos.length}).
+                <div class="fila"><input type="text" id="nombre-c" placeholder="Nombre" style="flex:1" value="${esc(st.dibujo.nombre)}" oninput="Mapa._st.dibujo.nombre=this.value">
+                <input type="color" value="${esc(st.dibujo.color)}" oninput="Mapa._st.dibujo.color=this.value"></div>
+                <div class="fila"><button class="verde" onclick="Mapa.guardarDibujo()">Guardar</button><button class="gris" onclick="Mapa.quitarPunto()">Quitar última esquina</button><button class="gris" onclick="Mapa.cancelar()">Cancelar</button></div></div>`;
+        }
+        if (st.editando) {
+            html += `<div class="aviso">Arrastra las esquinas del cuadrante en el mapa (los puntos del medio agregan esquinas).
+                <div class="fila"><input type="text" id="nombre-e" style="flex:1" value="${esc(st.editando.nombre)}" oninput="Mapa._st.editando.nombre=this.value">
+                <input type="color" value="${esc(st.editando.color)}" oninput="Mapa._st.editando.color=this.value"></div>
+                <div class="fila"><button class="verde" onclick="Mapa.guardarForma()">Guardar</button><button class="gris" onclick="Mapa.cancelar()">Cancelar</button></div></div>`;
+        }
+        if (!d.cuadrantes.length && !st.dibujo) {
+            html += `<div class="vacio">${esAdmin ? 'Todavía no hay cuadrantes: dibuja el primero.' : 'El administrador todavía no dibuja cuadrantes.'}</div>`;
+        }
+        html += d.cuadrantes.map(c => {
+            const n = d.entregas.filter(e => e.cuadrante === c.nombre).length;
+            return `<div class="tarjeta" style="border-left-color:${esc(c.color)}" onclick="Mapa.verCuadrante(${c.id})">
+                <div class="f1"><span>${esc(c.nombre)}</span><span>${n} ${n === 1 ? 'entrega' : 'entregas'}</span></div>
+                <div class="det">🚚 ${esc(c.repartidor || 'Sin repartidor')} · Despachador: ${esc(c.despachador || 'cualquiera')}</div>
+                ${esAdmin && !ocupado() ? `<div class="fila"><button class="gris" onclick="event.stopPropagation(); Mapa.editarForma(${c.id})">Editar</button>
+                    <button class="rojo" onclick="event.stopPropagation(); Mapa.desactivar(${c.id})">Quitar</button></div>` : ''}</div>`;
+        }).join('');
+        html += '<div class="vacio" style="padding-top:4px">Repartidor y despachador de cada cuadrante se eligen en Chromis Admin → Gestor de entregas.</div>';
+        document.getElementById('lista').innerHTML = html;
+    }
+
+    function pintarClientes() {
+        const d = st.datos;
+        document.getElementById('barra').innerHTML =
+            `<input type="text" id="buscar" placeholder="Buscar cliente por nombre o dirección" value="${esc(st.busqueda)}" oninput="Mapa.buscar(this.value)">
+             <label><input type="checkbox" ${st.soloSinPin ? 'checked' : ''} onchange="Mapa.soloSinPin(this.checked)"> Solo los que no tienen ubicación</label>`;
+        pintarListaClientes();
+    }
+    function pintarListaClientes() {
+        const d = st.datos;
+        const q = st.busqueda.trim().toLowerCase();
+        let lista = d.clientes;
+        if (st.soloSinPin && !q) lista = lista.filter(c => !ubicado(c));
+        if (q) lista = lista.filter(c => (c.nombre + ' ' + c.direccion).toLowerCase().includes(q));
+        const total = lista.length;
+        lista = lista.slice(0, 200);
+        let html = '';
+        if (st.pin) {
+            const c = d.clientes.find(x => x.id === st.pin.cliente);
+            html += `<div class="aviso"><b>${esc(c ? c.nombre : '')}</b><br>Haz clic en el mapa donde está el negocio, o busca la dirección. Puedes arrastrar el pin.
+                <div class="fila"><input type="text" id="dir-pin" style="flex:1" value="${esc(st.pin.direccion)}"><button class="gris" onclick="Mapa.buscarDireccion()">Buscar</button></div>
+                <div class="fila"><label>Estado</label><select id="estado-pin">${Object.keys(CLIENTE).map(k => `<option value="${k}" ${st.pin.estado === k ? 'selected' : ''}>${CLIENTE[k].texto}</option>`).join('')}</select></div>
+                <div class="fila"><button class="verde" onclick="Mapa.guardarPin()">Guardar ubicación</button>
+                ${c && ubicado(c) ? '<button class="rojo" onclick="Mapa.quitarPin()">Quitar ubicación</button>' : ''}<button class="gris" onclick="Mapa.cancelar()">Cancelar</button></div></div>`;
+        }
+        if (!lista.length) html += `<div class="vacio">${st.soloSinPin && !q ? 'Todos los clientes tienen ubicación.' : 'Ningún cliente coincide.'}</div>`;
+        html += lista.map(c => {
+            const e = CLIENTE[c.estado] || CLIENTE.cautivo;
+            return `<div class="tarjeta ${st.pin && st.pin.cliente === c.id ? 'sel' : ''}" style="border-left-color:${ubicado(c) ? e.color : '#ccc'}" onclick="Mapa.verCliente('${esc(c.id)}')">
+                <div class="f1"><span>${esc(c.nombre)}</span><span class="estado" style="background:${e.color}">${e.texto}</span></div>
+                <div class="det">${esc(c.direccion || 'Sin dirección')}${c.telefono ? ' · ' + esc(c.telefono) : ''}
+                <div class="fila"><button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(c.id)}')">${ubicado(c) ? 'Mover pin' : '📍 Ubicar'}</button></div></div></div>`;
+        }).join('');
+        if (total > lista.length) html += `<div class="vacio">Y ${total - lista.length} más: escribe para buscar.</div>`;
+        document.getElementById('lista').innerHTML = html;
+    }
+
+    // ---------------- Mapa ----------------
+    function pintarMapa() {
+        if (!st.mapa) return;
+        const d = st.datos;
+        st.poligonos.forEach(p => p.setMap(null));
+        st.poligonos = d.cuadrantes.map(c => {
+            const pol = new google.maps.Polygon({
+                paths: c.poligono.map(p => ({ lat: p[0], lng: p[1] })), map: st.mapa, strokeColor: c.color, strokeWeight: 2,
+                fillColor: c.color, fillOpacity: 0.12, zIndex: 1
+            });
+            pol.cuadranteId = c.id;
+            pol.addListener('click', ev => clicMapa(ev, () => abrirInfo(`<b>${esc(c.nombre)}</b><br>🚚 ${esc(c.repartidor || 'Sin repartidor')}`, ev.latLng)));
+            return pol;
+        });
+        st.marcadores.forEach(m => m.setMap(null));
+        st.marcadores = [];
+        const conEntrega = new Set(d.entregas.map(e => e.cliente));
+        d.clientes.filter(c => ubicado(c) && !conEntrega.has(c.id)).forEach(c => {
+            const e = CLIENTE[c.estado] || CLIENTE.cautivo;
+            const m = new google.maps.Marker({
+                position: { lat: c.lat, lng: c.lng }, map: st.mapa, title: c.nombre, zIndex: 10,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: e.color, fillOpacity: 0.9, strokeColor: '#fff', strokeWeight: 1 }
+            });
+            m.addListener('click', () => abrirInfo(`<b>${esc(c.nombre)}</b><br>${esc(c.direccion)}<br>${e.texto}`, m.getPosition()));
+            st.marcadores.push(m);
+        });
+        d.entregas.filter(ubicado).forEach(en => {
+            const est = ESTADO[en.estado] || { color: '#777' };
+            const m = new google.maps.Marker({
+                position: { lat: en.lat, lng: en.lng }, map: st.mapa, title: '#' + en.numero + ' ' + en.nombre, zIndex: 100,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: est.color, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+                label: { text: String(en.numero), color: '#fff', fontSize: '9px' }
+            });
+            m.addListener('click', () => { st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket); });
+            st.marcadores.push(m);
+        });
+    }
+
+    function abrirInfo(html, pos) {
+        if (st.info) st.info.close();
+        st.info = new google.maps.InfoWindow({ content: html, position: pos });
+        st.info.open(st.mapa);
+    }
+
+    // Clic en el mapa o en un cuadrante: depende de lo que se esté haciendo
+    function clicMapa(ev, normal) {
+        if (st.dibujo) { st.dibujo.puntos.push(ev.latLng); st.dibujo.linea.setPath(st.dibujo.puntos); pintar(); return; }
+        if (st.pin) { moverPin(ev.latLng); return; }
+        if (normal) normal();
+    }
+
+    function moverPin(latLng) {
+        if (!st.pin.marcador) {
+            st.pin.marcador = new google.maps.Marker({ position: latLng, map: st.mapa, draggable: true, zIndex: 1000 });
+        } else {
+            st.pin.marcador.setPosition(latLng);
+        }
+    }
+
+    function centrar(lat, lng, zoom) { st.mapa.setCenter({ lat, lng }); if (zoom) st.mapa.setZoom(zoom); }
+
+    // ---------------- Datos ----------------
+    async function recargar() {
+        try {
+            st.datos = await api('/api/datos');
+        } catch (err) {
+            document.getElementById('lista').innerHTML = `<div class="aviso error">${esc(err.message)}</div>`;
+            return false;
+        }
+        pintar();
+        pintarMapa();
+        return true;
+    }
+
+    async function guardar(ruta, cuerpo) {
+        try {
+            st.datos = await api(ruta, cuerpo);
+            return true;
+        } catch (err) {
+            alert(err.message);
+            return false;
+        }
+    }
+
+    function terminar() {
+        if (st.dibujo) st.dibujo.linea.setMap(null);
+        if (st.editando) st.editando.pol.setEditable(false);
+        if (st.pin && st.pin.marcador) st.pin.marcador.setMap(null);
+        st.dibujo = null; st.editando = null; st.pin = null;
+    }
+
+    function puntos(path) { return path.getArray().map(p => [p.lat(), p.lng()]); }
+
+    const acciones = {
+        pestana: p => { st.pestana = p; pintar(); },
+        filtro: f => { st.filtro = f; pintar(); },
+        buscar: q => { st.busqueda = q; pintarListaClientes(); },
+        soloSinPin: v => { st.soloSinPin = v; pintarListaClientes(); },
+        verEntrega: t => {
+            st.sel = t;
+            const e = st.datos.entregas.find(x => x.ticket === t);
+            pintar();
+            const el = document.getElementById('t-' + t);
+            if (el) el.scrollIntoView({ block: 'center' });
+            if (e && ubicado(e)) centrar(e.lat, e.lng, 16);
+        },
+        verCuadrante: id => {
+            const c = st.datos.cuadrantes.find(x => x.id === id);
+            if (!c || !c.poligono.length) return;
+            const b = new google.maps.LatLngBounds();
+            c.poligono.forEach(p => b.extend({ lat: p[0], lng: p[1] }));
+            st.mapa.fitBounds(b);
+        },
+        verCliente: id => {
+            const c = st.datos.clientes.find(x => x.id === id);
+            if (c && ubicado(c)) centrar(c.lat, c.lng, 17);
+        },
+        nuevoCuadrante: () => {
+            terminar();
+            const linea = new google.maps.Polygon({ map: st.mapa, paths: [], strokeColor: '#E63946', strokeWeight: 2, fillColor: '#E63946', fillOpacity: 0.15, clickable: false });
+            st.dibujo = { puntos: [], linea, nombre: '', color: '#4A90E2' };
+            pintar();
+        },
+        quitarPunto: () => { if (st.dibujo.puntos.length) { st.dibujo.puntos.pop(); st.dibujo.linea.setPath(st.dibujo.puntos); pintar(); } },
+        guardarDibujo: async () => {
+            if (st.dibujo.puntos.length < 3) { alert('Marca al menos 3 esquinas en el mapa.'); return; }
+            if (!st.dibujo.nombre.trim()) { alert('Ponle nombre al cuadrante.'); return; }
+            const cuerpo = { nombre: st.dibujo.nombre.trim(), color: st.dibujo.color, poligono: st.dibujo.puntos.map(p => [p.lat(), p.lng()]) };
+            if (await guardar('/api/cuadrante', cuerpo)) { terminar(); pintar(); pintarMapa(); aviso('Cuadrante guardado.'); }
+        },
+        editarForma: id => {
+            terminar();
+            const pol = st.poligonos.find(p => p.cuadranteId === id);
+            const c = st.datos.cuadrantes.find(x => x.id === id);
+            if (!pol || !c) return;
+            pol.setEditable(true);
+            st.editando = { id, pol, nombre: c.nombre, color: c.color };
+            acciones.verCuadrante(id);
+            pintar();
+        },
+        guardarForma: async () => {
+            const e = st.editando;
+            if (!e.nombre.trim()) { alert('Ponle nombre al cuadrante.'); return; }
+            if (await guardar('/api/cuadrante', { id: e.id, nombre: e.nombre.trim(), color: e.color, poligono: puntos(e.pol.getPath()) })) {
+                terminar(); pintar(); pintarMapa(); aviso('Cuadrante guardado.');
+            }
+        },
+        desactivar: async id => {
+            const c = st.datos.cuadrantes.find(x => x.id === id);
+            if (!c || !confirm(`¿Quitar el cuadrante “${c.nombre}”? Sus entregas quedarán sin cuadrante (el historial se conserva).`)) return;
+            if (await guardar('/api/cuadrante/desactivar', { id })) { pintar(); pintarMapa(); }
+        },
+        ponerPin: id => {
+            terminar();
+            const c = st.datos.clientes.find(x => x.id === id);
+            if (!c) return;
+            st.pestana = 'clientes';
+            st.pin = { cliente: id, direccion: c.direccion, estado: c.estado, marcador: null };
+            pintar();
+            if (ubicado(c)) { moverPin(new google.maps.LatLng(c.lat, c.lng)); centrar(c.lat, c.lng, 17); }
+        },
+        buscarDireccion: () => {
+            const dir = document.getElementById('dir-pin').value.trim();
+            if (!dir) return;
+            st.pin.direccion = dir;
+            new google.maps.Geocoder().geocode({ address: dir, region: 'mx' }, (res, estatus) => {
+                if (estatus !== 'OK' || !res.length) { alert('No se encontró esa dirección. Haz clic en el mapa donde está el negocio.'); return; }
+                const p = res[0].geometry.location;
+                moverPin(p);
+                centrar(p.lat(), p.lng(), 17);
+            });
+        },
+        guardarPin: async () => {
+            if (!st.pin.marcador) { alert('Primero haz clic en el mapa donde está el negocio.'); return; }
+            const p = st.pin.marcador.getPosition();
+            const cuerpo = { cliente: st.pin.cliente, lat: p.lat(), lng: p.lng(), estado: document.getElementById('estado-pin').value };
+            if (await guardar('/api/ubicacion', cuerpo)) { terminar(); pintar(); pintarMapa(); aviso('Ubicación guardada.'); }
+        },
+        quitarPin: async () => {
+            if (!confirm('¿Quitar la ubicación de este cliente?')) return;
+            if (await guardar('/api/ubicacion', { cliente: st.pin.cliente, lat: null, lng: null })) { terminar(); pintar(); pintarMapa(); }
+        },
+        cancelar: () => { terminar(); pintar(); pintarMapa(); }
+    };
+
+    window.iniciarMapa = function () {
+        let centro = { lat: 19.4326, lng: -99.1332 };
+        const guardado = (st.datos.centro || '').split(',').map(Number);
+        if (guardado.length === 2 && !isNaN(guardado[0]) && !isNaN(guardado[1])) centro = { lat: guardado[0], lng: guardado[1] };
+        else {
+            const conPin = st.datos.clientes.find(ubicado);
+            if (conPin) centro = { lat: conPin.lat, lng: conPin.lng };
+        }
+        st.mapa = new google.maps.Map(document.getElementById('mapa'), { center: centro, zoom: 13, clickableIcons: false, streetViewControl: false });
+        st.mapa.addListener('click', ev => clicMapa(ev));
+        pintarMapa();
+        setInterval(() => { if (!ocupado()) recargar(); }, 60000);
+    };
+
+    async function inicio() {
+        if (!await recargar()) return;
+        if (!st.datos.clave_mapa) {
+            document.getElementById('mapa').innerHTML = '<div class="aviso error" style="margin:20px">Falta la clave de Google Maps. Ponla en Chromis Admin → Gestor de entregas → Configurar mapa, y vuelve a abrir el mapa.</div>';
+            return;
+        }
+        window.gm_authFailure = () => aviso('Google Maps rechazó la clave. Revisa en Google Cloud que permita esta dirección (http://127.0.0.1).');
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(st.datos.clave_mapa) + '&language=es&region=MX&callback=iniciarMapa&loading=async';
+        s.async = true;
+        s.onerror = () => aviso('No se pudo cargar Google Maps: revisa la conexión a internet.');
+        document.head.appendChild(s);
+    }
+
+    window.Mapa = Object.assign({ _st: st }, acciones);
+    inicio();
+})();
+</script>
+</body>
+</html>

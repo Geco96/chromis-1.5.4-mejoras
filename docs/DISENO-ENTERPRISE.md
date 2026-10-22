@@ -126,7 +126,7 @@ La web (`AgendaClientes`, rama `enterprise`) y el puente del monitor quedan arch
 
 | Pieza | Dónde |
 |---|---|
-| Cuadrantes, asignación de repartidores, estados de cada entrega, ubicación de clientes | Chromis Admin: pantalla *Gestor de entregas* con mapa de Google. Tablas nuevas en la base de Chromis. |
+| Cuadrantes, asignación de repartidores, estados de cada entrega, ubicación de clientes | Chromis Admin: pantalla *Gestor de entregas*. El mapa de Google se abre en el navegador de la PC, servido por Admin solo en 127.0.0.1 (el visor web de JavaFX 11 es viejo para Google Maps y puede no venir en el Java instalado). Tablas nuevas en la base de Chromis. |
 | Repartidor | App de Android de Chromis, pantalla *Mis entregas*, conectada a la base por la VPN (Tailscale). |
 | Mapa | Google Maps (búsqueda de direcciones mexicanas y orden de paradas). La navegación la hace la app de Google Maps / Waze. OpenStreetMap solo como respaldo. |
 | Clientes existentes en la web | Se importan una sola vez con sus ubicaciones. |
@@ -178,11 +178,11 @@ clientes con GPS y pedidos como venta en espera).
 |---|---|
 | 1. Pedido tentativo diario (16:30), revisión y envío | **Hecha.** Mejora 13 del README; envío como pedido de Chromis con PDF. |
 | 2. Mostrador / Entrega en la caja | **Hecha.** Mejora 14 del README: botón en el ticket, pregunta al cobrar, datos de entrega desde el cliente en `customer_delivery`, pantalla Admin → Entregas. |
-| 3. Gestor de entregas (cuadrantes, estados, liquidación) | **En curso dentro de Chromis.** Hechas las tablas (ubicaciones, cuadrantes, estados e historial con operación única) y la importación de clientes de la web: mejora 15 del README. Siguen la pantalla *Gestor de entregas* en Admin, *Mis entregas* en Android y el rol Repartidor. Antes: **se rehace dentro de Chromis** (ver "Gestor de entregas dentro de Chromis"). La versión web quedó hecha y archivada, que llega con la fase 5 (hoy las entregas de la caja se cobran al vender). Web: `AgendaClientes`, rama `enterprise` (`ENTERPRISE.md`); puente: `chromis-monitor`, rama `enterprise` (`services/entregas_sync.py`). |
+| 3. Gestor de entregas (cuadrantes, estados, liquidación) | **En curso dentro de Chromis.** Hechas las tablas (ubicaciones, cuadrantes, estados e historial con operación única) y la importación de clientes de la web (mejora 15), y la pantalla *Gestor de entregas* en Admin con el mapa en el navegador de la PC (mejora 16). Siguen *Mis entregas* en Android y el rol Repartidor. Antes: **se rehace dentro de Chromis** (ver "Gestor de entregas dentro de Chromis"). La versión web quedó hecha y archivada, que llega con la fase 5 (hoy las entregas de la caja se cobran al vender). Web: `AgendaClientes`, rama `enterprise` (`ENTERPRISE.md`); puente: `chromis-monitor`, rama `enterprise` (`services/entregas_sync.py`). |
 | 4. Nube y conectores (catálogo, pedido y confirmación) | Pendiente |
 | 5. Pedidos de clientes en la distribuidora (apartados) | Pendiente |
 | 6. Precio especial por cliente con excepciones | Pendiente |
 
 ## Pendiente de definir
 
-- Clave nueva de Google Maps: restringida al dominio de Render, en `GOOGLE_MAPS_API_KEY`.
+- Clave de Google Maps para el mapa de entregas: Maps JavaScript API y Geocoding API, restringida a sitios web `http://127.0.0.1:47123/*`; se pone en Admin → Gestor de entregas → Configurar mapa.
