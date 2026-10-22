@@ -19,7 +19,7 @@
             </font>
         </Label>
         <Separator layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
-        <Pane layoutX="15.0" layoutY="90.0" prefHeight="300.0" prefWidth="975.0" style="-fx-border-color: #d1d4d6;">
+        <Pane layoutX="15.0" layoutY="90.0" prefHeight="320.0" prefWidth="975.0" style="-fx-border-color: #d1d4d6;">
             <children>
                 <CheckBox fx:id="chkEnabled" layoutX="200.0" layoutY="14.0" text="Hacer respaldos automáticos" />
 
@@ -27,35 +27,42 @@
                 <ComboBox fx:id="cmbTerminal" editable="true" layoutX="200.0" layoutY="45.0" prefHeight="27.0" prefWidth="250.0" />
                 <Label layoutX="460.0" layoutY="45.0" prefHeight="25.0" prefWidth="500.0" text="Nombre de la caja con Chromis POS que hará los respaldos." />
 
-                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="80.0" prefHeight="25.0" prefWidth="185.0" text="Carpeta de destino" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="80.0" prefHeight="25.0" prefWidth="185.0" text="Carpeta local" />
                 <TextField fx:id="txtFolder" layoutX="200.0" layoutY="80.0" prefHeight="27.0" prefWidth="520.0" />
                 <Button fx:id="btnChooseFolder" layoutX="730.0" layoutY="80.0" mnemonicParsing="false" onAction="#chooseFolder" prefHeight="27.0" text="Elegir..." />
-                <Label layoutX="200.0" layoutY="108.0" prefHeight="20.0" prefWidth="760.0" text="Debe existir en la PC de esa terminal: carpeta local, de red o de Google Drive para escritorio." />
+                <Label layoutX="200.0" layoutY="108.0" prefHeight="20.0" prefWidth="760.0" text="Carpeta en el disco de la PC de esa terminal, por ejemplo C:\Respaldos Chromis. Ahí siempre se guarda el respaldo." />
 
-                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="135.0" prefHeight="25.0" prefWidth="185.0" text="Respaldar cada (horas)" />
-                <TextField fx:id="txtInterval" alignment="CENTER_RIGHT" layoutX="200.0" layoutY="135.0" prefHeight="27.0" prefWidth="70.0" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="135.0" prefHeight="25.0" prefWidth="185.0" text="Copiar también a" />
+                <TextField fx:id="txtCopyFolder" layoutX="200.0" layoutY="135.0" prefHeight="27.0" prefWidth="520.0" promptText="Opcional: carpeta de Google Drive, p. ej. G:\Mi unidad\Respaldos" />
+                <Button fx:id="btnChooseCopy" layoutX="730.0" layoutY="135.0" mnemonicParsing="false" onAction="#chooseCopyFolder" prefHeight="27.0" text="Elegir..." />
+                <Label layoutX="200.0" layoutY="163.0" prefHeight="20.0" prefWidth="760.0" text="Si Google Drive no está abierto, la copia queda pendiente y se hace sola cuando vuelva a estar disponible." />
 
-                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="170.0" prefHeight="25.0" prefWidth="185.0" text="Conservar los últimos" />
-                <TextField fx:id="txtKeep" alignment="CENTER_RIGHT" layoutX="200.0" layoutY="170.0" prefHeight="27.0" prefWidth="70.0" />
-                <Label layoutX="280.0" layoutY="170.0" prefHeight="25.0" text="respaldos (los más antiguos se borran)" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="195.0" prefHeight="25.0" prefWidth="185.0" text="Respaldar cada (horas)" />
+                <TextField fx:id="txtInterval" alignment="CENTER_RIGHT" layoutX="200.0" layoutY="195.0" prefHeight="27.0" prefWidth="70.0" />
 
-                <Button fx:id="btnSave" defaultButton="true" layoutX="200.0" layoutY="215.0" mnemonicParsing="false" onAction="#save" prefHeight="30.0" prefWidth="150.0" text="Guardar" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="230.0" prefHeight="25.0" prefWidth="185.0" text="Conservar los últimos" />
+                <TextField fx:id="txtKeep" alignment="CENTER_RIGHT" layoutX="200.0" layoutY="230.0" prefHeight="27.0" prefWidth="70.0" />
+                <Label layoutX="280.0" layoutY="230.0" prefHeight="25.0" text="respaldos en cada carpeta (los más antiguos se borran)" />
+
+                <Button fx:id="btnSave" defaultButton="true" layoutX="200.0" layoutY="272.0" mnemonicParsing="false" onAction="#save" prefHeight="30.0" prefWidth="150.0" text="Guardar" />
             </children>
         </Pane>
 
-        <Pane layoutX="15.0" layoutY="400.0" prefHeight="230.0" prefWidth="975.0" style="-fx-border-color: #d1d4d6;">
+        <Pane layoutX="15.0" layoutY="420.0" prefHeight="265.0" prefWidth="975.0" style="-fx-border-color: #d1d4d6;">
             <children>
-                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="14.0" prefHeight="25.0" prefWidth="185.0" text="Último respaldo correcto" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="14.0" prefHeight="25.0" prefWidth="185.0" text="Respaldo local" />
                 <Label fx:id="lblLastBackup" layoutX="200.0" layoutY="14.0" prefHeight="25.0" prefWidth="400.0" />
                 <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="44.0" prefHeight="25.0" prefWidth="185.0" text="Último intento" />
                 <Label fx:id="lblLastAttempt" layoutX="200.0" layoutY="44.0" prefHeight="25.0" prefWidth="400.0" />
-                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="74.0" prefHeight="25.0" prefWidth="185.0" text="Resultado" />
-                <TextArea fx:id="txtStatus" editable="false" layoutX="200.0" layoutY="74.0" prefHeight="60.0" prefWidth="620.0" wrapText="true" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="74.0" prefHeight="25.0" prefWidth="185.0" text="Copia a Drive" />
+                <Label fx:id="lblCopy" layoutX="200.0" layoutY="74.0" prefHeight="25.0" prefWidth="760.0" />
+                <Label alignment="CENTER_RIGHT" layoutX="5.0" layoutY="104.0" prefHeight="25.0" prefWidth="185.0" text="Resultado" />
+                <TextArea fx:id="txtStatus" editable="false" layoutX="200.0" layoutY="104.0" prefHeight="60.0" prefWidth="620.0" wrapText="true" />
 
-                <Button fx:id="btnRefresh" layoutX="200.0" layoutY="150.0" mnemonicParsing="false" onAction="#refresh" prefHeight="30.0" text="Actualizar" />
-                <Button fx:id="btnRequest" layoutX="300.0" layoutY="150.0" mnemonicParsing="false" onAction="#requestBackup" prefHeight="30.0" text="Pedir respaldo ahora a la terminal" />
-                <Button fx:id="btnBackupHere" layoutX="545.0" layoutY="150.0" mnemonicParsing="false" onAction="#backupHere" prefHeight="30.0" text="Respaldar ahora desde esta PC..." />
-                <Label fx:id="lblWorking" layoutX="200.0" layoutY="190.0" prefHeight="25.0" prefWidth="620.0" />
+                <Button fx:id="btnRefresh" layoutX="200.0" layoutY="180.0" mnemonicParsing="false" onAction="#refresh" prefHeight="30.0" text="Actualizar" />
+                <Button fx:id="btnRequest" layoutX="300.0" layoutY="180.0" mnemonicParsing="false" onAction="#requestBackup" prefHeight="30.0" text="Pedir respaldo ahora a la terminal" />
+                <Button fx:id="btnBackupHere" layoutX="545.0" layoutY="180.0" mnemonicParsing="false" onAction="#backupHere" prefHeight="30.0" text="Respaldar ahora desde esta PC..." />
+                <Label fx:id="lblWorking" layoutX="200.0" layoutY="220.0" prefHeight="25.0" prefWidth="620.0" />
             </children>
         </Pane>
     </children>

@@ -33,8 +33,10 @@ import java.util.zip.ZipOutputStream;
  * Periodic database backups. Settings are kept in the backup_settings table
  * (edited from Chromis Admin) so every terminal sees the same configuration;
  * only the terminal named there runs the backups, which writes a zipped SQL
- * script to the configured folder (local, network or a Google Drive synced
- * folder) and keeps the newest ones.
+ * script to the configured local folder and keeps the newest ones. When a
+ * copy folder is set (e.g. Google Drive for desktop) every backup is copied
+ * there too; if it is not available the copy waits and is retried at every
+ * check, so a backup is never lost because Drive was not running.
  */
 public final class BackupService {
 
@@ -45,9 +47,13 @@ public final class BackupService {
     private static final String STATUS_ERROR = "Error: ";
     private static final long CHECK_SECONDS = 60;
     private static final long RETRY_AFTER_FAILURE_MS = 30L * 60 * 1000;
+    /** The terminal warns once when a backup has been waiting this long to be copied. */
+    static final long COPY_LATE_MS = 24L * 3_600_000L;
+    public static final String COPY_PENDING = "Pendiente: ";
 
     private static ScheduledExecutorService scheduler;
 
+    /** Receives the full text of the warning to show at the till. */
     public interface FailureListener {
         void backupFailed(String message);
     }
@@ -62,6 +68,17 @@ public final class BackupService {
         public Timestamp lastAttempt;
         public String lastStatus;
         public boolean runNow;
+        /** Second folder each backup is copied to (e.g. Google Drive); empty for none. */
+        public String copyFolder;
+        /** When the copy folder was set, so older backups never count as late. */
+        public Timestamp copySet;
+        /** Last time the copy folder had every local backup. */
+        public Timestamp lastCopy;
+        public String copyStatus;
+
+        public boolean hasCopyFolder() {
+            return copyFolder != null && !copyFolder.trim().isEmpty();
+        }
     }
 
     private final String url;
@@ -70,6 +87,7 @@ public final class BackupService {
     private final String terminal;
     private final FailureListener listener;
     private boolean lastRunFailed = false;
+    private boolean copyLateWarned = false;
     private List<String> lastWarnings = new ArrayList<>();
 
     public BackupService(String url, String user, String password, String terminal, FailureListener listener) {
@@ -110,13 +128,35 @@ public final class BackupService {
                     + "run_now TINYINT(1) NOT NULL DEFAULT 0)");
             st.executeUpdate("INSERT IGNORE INTO backup_settings (id) VALUES (1)");
         }
+        // Columns added later: existing tables get them without losing anything
+        // (checked first because MySQL has no ADD COLUMN IF NOT EXISTS)
+        addColumn(con, "copy_folder", "VARCHAR(1024) NULL");
+        addColumn(con, "copy_set", "DATETIME NULL");
+        addColumn(con, "last_copy", "DATETIME NULL");
+        addColumn(con, "copy_status", "VARCHAR(2000) NULL");
+    }
+
+    private static void addColumn(Connection con, String column, String definition) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM information_schema.columns "
+                + "WHERE table_schema = DATABASE() AND table_name = 'backup_settings' AND column_name = ?")) {
+            ps.setString(1, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    return;
+                }
+            }
+        }
+        try (Statement st = con.createStatement()) {
+            st.executeUpdate("ALTER TABLE backup_settings ADD COLUMN " + column + " " + definition);
+        }
     }
 
     public static Settings loadSettings(Connection con) throws SQLException {
         createTable(con);
         try (Statement st = con.createStatement();
                 ResultSet rs = st.executeQuery("SELECT enabled, terminal, folder, interval_hours, keep_count, "
-                        + "last_backup, last_attempt, last_status, run_now FROM backup_settings WHERE id = 1")) {
+                        + "last_backup, last_attempt, last_status, run_now, copy_folder, copy_set, last_copy, copy_status "
+                        + "FROM backup_settings WHERE id = 1")) {
             Settings s = new Settings();
             if (rs.next()) {
                 s.enabled = rs.getBoolean(1);
@@ -128,6 +168,10 @@ public final class BackupService {
                 s.lastAttempt = rs.getTimestamp(7);
                 s.lastStatus = rs.getString(8);
                 s.runNow = rs.getBoolean(9);
+                s.copyFolder = rs.getString(10);
+                s.copySet = rs.getTimestamp(11);
+                s.lastCopy = rs.getTimestamp(12);
+                s.copyStatus = rs.getString(13);
             }
             return s;
         }
@@ -135,15 +179,26 @@ public final class BackupService {
 
     /** Saves the editable settings (used by Chromis Admin). */
     public static void saveSettings(Connection con, Settings s) throws SQLException {
-        createTable(con);
+        Settings old = loadSettings(con);
+        String copy = s.hasCopyFolder() ? s.copyFolder.trim() : null;
+        boolean copyChanged = !java.util.Objects.equals(copy, old.hasCopyFolder() ? old.copyFolder.trim() : null);
         try (PreparedStatement ps = con.prepareStatement("UPDATE backup_settings SET enabled = ?, terminal = ?, folder = ?, "
-                + "interval_hours = ?, keep_count = ? WHERE id = 1")) {
+                + "interval_hours = ?, keep_count = ?, copy_folder = ? WHERE id = 1")) {
             ps.setBoolean(1, s.enabled);
             ps.setString(2, s.terminal);
             ps.setString(3, s.folder);
             ps.setInt(4, Math.max(1, s.intervalHours));
             ps.setInt(5, Math.max(1, s.keepCount));
+            ps.setString(6, copy);
             ps.executeUpdate();
+        }
+        if (copyChanged) {
+            // A new copy folder starts from scratch: no "late" warning for older backups
+            try (Statement st = con.createStatement()) {
+                st.executeUpdate(copy == null
+                        ? "UPDATE backup_settings SET copy_set = NULL, last_copy = NULL, copy_status = NULL WHERE id = 1"
+                        : "UPDATE backup_settings SET copy_set = NOW(), last_copy = NULL, copy_status = NULL WHERE id = 1");
+            }
         }
     }
 
@@ -181,10 +236,107 @@ public final class BackupService {
             boolean recentFailure = s.lastAttempt != null
                     && s.lastStatus != null && s.lastStatus.startsWith(STATUS_ERROR)
                     && now - s.lastAttempt.getTime() < RETRY_AFTER_FAILURE_MS;
-            if (!due || (recentFailure && !s.runNow)) {
-                return;
+            if (due && !(recentFailure && !s.runNow)) {
+                runBackup(con, s);
+                s = loadSettings(con);
             }
-            runBackup(con, s);
+            syncCopies(con, s, true);
+        }
+    }
+
+    /**
+     * Copies to the copy folder the local backups it does not have yet, and
+     * removes there the oldest beyond keepCount. A copy folder that is not
+     * available (Drive not running) only leaves the copy pending; when
+     * warn is set the listener hears once that a backup has waited more than
+     * 24 hours.
+     */
+    void syncCopies(Connection con, Settings s, boolean warn) throws SQLException {
+        if (!s.hasCopyFolder() || s.folder == null || s.folder.trim().isEmpty()) {
+            return;
+        }
+        Path local = Paths.get(s.folder.trim());
+        Path copy = Paths.get(s.copyFolder.trim());
+        File[] backups = local.toFile().listFiles((dir, name) -> name.startsWith(FILE_PREFIX) && name.endsWith(FILE_SUFFIX));
+        if (backups == null) {
+            return; // the local folder itself is missing: the backup reports that
+        }
+        Arrays.sort(backups, (a, b) -> a.getName().compareTo(b.getName()));
+        String problem = null;
+        int copied = 0;
+        if (!Files.isDirectory(copy)) {
+            problem = "la carpeta no está disponible (¿Google Drive está abierto?)";
+        } else {
+            // Only the newest keepCount: older ones would be removed there right away
+            int from = Math.max(0, backups.length - Math.max(1, s.keepCount));
+            for (int i = from; i < backups.length && problem == null; i++) {
+                Path target = copy.resolve(backups[i].getName());
+                if (Files.exists(target)) {
+                    continue;
+                }
+                Path temp = copy.resolve(backups[i].getName().replace(FILE_SUFFIX, ".tmp"));
+                try {
+                    Files.copy(backups[i].toPath(), temp, StandardCopyOption.REPLACE_EXISTING);
+                    Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+                    copied++;
+                } catch (IOException ex) {
+                    LOGGER.log(Level.WARNING, "No se pudo copiar el respaldo", ex);
+                    problem = "no se pudo copiar " + backups[i].getName() + ": " + ex.getMessage();
+                    try {
+                        Files.deleteIfExists(temp);
+                    } catch (IOException ignored) {
+                        // the next check tries again
+                    }
+                }
+            }
+            if (problem == null) {
+                removeOldBackups(copy, s.keepCount);
+            }
+        }
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        if (problem == null) {
+            copyLateWarned = false;
+            String status = "Correcta: " + (backups.length == 0 ? "no hay respaldos que copiar"
+                    : backups[backups.length - 1].getName() + (copied > 0 ? " (copiados " + copied + ")" : ""));
+            if (copied > 0 || s.lastCopy == null || !status.equals(s.copyStatus)) {
+                updateCopyStatus(con, now, status);
+            }
+            return;
+        }
+        String status = COPY_PENDING + problem;
+        if (!status.equals(s.copyStatus)) {
+            updateCopyStatus(con, null, status);
+        }
+        long oldestWaiting = oldestNotCopied(backups, s);
+        if (warn && !copyLateWarned && oldestWaiting > 0 && now.getTime() - oldestWaiting > COPY_LATE_MS && listener != null) {
+            copyLateWarned = true;
+            listener.backupFailed("Los respaldos se están guardando en la PC, pero llevan más de 24 horas sin copiarse a "
+                    + copy + ".\n\nMotivo: " + problem);
+        }
+    }
+
+    /** Time of the oldest local backup made after the last complete copy (and after the copy folder was set), or 0. */
+    private static long oldestNotCopied(File[] backups, Settings s) {
+        long since = Math.max(s.lastCopy == null ? 0 : s.lastCopy.getTime(), s.copySet == null ? 0 : s.copySet.getTime());
+        for (File f : backups) {
+            if (f.lastModified() > since) {
+                return f.lastModified();
+            }
+        }
+        return 0;
+    }
+
+    private static void updateCopyStatus(Connection con, Timestamp lastCopy, String status) throws SQLException {
+        String sql = lastCopy == null
+                ? "UPDATE backup_settings SET copy_status = ? WHERE id = 1"
+                : "UPDATE backup_settings SET copy_status = ?, last_copy = ? WHERE id = 1";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, status.length() > 2000 ? status.substring(0, 2000) : status);
+            if (lastCopy != null) {
+                ps.setTimestamp(2, lastCopy);
+            }
+            ps.executeUpdate();
         }
     }
 
@@ -209,6 +361,7 @@ public final class BackupService {
                 Timestamp now = new Timestamp(System.currentTimeMillis());
                 if (configuredFolder) {
                     updateStatus(con, now, true, "Correcto (desde Admin): " + file.getFileName());
+                    syncCopies(con, loadSettings(con), false);
                 } else {
                     try (Statement st = con.createStatement()) {
                         st.executeUpdate("UPDATE backup_settings SET run_now = 0 WHERE id = 1");
@@ -244,7 +397,7 @@ public final class BackupService {
             String message = STATUS_ERROR + (ex.getMessage() == null ? ex.toString() : ex.getMessage());
             updateStatus(con, attempt, false, message);
             if (!lastRunFailed && listener != null) {
-                listener.backupFailed(message);
+                listener.backupFailed("No se pudo hacer el respaldo programado de la base de datos.\n\n" + message);
             }
             lastRunFailed = true;
         } finally {

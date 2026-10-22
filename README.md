@@ -42,12 +42,18 @@ originales, las clases que se modificaron.
    - Admin → Productos, primera pestaña: interruptor **Precio sobre costo**
      (encendido por omisión; apagado = ese producto conserva su precio normal).
 5. **Respaldos periódicos**: la terminal designada respalda la base completa
-   (tablas, vistas, triggers, procedimientos) en un `.zip` dentro de la carpeta
-   elegida (local, red o Google Drive), conserva los N más recientes y avisa al
-   cajero si falla. No requiere `mysqldump`.
+   (tablas, vistas, triggers, procedimientos y eventos) en un `.zip` dentro de
+   una **carpeta local**, conserva los N más recientes y avisa al cajero si
+   falla. No requiere `mysqldump`.
+   - **Copiar también a** (opcional, p. ej. Google Drive): cada respaldo se
+     copia a esa carpeta. Si Drive no está abierto o no está disponible, el
+     respaldo local se hace igual y la copia queda **pendiente**; en cada
+     revisión (cada minuto) se copian los que falten. La caja avisa una sola
+     vez si la copia lleva más de 24 horas atrasada.
    - Admin → Utilidades → **Respaldos programados**: configuración, estado del
-     último respaldo, *Pedir respaldo ahora a la terminal* y *Respaldar ahora
-     desde esta PC*. Usa el mismo permiso que el respaldo manual de Admin.
+     último respaldo y de la copia a Drive, *Pedir respaldo ahora a la
+     terminal* y *Respaldar ahora desde esta PC*. Usa el mismo permiso que el
+     respaldo manual de Admin.
 6. **Reposición** (lo que hacía el monitor *Lite* de sucursales):
    - Cada producto con *Controlar stock* tiene **mínimo, reserva y máximo**.
      Estados: *Agotado* (≤ 0), *Bajo* (≤ mínimo), *Reserva* (≤ reserva),
@@ -189,9 +195,10 @@ Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 -- Cliente con 7.5 % sobre costo (id del cliente de la tabla customers)
 INSERT INTO costpricing_customers (customer, markup) VALUES ('<id-cliente>', 7.5);
 
--- Respaldos cada 24 h desde la terminal CAJA1, conservando 30
+-- Respaldos cada 24 h desde la terminal CAJA1, conservando 30, con copia a Drive
 UPDATE backup_settings
-   SET enabled = 1, terminal = 'CAJA1', folder = 'G:\\Mi unidad\\Respaldos Chromis',
+   SET enabled = 1, terminal = 'CAJA1', folder = 'C:\\Respaldos Chromis',
+       copy_folder = 'G:\\Mi unidad\\Respaldos Chromis',
        interval_hours = 24, keep_count = 30
  WHERE id = 1;
 -- Respaldar ahora
@@ -213,6 +220,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Auxiliar en catálogo y con ticket vacío | Original: no aparece y escanearlo con ticket vacío no agrega nada. Mejorado: aparece y se agrega. |
 | Cliente con 7.5 % sobre costo | Arroz $30 (costo $20) → $21.50; producto excluido conserva $80; producto sin costo muestra aviso y no se agrega; al quitar el cliente vuelve a $30. |
 | Captura en Admin | Margen del cliente y opción del producto se guardan y se vuelven a mostrar al reabrir. |
+| Copia a Drive | Con la carpeta de copia inexistente (como G: sin Google Drive) el respaldo local salió correcto y la copia quedó *pendiente*; al crear la carpeta, la siguiente revisión copió el respaldo; con 3 respaldos y "conservar 2" ambas carpetas quedaron con los mismos 2; con la copia atrasada más de 24 h la caja avisó una sola vez en 3 revisiones; al volver la carpeta se puso al día. La tabla existente recibió las columnas nuevas sin perder su configuración. |
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
 | Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
