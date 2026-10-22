@@ -47,6 +47,8 @@ public class ScheduledBackupsController implements Initializable {
     @FXML
     public TextField txtFolder;
     @FXML
+    public TextField txtCopyFolder;
+    @FXML
     public TextField txtInterval;
     @FXML
     public TextField txtKeep;
@@ -60,6 +62,8 @@ public class ScheduledBackupsController implements Initializable {
     public Label lblLastBackup;
     @FXML
     public Label lblLastAttempt;
+    @FXML
+    public Label lblCopy;
     @FXML
     public Label lblWorking;
     @FXML
@@ -101,6 +105,7 @@ public class ScheduledBackupsController implements Initializable {
             chkEnabled.setSelected(s.enabled);
             cmbTerminal.setValue(s.terminal);
             txtFolder.setText(s.folder == null ? "" : s.folder);
+            txtCopyFolder.setText(s.copyFolder == null ? "" : s.copyFolder);
             txtInterval.setText(String.valueOf(s.intervalHours));
             txtKeep.setText(String.valueOf(s.keepCount));
             showStatus(s);
@@ -117,6 +122,23 @@ public class ScheduledBackupsController implements Initializable {
             status = "Respaldo solicitado; la terminal lo hará en el próximo minuto.\n" + status;
         }
         txtStatus.setText(status);
+        lblCopy.setText(copyText(s));
+        lblCopy.setStyle(s.hasCopyFolder() && s.copyStatus != null && s.copyStatus.startsWith(BackupService.COPY_PENDING)
+                ? "-fx-text-fill: #b00020; -fx-font-weight: bold;" : "");
+    }
+
+    private static String copyText(BackupService.Settings s) {
+        if (!s.hasCopyFolder()) {
+            return "Sin copia (solo se guarda en la carpeta local).";
+        }
+        if (s.copyStatus == null) {
+            return "Se copiará después del siguiente respaldo.";
+        }
+        if (s.copyStatus.startsWith(BackupService.COPY_PENDING)) {
+            return "Pendiente: " + s.copyStatus.substring(BackupService.COPY_PENDING.length())
+                    + (s.lastCopy == null ? "" : " · última copia completa " + formatDate(s.lastCopy));
+        }
+        return "Correcta (" + formatDate(s.lastCopy) + ") · " + s.copyStatus.replaceFirst("^Correcta: ", "");
     }
 
     private static String formatDate(Timestamp ts) {
@@ -137,6 +159,12 @@ public class ScheduledBackupsController implements Initializable {
         s.enabled = chkEnabled.isSelected();
         s.terminal = cmbTerminal.getEditor().getText() == null ? null : cmbTerminal.getEditor().getText().trim();
         s.folder = txtFolder.getText() == null ? null : txtFolder.getText().trim();
+        s.copyFolder = txtCopyFolder.getText() == null ? null : txtCopyFolder.getText().trim();
+        if (s.copyFolder != null && !s.copyFolder.isEmpty() && s.folder != null
+                && Paths.get(s.copyFolder).toAbsolutePath().normalize().equals(Paths.get(s.folder).toAbsolutePath().normalize())) {
+            alert(AlertType.WARNING, "La carpeta de copia debe ser distinta de la carpeta local.");
+            return;
+        }
         s.intervalHours = Math.max(1, parseInt(txtInterval.getText(), 24));
         s.keepCount = Math.max(1, parseInt(txtKeep.getText(), 30));
         if (s.enabled && (s.terminal == null || s.terminal.isEmpty() || s.folder == null || s.folder.isEmpty())) {
@@ -162,6 +190,14 @@ public class ScheduledBackupsController implements Initializable {
         File folder = chooseDirectory("Carpeta de destino de los respaldos", txtFolder.getText());
         if (folder != null) {
             txtFolder.setText(folder.getAbsolutePath());
+        }
+    }
+
+    @FXML
+    public void chooseCopyFolder() {
+        File folder = chooseDirectory("Carpeta de Google Drive para la copia", txtCopyFolder.getText());
+        if (folder != null) {
+            txtCopyFolder.setText(folder.getAbsolutePath());
         }
     }
 
@@ -194,15 +230,25 @@ public class ScheduledBackupsController implements Initializable {
         Task<Path> task = new Task<>() {
             @Override
             protected Path call() throws Exception {
-                return service.backupTo(Paths.get(folder.getAbsolutePath()), keep);
+                return service.backupNow(Paths.get(folder.getAbsolutePath()), keep);
             }
         };
         setWorking(true);
         task.setOnSucceeded(e -> {
             setWorking(false);
+            reloadData();
             String message = "Respaldo guardado en:\n" + task.getValue();
             if (!service.getLastWarnings().isEmpty()) {
                 message += "\n\nNo se incluyeron por falta de permisos: " + String.join(", ", service.getLastWarnings());
+            }
+            try {
+                BackupService.Settings s = BackupService.loadSettings(connection());
+                if (s.hasCopyFolder() && s.folder != null
+                        && Paths.get(s.folder.trim()).toAbsolutePath().normalize().equals(task.getValue().getParent().toAbsolutePath().normalize())) {
+                    message += "\n\nCopia a Drive: " + copyText(s);
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.WARNING, "No se pudo leer el estado de la copia", ex);
             }
             alert(AlertType.INFORMATION, message);
         });

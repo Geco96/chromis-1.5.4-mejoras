@@ -261,7 +261,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          AppConfig.getClearDatabasePassword(),
          AppConfig.getString("terminalID"),
          message -> SwingUtilities.invokeLater(
-               () -> JAlertPane.messageBox(0, "No se pudo hacer el respaldo programado de la base de datos.\n\n" + message, 16, new Dimension(125, 50), 4)
+               () -> JAlertPane.messageBox(0, message, 16, new Dimension(125, 50), 4)
             )
       );
       this.restockAlerts = new RestockAlerts(

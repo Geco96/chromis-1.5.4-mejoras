@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.net.URL;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +38,12 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.ContextMenu;
+import javafx.geometry.Side;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.Spinner;
@@ -52,6 +59,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.SpinnerValueFactory.DoubleSpinnerValueFactory;
 import javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory;
 import javafx.scene.control.cell.PropertyValueFactory;
+import uk.chromis.pos.settings.PosSettings;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
@@ -360,6 +368,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.setTextTrimListener(this.txtReference);
       this.setTextTrimListener(this.txtBarcode);
       this.btnGenerateCode.disableProperty().bind(this.txtBarcode.disableProperty().or(this.txtBarcode.editableProperty().not()));
+      this.buildCodeMenu();
       this.setTextTrimListener(this.txtDescription);
       this.setTextListener(this.txtShortName);
       this.setTextListener(this.txtCatalogOrder);
@@ -1718,23 +1727,101 @@ public class ProductController extends BasePanelController implements Initializa
       this.cmbLocations.setItemList(locations);
    }
 
+   private static final String CODE128 = "CODE128";
+   private static final String EAN13 = "EAN13";
+   private final RadioMenuItem defaultCode128 = new RadioMenuItem("Al guardar sin código: Code 128 con el nombre");
+   private final RadioMenuItem defaultEan13 = new RadioMenuItem("Al guardar sin código: EAN-13 interno");
+   private final MenuItem lengthItem = new MenuItem();
+   private final ContextMenu codeMenu = new ContextMenu();
+
    /**
-    * Fills the barcode with the consonants of the ticket description (or of
-    * the reference), as Code 128, for products that come without a barcode.
+    * "Generar código" opens a menu to make either kind of code and to set the
+    * kind made when a product is saved without one and the Code 128 length
+    * (shared by every Admin through pos_settings).
     */
+   private void buildCodeMenu() {
+      MenuItem code128 = new MenuItem("Generar Code 128 con el nombre");
+      code128.setOnAction(e -> this.generate(CODE128));
+      MenuItem ean13 = new MenuItem("Generar EAN-13 interno (20...)");
+      ean13.setOnAction(e -> this.generate(EAN13));
+      ToggleGroup group = new ToggleGroup();
+      this.defaultCode128.setToggleGroup(group);
+      this.defaultEan13.setToggleGroup(group);
+      this.defaultCode128.setOnAction(e -> this.saveCodeSetting(PosSettings.PRODUCT_CODE_TYPE, CODE128));
+      this.defaultEan13.setOnAction(e -> this.saveCodeSetting(PosSettings.PRODUCT_CODE_TYPE, EAN13));
+      this.lengthItem.setOnAction(e -> this.askLength());
+      this.codeMenu.getItems().setAll(code128, ean13, new SeparatorMenuItem(), this.defaultCode128, this.defaultEan13, this.lengthItem);
+   }
+
+   private void refreshCodeMenu() {
+      boolean ean = EAN13.equals(this.codeType());
+      this.defaultEan13.setSelected(ean);
+      this.defaultCode128.setSelected(!ean);
+      this.lengthItem.setText("Largo máximo del Code 128: " + this.codeLength() + "...");
+   }
+
+   private String codeSetting(String name, String def) {
+      try {
+         return PosSettings.get(SessionFactory.getInstance().getSession().getConnection(), name, def);
+      } catch (SQLException var4) {
+         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo leer la configuración de códigos", var4);
+         return def;
+      }
+   }
+
+   private void saveCodeSetting(String name, String value) {
+      try {
+         PosSettings.put(SessionFactory.getInstance().getSession().getConnection(), name, value);
+      } catch (SQLException var4) {
+         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo guardar la configuración de códigos", var4);
+      }
+      this.refreshCodeMenu();
+   }
+
+   private String codeType() {
+      return EAN13.equalsIgnoreCase(this.codeSetting(PosSettings.PRODUCT_CODE_TYPE, CODE128)) ? EAN13 : CODE128;
+   }
+
+   private int codeLength() {
+      return ConsonantCode.parseLength(this.codeSetting(PosSettings.PRODUCT_CODE_LENGTH, String.valueOf(ConsonantCode.DEFAULT_LENGTH)));
+   }
+
+   private void askLength() {
+      TextInputDialog dialog = new TextInputDialog(String.valueOf(this.codeLength()));
+      dialog.setTitle("Código Code 128");
+      dialog.setHeaderText(null);
+      dialog.setContentText("Largo máximo (" + ConsonantCode.MIN_LENGTH + " a " + ConsonantCode.MAX_LENGTH + " caracteres):");
+      dialog.initOwner(this.apAnchor.getScene().getWindow());
+      dialog.showAndWait().ifPresent(text -> {
+         try {
+            int n = Integer.parseInt(text.trim());
+            this.saveCodeSetting(PosSettings.PRODUCT_CODE_LENGTH, String.valueOf(ConsonantCode.clampLength(n)));
+         } catch (NumberFormatException var4) {
+            Dialogs.showDialog(8, "\"" + text + "\" no es un número.", (Stage)this.apAnchor.getScene().getWindow(), true);
+         }
+      });
+   }
+
+   /** Button click: shows the menu under the button. */
    public void generateCode() {
-      String code = this.consonantCodeBase();
-      if (code.isEmpty()) {
+      this.refreshCodeMenu();
+      this.codeMenu.show(this.btnGenerateCode, Side.BOTTOM, 0.0, 0.0);
+   }
+
+   private void generate(String type) {
+      String code = EAN13.equals(type) ? "" : this.consonantCodeBase();
+      if (!EAN13.equals(type) && code.isEmpty()) {
          Dialogs.showDialog(8, "Escribe primero la descripción (o la referencia) del producto: el código se arma con sus consonantes.",
             (Stage)this.apAnchor.getScene().getWindow(), true);
          return;
       }
 
       String current = this.txtBarcode.getText() == null ? "" : this.txtBarcode.getText().trim();
-      if (ConsonantCode.isRetailBarcode(current)
+      if (!current.isEmpty()
          && Dialogs.showDialog(
                7,
-               "Este producto ya tiene el código de barras " + current + ".\n¿Reemplazarlo por un código generado con las consonantes del nombre?",
+               "Este producto ya tiene el código " + current + ".\n¿Reemplazarlo por un código "
+                  + (EAN13.equals(type) ? "EAN-13 interno" : "Code 128 con el nombre") + "?",
                (Stage)this.apAnchor.getScene().getWindow(),
                true
             )
@@ -1742,22 +1829,47 @@ public class ProductController extends BasePanelController implements Initializa
          return;
       }
 
-      code = this.uniqueConsonantCode(code);
+      code = EAN13.equals(type) ? this.nextEan13() : this.uniqueConsonantCode(code);
+      if (code == null) {
+         return;
+      }
       this.txtBarcode.setText(code);
       this.txtBarcode.requestFocus();
       this.txtBarcode.positionCaret(code.length());
    }
 
+   /** The code made when the product is saved without one, or null. */
+   private String automaticCode() {
+      if (EAN13.equals(this.codeType())) {
+         return this.nextEan13();
+      }
+      String code = this.consonantCodeBase();
+      return code.isEmpty() ? null : this.uniqueConsonantCode(code);
+   }
+
+   private String nextEan13() {
+      try {
+         Connection con = SessionFactory.getInstance().getSession().getConnection();
+         return InternalEan13.next(con, this.selectedProduct == null ? null : this.selectedProduct.getId());
+      } catch (SQLException var2) {
+         Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo calcular el EAN-13", var2);
+         Dialogs.showDialog(8, "No se pudo calcular el siguiente EAN-13: " + var2.getMessage(), (Stage)this.apAnchor.getScene().getWindow(), true);
+         return null;
+      }
+   }
+
    /** Consonants and digits of the ticket description, or of the reference when it has none. */
    private String consonantCodeBase() {
-      String code = ConsonantCode.fromName(this.txtDescription.getText());
-      return code.isEmpty() ? ConsonantCode.fromName(this.txtReference.getText()) : code;
+      int length = this.codeLength();
+      String code = ConsonantCode.fromName(this.txtDescription.getText(), length);
+      return code.isEmpty() ? ConsonantCode.fromName(this.txtReference.getText(), length) : code;
    }
 
    private String uniqueConsonantCode(String code) {
       try {
          return ConsonantCode.unique(
-            SessionFactory.getInstance().getSession().getConnection(), code, this.selectedProduct == null ? null : this.selectedProduct.getId()
+            SessionFactory.getInstance().getSession().getConnection(), code, this.selectedProduct == null ? null : this.selectedProduct.getId(),
+            this.codeLength()
          );
       } catch (SQLException var3) {
          Logger.getLogger(ProductController.class.getName()).log(java.util.logging.Level.WARNING, "No se pudo revisar si el código ya existe", var3);
@@ -2084,11 +2196,11 @@ public class ProductController extends BasePanelController implements Initializa
 
    @Override
    public Boolean saveRecord() {
-      // Products without a barcode get the Code 128 of their name instead of failing the "Barcode" check
+      // Products without a barcode get the default automatic code instead of failing the "Barcode" check
       if (this.txtBarcode.getText() == null || this.txtBarcode.getText().isBlank()) {
-         String code = this.consonantCodeBase();
-         if (!code.isEmpty()) {
-            this.txtBarcode.setText(this.uniqueConsonantCode(code));
+         String code = this.automaticCode();
+         if (code != null) {
+            this.txtBarcode.setText(code);
          }
       }
 

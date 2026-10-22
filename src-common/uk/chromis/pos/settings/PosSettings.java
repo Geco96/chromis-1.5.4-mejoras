@@ -27,6 +27,11 @@ public final class PosSettings {
     /** "1" to ask Mostrador or Entrega when charging a ticket that has a customer and was not marked (default on). */
     public static final String DELIVERY_ASK = "delivery.ask";
 
+    /** Code made when a product is saved without one in Admin: "CODE128" or "EAN13". */
+    public static final String PRODUCT_CODE_TYPE = "product.code.type";
+    /** Maximum length of the Code 128 made from the product name. */
+    public static final String PRODUCT_CODE_LENGTH = "product.code.maxlength";
+
     private PosSettings() {
     }
 

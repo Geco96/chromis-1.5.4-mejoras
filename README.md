@@ -42,12 +42,18 @@ originales, las clases que se modificaron.
    - Admin → Productos, primera pestaña: interruptor **Precio sobre costo**
      (encendido por omisión; apagado = ese producto conserva su precio normal).
 5. **Respaldos periódicos**: la terminal designada respalda la base completa
-   (tablas, vistas, triggers, procedimientos) en un `.zip` dentro de la carpeta
-   elegida (local, red o Google Drive), conserva los N más recientes y avisa al
-   cajero si falla. No requiere `mysqldump`.
+   (tablas, vistas, triggers, procedimientos y eventos) en un `.zip` dentro de
+   una **carpeta local**, conserva los N más recientes y avisa al cajero si
+   falla. No requiere `mysqldump`.
+   - **Copiar también a** (opcional, p. ej. Google Drive): cada respaldo se
+     copia a esa carpeta. Si Drive no está abierto o no está disponible, el
+     respaldo local se hace igual y la copia queda **pendiente**; en cada
+     revisión (cada minuto) se copian los que falten. La caja avisa una sola
+     vez si la copia lleva más de 24 horas atrasada.
    - Admin → Utilidades → **Respaldos programados**: configuración, estado del
-     último respaldo, *Pedir respaldo ahora a la terminal* y *Respaldar ahora
-     desde esta PC*. Usa el mismo permiso que el respaldo manual de Admin.
+     último respaldo y de la copia a Drive, *Pedir respaldo ahora a la
+     terminal* y *Respaldar ahora desde esta PC*. Usa el mismo permiso que el
+     respaldo manual de Admin.
 6. **Reposición** (lo que hacía el monitor *Lite* de sucursales):
    - Cada producto con *Controlar stock* tiene **mínimo, reserva y máximo**.
      Estados: *Agotado* (≤ 0), *Bajo* (≤ mínimo), *Reserva* (≤ reserva),
@@ -94,19 +100,25 @@ originales, las clases que se modificaron.
      ventas hechas después de contar) y cada ajuste queda en el diario de stock
      como "Conteo #N". Lo no contado no se toca. No usa el cierre de periodo
      de *Stock Taking* de Chromis, que pone todo el stock en cero.
-10. **Código Code 128 automático** en Admin → Productos: se arma con las
-    consonantes y números de la descripción del ticket (o de la referencia si
-    no hay descripción), máximo 12 caracteres. Ej.: "ASERRIN BOLSA NEGRO" →
-    `SRRNBLSNGR`, "BOLSA 5KG" → `BLS5KG`, "CEMENTO GRIS PORTLAND 50 KG" →
-    `CMNTGRSPRTLN`. Pensado para productos que no traen código de barras.
-    - Si se guarda un producto con *PLU (Default Barcode)* vacío, se genera solo.
-    - El botón **Generar código**, junto al campo, lo llena antes de guardar
-      para verlo o corregirlo. Si el producto ya tiene un EAN/UPC, pregunta
-      antes de reemplazarlo.
-    - Quita acentos (Ñ cuenta como N) y descarta vocales y símbolos.
-    - Si otro producto ya tiene ese código, termina en 2, 3... sin pasar de 12
-      (`SRRNBLSNGR2`).
-    - Chromis lo guarda como `CODE128`.
+10. **Códigos automáticos para control interno** en Admin → Productos. El
+    botón **Generar código ▾** junto al PLU abre un menú:
+    - **Code 128 con el nombre**: consonantes y números de la descripción del
+      ticket (o de la referencia), **8 caracteres como máximo** por omisión
+      (se puede cambiar de 4 a 12 en *Largo máximo del Code 128*). Ej.:
+      "ASERRIN BOLSA NEGRO" → `SRRNBLSN`, "BOLSA 5KG" → `BLS5KG`, "CEMENTO GRIS
+      PORTLAND 50 KG" → `CMNTGRSP`. Quita acentos (Ñ cuenta como N); si otro
+      producto ya tiene ese código termina en 2, 3...
+    - **EAN-13 interno**: `20` + consecutivo de 10 dígitos + dígito
+      verificador (`2000000000015`, `2000000000022`...). El prefijo 20 está
+      reservado por GS1 para uso dentro de la tienda, así que nunca coincide
+      con un producto de fábrica. Chromis lo guarda como `EAN-13` y cualquier
+      lector o impresora de etiquetas lo maneja.
+    - **Al guardar sin código**: se elige cuál de los dos se genera solo si se
+      guarda un producto con el PLU vacío (Code 128 por omisión).
+    - Si el producto ya tiene código, pregunta antes de reemplazarlo.
+    - La configuración es la misma para todas las PC de Admin (`pos_settings`:
+      `product.code.type`, `product.code.maxlength`). Los códigos que ya
+      existen no cambian.
 11. **Asistencia automática** (Admin → Users → Asistencia automática). Cada
     opción se activa por separado:
     - **Entrada (check in)** al entrar a Chromis POS, solo si pasaron al menos
@@ -220,7 +232,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `backup_settings` | Configuración y estado de los respaldos (una fila, `id = 1`). |
 | `restock_reserve (location, product, reserve)` | Nivel de reserva por producto. |
 | `restock_settings` | Avisos en caja activados y aviso de reserva (una fila, `id = 1`). |
-| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`), conteo rotativo (`stockcount.rotation.*`) y asistencia (`attendance.*`). |
+| `pos_settings (name, value)` | Otros ajustes: existencias en botones (`catalog.stock.show`, `catalog.stock.color`), conteo rotativo (`stockcount.rotation.*`), asistencia (`attendance.*`) y códigos automáticos (`product.code.*`). |
 | `stockcount_plans`, `stockcount_lines` | Conteos programados y lo contado de cada producto. |
 | `order_carryover` | Faltantes de cada pedido recibido y el pedido al que pasaron. |
 | `price_changes` | Cambios de costo encontrados al recibir: pendientes, autorizados o rechazados. |
@@ -233,9 +245,10 @@ Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
 -- Cliente con 7.5 % sobre costo (id del cliente de la tabla customers)
 INSERT INTO costpricing_customers (customer, markup) VALUES ('<id-cliente>', 7.5);
 
--- Respaldos cada 24 h desde la terminal CAJA1, conservando 30
+-- Respaldos cada 24 h desde la terminal CAJA1, conservando 30, con copia a Drive
 UPDATE backup_settings
-   SET enabled = 1, terminal = 'CAJA1', folder = 'G:\\Mi unidad\\Respaldos Chromis',
+   SET enabled = 1, terminal = 'CAJA1', folder = 'C:\\Respaldos Chromis',
+       copy_folder = 'G:\\Mi unidad\\Respaldos Chromis',
        interval_hours = 24, keep_count = 30
  WHERE id = 1;
 -- Respaldar ahora
@@ -257,6 +270,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Auxiliar en catálogo y con ticket vacío | Original: no aparece y escanearlo con ticket vacío no agrega nada. Mejorado: aparece y se agrega. |
 | Cliente con 7.5 % sobre costo | Arroz $30 (costo $20) → $21.50; producto excluido conserva $80; producto sin costo muestra aviso y no se agrega; al quitar el cliente vuelve a $30. |
 | Captura en Admin | Margen del cliente y opción del producto se guardan y se vuelven a mostrar al reabrir. |
+| Copia a Drive | Con la carpeta de copia inexistente (como G: sin Google Drive) el respaldo local salió correcto y la copia quedó *pendiente*; al crear la carpeta, la siguiente revisión copió el respaldo; con 3 respaldos y "conservar 2" ambas carpetas quedaron con los mismos 2; con la copia atrasada más de 24 h la caja avisó una sola vez en 3 revisiones; al volver la carpeta se puso al día. La tabla existente recibió las columnas nuevas sin perder su configuración. |
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
 | Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
@@ -264,6 +278,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Existencias en botones | "Stock: 20" en Espiral; tras vender 2 pasa a "Stock: 18" sin reiniciar; cambio de color y apagado desde Admin se ven al cambiar de categoría. |
 | Conteos programados | Conteo de 3 productos: Arroz escaneado 3 veces (sistema 11), Bolsa 5 (sistema 3), Espiral 18 en la tabla; hoja, resultado (−$160 / +$2) e informe propio solo con esos 3; tras vender 2 Arroz después de contar, al cerrar Arroz queda en 1 (9 − 8) y Bolsa en 5, con movimientos "Conteo #5" en el diario. Rotativo de 2 productos toma los nunca contados y programa el siguiente a 7 días. |
 | Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
+| Código corto y EAN-13 interno | Cemento: Code 128 con largo 8 → CMNTGRSP, con largo 6 → CMNTGR; EAN-13 interno → 2000000000015, guardado por Chromis como `EAN-13`; con "al guardar sin código: EAN-13" y el PLU vacío se generó solo. |
 | Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
