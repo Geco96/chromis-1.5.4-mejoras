@@ -260,11 +260,25 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
    }
 
    private void selectCategoryPanel(String catid) {
+      this.selectCategoryPanel(catid, false);
+   }
+
+   /**
+    * Shows the category. It is rebuilt with the current stock only when the user
+    * moves to another category or when forced (after a sale): the sales screen
+    * also calls this every time a ticket line is selected, i.e. on every product
+    * added, and rebuilding there made adding products slow.
+    */
+   private void selectCategoryPanel(String catid, boolean force) {
+      boolean again = catid.equals(this.currentCategory) && this.m_categoriesset.contains(catid);
       this.currentCategory = catid;
       this.showingProductPanel = false;
-      this.reloadStockSettings();
-      if (this.showStock && this.m_categoriesset.contains(catid)) {
-         // Rebuilt every time it is shown so the stock is current (other terminals sell too)
+      if (!again) {
+         this.reloadStockSettings();
+      }
+
+      if ((force || !again) && this.showStock && this.m_categoriesset.contains(catid)) {
+         // Other terminals sell too: the stock is read again when the category is opened
          this.removeCategoryTab(catid);
       }
 
@@ -415,7 +429,7 @@ public class JCatalog extends JPanel implements ListSelectionListener, CatalogSe
       boolean wasShowing = this.showStock;
       boolean changed = this.reloadStockSettings();
       if ((this.showStock || changed || wasShowing) && this.currentCategory != null && !this.showingProductPanel) {
-         this.selectCategoryPanel(this.currentCategory);
+         this.selectCategoryPanel(this.currentCategory, true);
          this.m_jProducts.revalidate();
          this.m_jProducts.repaint();
       }
