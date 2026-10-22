@@ -65,11 +65,11 @@ public class DatabaseDumper {
             }
             for (String view : views) {
                 out.write("DROP VIEW IF EXISTS " + quoteName(view) + ";\n");
-                out.write(withoutDefiner(showCreate("SHOW CREATE VIEW " + quoteName(view), 2)) + ";\n\n");
+                out.write(portable(withoutDefiner(showCreate("SHOW CREATE VIEW " + quoteName(view), 2)), database) + ";\n\n");
             }
             out.write("COMMIT;\n\n");
 
-            dumpTriggers(out);
+            dumpTriggers(database, out);
             dumpRoutines("PROCEDURE", database, out);
             dumpRoutines("FUNCTION", database, out);
         } finally {
@@ -125,7 +125,7 @@ public class DatabaseDumper {
         out.write("\n");
     }
 
-    private void dumpTriggers(Writer out) throws SQLException, IOException {
+    private void dumpTriggers(String database, Writer out) throws SQLException, IOException {
         List<String> triggers = new ArrayList<>();
         try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SHOW TRIGGERS")) {
             while (rs.next()) {
@@ -137,7 +137,7 @@ public class DatabaseDumper {
         }
         out.write("DELIMITER ;;\n");
         for (String trigger : triggers) {
-            writeDefinition(out, "TRIGGER", trigger, showCreate("SHOW CREATE TRIGGER " + quoteName(trigger), 3));
+            writeDefinition(out, "TRIGGER", trigger, portable(showCreate("SHOW CREATE TRIGGER " + quoteName(trigger), 3), database));
         }
         out.write("DELIMITER ;\n\n");
     }
@@ -155,7 +155,7 @@ public class DatabaseDumper {
         }
         out.write("DELIMITER ;;\n");
         for (String name : names) {
-            writeDefinition(out, type, name, showCreate("SHOW CREATE " + type + " " + quoteName(name), 3));
+            writeDefinition(out, type, name, portable(showCreate("SHOW CREATE " + type + " " + quoteName(name), 3), database));
         }
         out.write("DELIMITER ;\n\n");
     }
@@ -232,6 +232,18 @@ public class DatabaseDumper {
     }
 
     // The DEFINER user may not exist on the server where the backup is restored
+    /**
+     * Drops the database name from names like `base_pos`.`recipe_ingredients`:
+     * some MariaDB versions write it inside view definitions, and then the
+     * backup could only be restored into a database with the same name.
+     */
+    public static String portable(String sql, String database) {
+        if (sql == null || database == null) {
+            return sql;
+        }
+        return sql.replace(quoteName(database) + ".", "");
+    }
+
     static String withoutDefiner(String sql) {
         return sql.replaceFirst("DEFINER=(`[^`]*`|\\S+)@(`[^`]*`|\\S+)\\s+", "");
     }
