@@ -194,12 +194,13 @@ public class ScheduledBackupsController implements Initializable {
         Task<Path> task = new Task<>() {
             @Override
             protected Path call() throws Exception {
-                return service.backupTo(Paths.get(folder.getAbsolutePath()), keep);
+                return service.backupNow(Paths.get(folder.getAbsolutePath()), keep);
             }
         };
         setWorking(true);
         task.setOnSucceeded(e -> {
             setWorking(false);
+            reloadData();
             String message = "Respaldo guardado en:\n" + task.getValue();
             if (!service.getLastWarnings().isEmpty()) {
                 message += "\n\nNo se incluyeron por falta de permisos: " + String.join(", ", service.getLastWarnings());

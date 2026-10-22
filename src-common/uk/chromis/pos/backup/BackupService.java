@@ -188,6 +188,41 @@ public final class BackupService {
         }
     }
 
+    /**
+     * Backup made by hand from Admin. It takes the same lock as the terminals
+     * (so two backups never run at once), cancels a pending "back up now"
+     * request, and when it goes to the configured folder it counts as the
+     * last backup, so the terminal does not make another one right after.
+     */
+    public Path backupNow(Path folder, int keepCount) throws SQLException, IOException {
+        try (Connection con = connect()) {
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT GET_LOCK('chromis_backup', 0)")) {
+                if (!rs.next() || rs.getInt(1) != 1) {
+                    throw new IOException("Otra terminal está haciendo un respaldo en este momento; espera a que termine.");
+                }
+            }
+            try {
+                Settings s = loadSettings(con);
+                Path file = backupTo(folder, keepCount);
+                boolean configuredFolder = s.folder != null && !s.folder.trim().isEmpty()
+                        && Paths.get(s.folder.trim()).toAbsolutePath().normalize().equals(folder.toAbsolutePath().normalize());
+                Timestamp now = new Timestamp(System.currentTimeMillis());
+                if (configuredFolder) {
+                    updateStatus(con, now, true, "Correcto (desde Admin): " + file.getFileName());
+                } else {
+                    try (Statement st = con.createStatement()) {
+                        st.executeUpdate("UPDATE backup_settings SET run_now = 0 WHERE id = 1");
+                    }
+                }
+                return file;
+            } finally {
+                try (Statement st = con.createStatement()) {
+                    st.execute("DO RELEASE_LOCK('chromis_backup')");
+                }
+            }
+        }
+    }
+
     private void runBackup(Connection con, Settings s) throws SQLException {
         // Avoid two terminals backing up at the same time
         try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT GET_LOCK('chromis_backup', 0)")) {
