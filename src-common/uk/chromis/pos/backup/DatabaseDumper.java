@@ -72,6 +72,7 @@ public class DatabaseDumper {
             dumpTriggers(database, out);
             dumpRoutines("PROCEDURE", database, out);
             dumpRoutines("FUNCTION", database, out);
+            dumpEvents(database, out);
         } finally {
             con.commit();
             con.setAutoCommit(autoCommit);
@@ -156,6 +157,35 @@ public class DatabaseDumper {
         out.write("DELIMITER ;;\n");
         for (String name : names) {
             writeDefinition(out, type, name, portable(showCreate("SHOW CREATE " + type + " " + quoteName(name), 3), database));
+        }
+        out.write("DELIMITER ;\n\n");
+    }
+
+    /** Events (tasks scheduled inside MariaDB), e.g. periodic clean-ups. */
+    private void dumpEvents(String database, Writer out) throws SQLException, IOException {
+        List<String> names = new ArrayList<>();
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SHOW EVENTS")) {
+            while (rs.next()) {
+                names.add(rs.getString("Name"));
+            }
+        } catch (SQLException ex) {
+            // Without the EVENT privilege the list cannot be read
+            warnings.add("EVENTOS");
+            out.write("-- AVISO: no se pudieron leer los eventos (permisos insuficientes)\n\n");
+            return;
+        }
+        if (names.isEmpty()) {
+            return;
+        }
+        out.write("DELIMITER ;;\n");
+        for (String name : names) {
+            String definition;
+            try {
+                definition = showCreate("SHOW CREATE EVENT " + quoteName(name), 4);
+            } catch (SQLException ex) {
+                definition = null;
+            }
+            writeDefinition(out, "EVENT", name, portable(definition, database));
         }
         out.write("DELIMITER ;\n\n");
     }
