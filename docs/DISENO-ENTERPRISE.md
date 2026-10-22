@@ -119,6 +119,37 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 
 **Límite de Google**: una ruta de Directions admite 25 paradas; un cuadrante con más se parte en tandas.
 
+## Gestor de entregas dentro de Chromis (decisión del 22/10/2026)
+
+Reemplaza a la web de Render para las entregas: todo vive en la base de Chromis de la distribuidora.
+La web (`AgendaClientes`, rama `enterprise`) y el puente del monitor quedan archivados, sin publicar.
+
+| Pieza | Dónde |
+|---|---|
+| Cuadrantes, asignación de repartidores, estados de cada entrega, ubicación de clientes | Chromis Admin: pantalla *Gestor de entregas* con mapa de Google. Tablas nuevas en la base de Chromis. |
+| Repartidor | App de Android de Chromis, pantalla *Mis entregas*, conectada a la base por la VPN (Tailscale). |
+| Mapa | Google Maps (búsqueda de direcciones mexicanas y orden de paradas). La navegación la hace la app de Google Maps / Waze. OpenStreetMap solo como respaldo. |
+| Clientes existentes en la web | Se importan una sola vez con sus ubicaciones. |
+
+**Rol Repartidor** (por ahora): solo *Mis entregas* y **consulta de precios**. No vende, no cobra, no hace
+pedidos ni cortes. **Vendedor de campo**: no existe todavía, pero el diseño lo deja previsto (captura de
+clientes con GPS y pedidos como venta en espera).
+
+**Confirmación de la entrega** (formulario rápido en *Mis entregas*):
+- **Completado** o **No entregado**.
+- **Monto cobrado / recibido** (lo que el cliente pagó al recibir, puede ser distinto al total).
+- **Anotaciones**: faltó mercancía, rechazo, daño, etc.
+- Todo queda consultable por el **despachador** en Admin (y sirve para la liquidación al regresar).
+
+**Nada a medias** (como transacción bancaria):
+- Ventas y cobros solo con conexión, en una transacción (InnoDB): se guarda todo o nada.
+- La confirmación de entrega sí se puede hacer sin señal: se guarda en el celular como *pendiente de
+  enviar* y se manda sola al volver la conexión.
+- Cada confirmación lleva un identificador creado en el celular; al reintentar, el servidor no la
+  aplica dos veces (si ya existe, se toma como hecha). Así un corte justo después de guardar no duplica nada.
+- Seguridad: VPN limitada al puerto de la base, celulares que se pueden dar de baja, usuario de base
+  con menos permisos que las cajas.
+
 ## Arquitectura
 
 ```
@@ -147,7 +178,7 @@ quita o reduce esas líneas de la venta y cobra solo lo entregado. Lo devuelto r
 |---|---|
 | 1. Pedido tentativo diario (16:30), revisión y envío | **Hecha.** Mejora 13 del README; envío como pedido de Chromis con PDF. |
 | 2. Mostrador / Entrega en la caja | **Hecha.** Mejora 14 del README: botón en el ticket, pregunta al cobrar, datos de entrega desde el cliente en `customer_delivery`, pantalla Admin → Entregas. |
-| 3. Gestor de entregas (cuadrantes, estados, liquidación) | **Hecha, salvo la liquidación**, que llega con la fase 5 (hoy las entregas de la caja se cobran al vender). Web: `AgendaClientes`, rama `enterprise` (`ENTERPRISE.md`); puente: `chromis-monitor`, rama `enterprise` (`services/entregas_sync.py`). |
+| 3. Gestor de entregas (cuadrantes, estados, liquidación) | **Se rehace dentro de Chromis** (ver "Gestor de entregas dentro de Chromis"). La versión web quedó hecha y archivada, que llega con la fase 5 (hoy las entregas de la caja se cobran al vender). Web: `AgendaClientes`, rama `enterprise` (`ENTERPRISE.md`); puente: `chromis-monitor`, rama `enterprise` (`services/entregas_sync.py`). |
 | 4. Nube y conectores (catálogo, pedido y confirmación) | Pendiente |
 | 5. Pedidos de clientes en la distribuidora (apartados) | Pendiente |
 | 6. Precio especial por cliente con excepciones | Pendiente |
