@@ -31,6 +31,7 @@
                 <CheckBox fx:id="chkDelivered" onAction="#refresh" text="Ver también las entregadas de los últimos 7 días" />
                 <Button mnemonicParsing="false" onAction="#refresh" text="Actualizar" />
                 <Label fx:id="lblSummary" />
+                <Button mnemonicParsing="false" onAction="#importWebCustomers" text="Importar clientes de la web (CSV)..." />
             </children>
         </HBox>
 

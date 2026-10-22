@@ -1,6 +1,11 @@
 package uk.chromis.administration.delivery;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -20,7 +25,14 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.Region;
+import javafx.stage.FileChooser;
+import uk.chromis.administration.DatabaseLogic;
+import uk.chromis.administration.main.Start;
+import uk.chromis.pos.delivery.WebCustomerImport;
 import uk.chromis.administration.receiving.PurchaseOrderStore;
 import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.pos.delivery.DeliveryStore;
@@ -169,6 +181,54 @@ public class DeliveriesController implements Initializable {
             lblMessage.setText("");
         } catch (SQLException ex) {
             error("No se pudo guardar la configuración", ex);
+        }
+    }
+
+    /**
+     * Imports the customers of the old map web from the CSV that Supabase
+     * exports (Table editor → clientes → Export → CSV). First a preview with
+     * the numbers, then the real import, all or nothing.
+     */
+    @FXML
+    public void importWebCustomers() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Clientes de la web (CSV exportado de Supabase)");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV", "*.csv"));
+        File file = chooser.showOpenDialog(apAnchor.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        String siteGuid = DatabaseLogic.getInstance().getSiteGUID();
+        WebCustomerImport.Result preview;
+        try (Reader in = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
+            preview = WebCustomerImport.run(connection(), in, siteGuid, Start.getActiveUser(), true);
+        } catch (Exception ex) {
+            error("No se pudo leer el archivo", ex);
+            return;
+        }
+        StringBuilder text = new StringBuilder("Se va a importar:\n\n").append(preview.describe());
+        for (int i = 0; i < preview.skipped.size() && i < 8; i++) {
+            text.append("\n  · ").append(preview.skipped.get(i));
+        }
+        if (preview.skipped.size() > 8) {
+            text.append("\n  · y ").append(preview.skipped.size() - 8).append(" más");
+        }
+        text.append("\n\nSe importa todo junto o nada. ¿Continuar?");
+        Alert ask = new Alert(Alert.AlertType.CONFIRMATION, text.toString(), ButtonType.OK, ButtonType.CANCEL);
+        ask.setHeaderText(null);
+        ask.setTitle("Importar clientes de la web");
+        ask.getDialogPane().setPrefWidth(620);
+        ask.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
+        ask.initOwner(apAnchor.getScene().getWindow());
+        if (ask.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+            return;
+        }
+        try (Reader in = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
+            WebCustomerImport.Result r = WebCustomerImport.run(connection(), in, siteGuid, Start.getActiveUser(), false);
+            lblMessage.setText("");
+            lblSummary.setText("Importación terminada: " + r.describe());
+        } catch (Exception ex) {
+            error("No se importó nada", ex);
         }
     }
 

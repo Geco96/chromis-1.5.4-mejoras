@@ -218,6 +218,40 @@ originales, las clases que se modificaron.
       indicaciones y total) para marcarlas como entregadas; también se ven las
       entregadas de los últimos 7 días.
 
+15. **Gestor de entregas: datos e importación** (versión *Enterprise*, primera
+    parte; la pantalla con mapa y *Mis entregas* en Android vienen después):
+    - **Ubicación de cada cliente** (`customer_geo`): latitud y longitud, estado
+      comercial (*prospecto*, *cautivo*, *pendiente de visita*) y quién puso el
+      pin (web, Admin o app). No se aceptan coordenadas 0, 0 ni fuera de rango.
+    - **Cuadrantes** (`delivery_zones`): polígono, color, despachador a cargo y
+      repartidor. La entrega toma el cuadrante donde cae la ubicación de su
+      cliente; a una entrega se le puede poner otro repartidor solo a ella. Los
+      cuadrantes no se borran, se desactivan.
+    - **Estados de la entrega** (`delivery_status`): confirmado → preparado →
+      en ruta → completado / no entregado, o cancelado. La oficina (admin o el
+      despachador del cuadrante) prepara, da salida, reprograma o cancela; el
+      repartidor solo cierra **sus** entregas en ruta; solo el admin reabre una
+      completada. Al completar se exige el **monto recibido** (0 si no se
+      cobró); *no entregado* exige el motivo; una incidencia (faltante,
+      rechazo, dañado, otro) exige anotación. Completar marca la entrega como
+      entregada en Chromis y reabrirla la desmarca; una marcada a mano en
+      Admin → Entregas cuenta como completada.
+    - **Nada a medias**: cada cambio se aplica en una transacción con la venta
+      y su estado bloqueados; si algo falla no cambia nada. Cada cambio trae
+      un identificador creado por quien lo envía (`delivery_events.op_id`,
+      único): si el celular lo reenvía porque se cortó la señal, no se aplica
+      dos veces. El historial (`delivery_events`) guarda quién, cuándo, de qué
+      estado a cuál, monto e incidencia.
+    - **Importar clientes de la web**: Admin → Customers → Entregas →
+      *Importar clientes de la web (CSV)*. Se exporta la tabla `clientes` de
+      Supabase como CSV y se elige el archivo; primero muestra cuántos se
+      crearán, enlazarán u omitirán y pide confirmar. Cada cliente de la web
+      queda con número de cuenta `WEB-<id_cliente>`, así que volver a importar
+      el archivo no duplica; si en Chromis ya hay un cliente con el mismo
+      nombre se enlaza a ese (si hay dos, se omite para ubicarlo a mano). Un
+      pin movido después en Chromis no se sobrescribe. Todo el archivo entra en
+      una sola transacción.
+
 ### Tablas nuevas
 
 Se crean solas la primera vez; **la estructura de las tablas originales de
@@ -237,6 +271,9 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `order_carryover` | Faltantes de cada pedido recibido y el pedido al que pasaron. |
 | `price_changes` | Cambios de costo encontrados al recibir: pendientes, autorizados o rechazados. |
 | *(ninguna para entregas)* | Las entregas usan la tabla original `customer_delivery`; el botón y la pregunta al cobrar van en `pos_settings` (`delivery.button`, `delivery.ask`). |
+| `customer_geo` | Ubicación y estado comercial de cada cliente. |
+| `delivery_zones` | Cuadrantes: polígono (`lat,lng;lat,lng;...`), color, despachador y repartidor (`people.id`). |
+| `delivery_status`, `delivery_events` | Estado actual de cada entrega (mismo id que el ticket) y su historial con el identificador único de cada operación. |
 | `restock_drafts`, `restock_draft_lines` | Pedidos tentativos por proveedor y sus productos: borrador, enviado (con su folio), descartado o reemplazado. Su hora, caja y último resultado van en `pos_settings` (`restock.draft.*`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
@@ -284,6 +321,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 | Mostrador / Entrega | En Chromis POS: cliente asignado escaneando su tarjeta, botón → Entrega con los datos llenos desde el cliente y una indicación; al cobrar se guardó en `customer_delivery` (ticket 1) y en las propiedades del ticket, y el ticket siguiente volvió a Mostrador. Venta al mismo cliente sin marcar: preguntó al cobrar y quedó como mostrador sin entrega. Venta sin cliente: no preguntó. Entrega sin cliente: pide asignarlo. Con el botón apagado en Admin no aparece. En Admin → Entregas se vio la entrega y se marcó como entregada. `tests/DeliveryTest.java` (19 comprobaciones). |
+| Gestor de entregas (datos) | `tests/DeliveryManagerTest.java` (76 comprobaciones): coordenadas válidas e inválidas, polígono en L, cuadrante por la ubicación del cliente, permisos por papel (el repartidor no prepara ni toca entregas ajenas, otro despachador no mueve las de un cuadrante ajeno), monto y motivo obligatorios sin dejar nada a medias, la misma operación reenviada y enviada **al mismo tiempo desde dos conexiones** se aplica una sola vez, dos cierres distintos simultáneos: uno gana y el otro se rechaza; importación con comillas, comas, saltos de línea y BOM, vista previa sin guardar, enlace por nombre, nombres repetidos omitidos, reimportación sin duplicar y pin movido respetado. |
 | Pedido tentativo | `tests/DraftOrderTest.java` (54 comprobaciones): horario (antes y después de la hora, caja apagada a la hora, caja designada, apagado), cantidades (bajo, agotado, reserva con pedido en camino, faltante), proveedor por producto, reemplazo, edición, descartar y enviar. Con Chromis POS abierto y la hora ya pasada, la caja armó los borradores al minuto y mostró *Pedido tentativo listo*; en Admin se cambió una cantidad, se quitó un producto, se agregó otro escaneando y se envió como PED-000009 con su PDF. |
 
 El botón de editar línea solo aparece a usuarios con el permiso
