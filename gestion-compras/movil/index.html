@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2453c2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Compras">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Captura de Compras</title>
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#fff; --surface-2:#eef1f5; --text:#1a1f26; --muted:#5d6876; --border:#d9dee5;
+  --accent:#2453c2; --accent-text:#fff; --accent-soft:#e7eefc;
+  --ok:#1b7442; --ok-bg:#e3f3e9; --warn:#975400; --warn-bg:#fcf0db; --bad:#b0261b;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121519; --surface:#1b1f25; --surface-2:#242a32; --text:#e7ebf0; --muted:#9aa5b3; --border:#323a45;
+    --accent:#7aa2ff; --accent-text:#0d1320; --accent-soft:#1f2b45;
+    --ok:#6fd39a; --ok-bg:#16301f; --warn:#f2b75c; --warn-bg:#352812; --bad:#ff8a80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121519; --surface:#1b1f25; --surface-2:#242a32; --text:#e7ebf0; --muted:#9aa5b3; --border:#323a45;
+  --accent:#7aa2ff; --accent-text:#0d1320; --accent-soft:#1f2b45;
+  --ok:#6fd39a; --ok-bg:#16301f; --warn:#f2b75c; --warn-bg:#352812; --bad:#ff8a80; color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px}
+.top h1{font-size:18px;margin:0;flex:1}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+textarea{min-height:60px}
+input:focus,select:focus,textarea:focus,button:focus-visible,label.big:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.btn{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5}
+.icon{background:none;border:0;font-size:22px;padding:4px 8px;cursor:pointer;color:var(--muted)}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border-radius:14px;font-size:18px;font-weight:650;cursor:pointer;background:var(--accent);color:var(--accent-text)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>.btn{flex:1}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:14px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+h2{font-size:15px;margin:0 0 8px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0}
+.dia{font-size:13px;color:var(--muted);margin:16px 4px 6px;display:flex;justify-content:space-between}
+.item{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:6px;width:100%;text-align:left;cursor:pointer}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}
+.dot.ok{background:transparent}
+.empty{text-align:center;color:var(--muted);padding:28px 8px}
+/* Revisión */
+#revisar{position:fixed;inset:0;z-index:10;background:var(--bg);overflow:auto;display:flex;flex-direction:column}
+#revisar[hidden]{display:none}
+#revisar .wrap{flex:1;width:100%}
+.field{display:block;margin-bottom:14px}
+.field>span{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+input.monto{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;padding:8px 12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.thumb{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.thumb img{width:64px;height:96px;object-fit:cover;object-position:top;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;background:var(--surface-2)}
+.thumb .st{flex:1;font-size:14px}
+progress{width:100%;height:8px;accent-color:var(--accent)}
+.foot{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}
+.foot .btn{flex:1;padding:14px}
+details pre{white-space:pre-wrap;font-size:12px;background:var(--surface-2);padding:10px;border-radius:8px;max-height:240px;overflow:auto}
+dialog{border:0;border-radius:16px;padding:0;background:var(--surface);color:var(--text);width:min(560px,calc(100vw - 20px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,14,20,.5)}
+.dlg{padding:16px;overflow:auto;max-height:calc(100vh - 40px)}
+.tag{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border-radius:999px;padding:4px 10px;font-size:14px;margin:0 4px 6px 0}
+.tag button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;max-width:calc(100vw - 32px);opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+#zoom img{display:block;max-width:100%;height:auto}
+</style>
+</head>
+<body>
+<header class="top"><h1>Compras</h1><button class="icon" id="btnAjustes" aria-label="Negocios, cuentas y datos">⚙︎</button></header>
+
+<main class="wrap" id="home">
+  <label class="big">📷 Leer captura<input type="file" id="fileImg" accept="image/*" hidden></label>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" id="btnPegar" hidden>Pegar imagen</button>
+    <button class="btn" id="btnManual">Capturar sin imagen</button>
+  </div>
+  <div id="resumen"></div>
+  <div id="lista"></div>
+</main>
+
+<section id="revisar" hidden>
+  <header class="top"><h1 id="rvTitulo">Nueva compra</h1></header>
+  <div class="wrap">
+    <div class="thumb" id="rvThumb" hidden><img id="rvImg" alt="Captura"><div class="st"><div id="rvEstado" class="small muted"></div><progress id="rvProg" max="1" value="0"></progress></div></div>
+    <label class="field"><span>Monto</span><input id="rvMonto" class="monto" inputmode="decimal" placeholder="0.00" autocomplete="off"></label>
+    <div class="chips" id="rvMontos" style="margin:-6px 0 14px"></div>
+    <label class="field"><span>Concepto</span><input id="rvConc" placeholder="¿Qué se compró?" autocomplete="off"><div class="chips" id="rvConcChips"></div></label>
+    <div class="field"><span>Sucursal / negocio</span><div class="chips" id="rvSuc" style="margin-top:0"></div></div>
+    <label class="field"><span>Proveedor / tienda</span><input id="rvProv" list="dlProv" autocomplete="off"></label>
+    <div class="row" style="flex-wrap:nowrap;gap:10px">
+      <label class="field" style="flex:1"><span>Fecha</span><input type="date" id="rvFecha"></label>
+      <label class="field" style="flex:1"><span>Pagado con</span><select id="rvCta"></select></label>
+    </div>
+    <label class="field"><span>Notas</span><textarea id="rvNotas"></textarea></label>
+    <details id="rvTxtBox" hidden><summary class="small muted">Texto leído de la imagen</summary><pre id="rvTexto"></pre></details>
+  </div>
+  <div class="foot"><button class="btn danger" id="rvBorrar" hidden>Eliminar</button><button class="btn" id="rvCancelar">Cancelar</button><button class="btn primary" id="rvGuardar">Guardar</button></div>
+  <datalist id="dlProv"></datalist>
+</section>
+
+<dialog id="ajustes"><div class="dlg" id="ajustesBody"></div></dialog>
+<dialog id="zoom"><div class="dlg" style="padding:8px"><img id="zoomImg" alt="Captura completa"><button class="btn" style="width:100%;margin-top:8px" onclick="this.closest('dialog').close()">Cerrar</button></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Captura de compras desde el celular.
+   - Lee capturas de pantalla con OCR (Tesseract) dentro del teléfono.
+   - Guarda todo en IndexedDB del teléfono.
+   - Exporta un CSV que la herramienta de escritorio (../index.html) importa.
+   Importes en CENTAVOS (enteros), igual que la herramienta de escritorio.
+   ===================================================================== */
+
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const sum = (a, f) => a.reduce((t, x) => t + (f(x) || 0), 0);
+const nf = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = c => '$' + nf.format((c || 0) / 100);
+const plain = c => ((c || 0) / 100).toFixed(2);
+
+function hoy() { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+function iso(y, m, d) {
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 1900)) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+const y4 = y => (y < 100 ? 2000 + y : y);
+const fFecha = s => s.split('-').reverse().join('/');
+function fDia(s) {
+  if (s === hoy()) return 'Hoy';
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function parseMonto(v) {
+  let s = String(v ?? '').trim();
+  if (!s) return null;
+  const neg = /^\(.*\)$/.test(s) || /-/.test(s);
+  s = s.replace(/[^\d.,]/g, '');
+  if (!s) return null;
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc > ld) s = s.length - lc - 1 <= 2 ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else s = s.replace(/,/g, '');
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n * 100) * (neg ? -1 : 1) : null;
+}
+
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ---------- Almacenamiento (IndexedDB) ---------- */
+const idb = (() => {
+  let dbp;
+  const open = () => dbp || (dbp = new Promise((ok, ko) => {
+    const r = indexedDB.open('capturaCompras', 1);
+    r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('capturas', { keyPath: 'id' }); d.createObjectStore('imagenes'); d.createObjectStore('config'); };
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+  }));
+  const tx = async (store, mode, fn) => {
+    const d = await open();
+    return new Promise((ok, ko) => {
+      const t = d.transaction(store, mode), r = fn(t.objectStore(store));
+      let res; if (r) r.onsuccess = () => { res = r.result; };
+      t.oncomplete = () => ok(res); t.onerror = t.onabort = () => ko(t.error);
+    });
+  };
+  return {
+    get: (s, k) => tx(s, 'readonly', st => st.get(k)),
+    all: s => tx(s, 'readonly', st => st.getAll()),
+    put: (s, v, k) => tx(s, 'readwrite', st => st.put(v, k)),
+    del: (s, k) => tx(s, 'readwrite', st => st.delete(k))
+  };
+})();
+
+// Estado en memoria; cada cambio se escribe también en IndexedDB.
+const S = { capturas: [], cat: { negocios: [], cuentas: [], reglas: [] }, prefs: { sucursalId: '', cuentaId: '' } };
+
+async function cargarEstado() {
+  S.capturas = await idb.all('capturas');
+  S.cat = Object.assign({ negocios: [], cuentas: [], reglas: [] }, await idb.get('config', 'catalogo'));
+  S.prefs = Object.assign(S.prefs, await idb.get('config', 'prefs'));
+}
+const guardarCat = () => idb.put('config', S.cat, 'catalogo');
+const guardarPrefs = () => idb.put('config', S.prefs, 'prefs');
+
+/* ---------- Catálogo (mismos ids que la herramienta de escritorio) ---------- */
+function sucursales() {
+  const out = [];
+  for (const n of S.cat.negocios) for (const s of n.sucursales) out.push({ id: s.id, nombre: s.nombre, negocio: n.nombre, etiqueta: n.sucursales.length === 1 ? n.nombre : `${n.nombre} · ${s.nombre}` });
+  return out;
+}
+const sucursal = id => sucursales().find(s => s.id === id);
+const cuenta = id => S.cat.cuentas.find(c => c.id === id);
+
+/* =====================================================================
+   OCR
+   ===================================================================== */
+const OCR = { worker: null, onProg: null };
+function cargarScript(src) {
+  return new Promise((ok, ko) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => ko(new Error('No se pudo cargar ' + src)); document.head.appendChild(s); });
+}
+function obtenerWorker() {
+  if (!OCR.worker) OCR.worker = (async () => {
+    if (!window.Tesseract) await cargarScript('vendor/tesseract/tesseract.min.js');
+    const base = new URL('vendor/tesseract/', location.href).href;
+    return Tesseract.createWorker('spa', 1, {
+      workerPath: base + 'worker.min.js', corePath: base + 'core', langPath: base + 'lang',
+      logger: m => OCR.onProg && OCR.onProg(m)
+    });
+  })().catch(e => { OCR.worker = null; throw e; });
+  return OCR.worker;
+}
+
+// Escala la imagen a un ancho cómodo para el OCR y la pasa a grises. Las franjas oscuras
+// (modo oscuro, encabezados con texto blanco) se invierten para que todo quede oscuro sobre claro.
+async function prepararImagen(blob) {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.max(0.4, Math.min(2.5, 1200 / bmp.width));
+  const c = document.createElement('canvas');
+  const W = c.width = Math.round(bmp.width * k), H = c.height = Math.round(bmp.height * k);
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(bmp, 0, 0, W, H);
+  const comprimida = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.72));
+  const img = g.getImageData(0, 0, W, H), d = img.data, gris = new Float32Array(W * H), fila = new Float32Array(H);
+  for (let p = 0, i = 0; p < W * H; p++, i += 4) { gris[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; fila[Math.floor(p / W)] += gris[p] / W; }
+  const R = Math.max(4, Math.round(H / 200)); // ventana vertical para decidir si la franja es oscura
+  for (let y = 0; y < H; y++) {
+    let s = 0, n = 0;
+    for (let j = Math.max(0, y - R); j <= Math.min(H - 1, y + R); j++) { s += fila[j]; n++; }
+    const invertir = s / n < 110;
+    for (let x = 0, p = y * W; x < W; x++, p++) { const v = invertir ? 255 - gris[p] : gris[p]; d[p * 4] = d[p * 4 + 1] = d[p * 4 + 2] = v; }
+  }
+  g.putImageData(img, 0, 0);
+  return { canvas: c, comprimida };
+}
+
+/* ---------- Interpretar el texto leído ---------- */
+const KW_TOTAL = /\btotal\b/;
+const KW_SUBTOTAL = /sub\s?total/;
+const KW_POS = /\b(pagaste|pagado|pago|monto|importe|cargo|cobro|cobrado|enviaste|transferiste|transferencia|compra|cantidad|a pagar|amount)\b/;
+const KW_NEG = /\b(subtotal|sub total|envio|iva|impuesto|impuestos|descuento|ahorr\w*|propina|saldo|disponible|limite|cashback|puntos|comision|antes|unitario|cupon|bonificacion|mensualidad|meses|interes|precio)\b/;
+
+function extraerMontos(texto) {
+  const lineas = texto.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const out = [];
+  lineas.forEach((l, i) => {
+    const ln = norm(l), prev = i ? norm(lineas[i - 1]) : '';
+    const s = l.replace(/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/g, ' ')   // fechas
+      .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, ' ')                       // horas
+      .replace(/\d{7,}/g, ' ')                                           // referencias, folios
+      .replace(/[*•xX]{2,}\s?\d{3,4}/g, ' ');                            // tarjetas **** 1234
+    const re = /(\$|MXN|MX\$|US\$|USD|(?<![A-Za-z])S(?=\s?\d))?\s?(-?\d{1,3}(?:[,.]\d{3})+(?:[.,]\d{1,2})?|-?\d+[.,]\d{2}|-?\d+)(?![\d%])/g;
+    let m;
+    while ((m = re.exec(s))) {
+      const sym = !!m[1], dec = /[.,]\d{2}$/.test(m[2]);
+      if (!sym && !dec) continue;                    // un entero sin "$" casi nunca es dinero
+      const v = Math.abs(parseMonto(m[2]) || 0);
+      if (!v || v > 100000000) continue;
+      let sc = (sym ? 3 : 0) + (dec ? 2 : 0);
+      if (KW_TOTAL.test(ln) && !KW_SUBTOTAL.test(ln)) sc += 6; else if (KW_POS.test(ln)) sc += 3;
+      if (KW_NEG.test(ln)) sc -= 4;
+      if (ln.replace(/[^a-z]/g, '').length < 4 && prev) { // el importe va solo y la etiqueta está en la línea de arriba
+        if (KW_TOTAL.test(prev) && !KW_SUBTOTAL.test(prev)) sc += 5; else if (KW_POS.test(prev)) sc += 2;
+        if (KW_NEG.test(prev)) sc -= 4;
+      }
+      out.push({ v, sc });
+    }
+  });
+  const max = Math.max(0, ...out.map(o => o.v));
+  out.forEach(o => { if (o.v === max) o.sc += 1; });
+  const mejor = new Map();
+  for (const o of out) if (!mejor.has(o.v) || mejor.get(o.v).sc < o.sc) mejor.set(o.v, o);
+  return [...mejor.values()].sort((a, b) => b.sc - a.sc || b.v - a.v);
+}
+
+const MESES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12, jan: 1, apr: 4, aug: 8, dec: 12 };
+function extraerFecha(texto) {
+  const t = norm(texto), lim = Date.now() - 400 * 86400000, cands = [];
+  let m;
+  for (const re of [/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})\b/g]) while ((m = re.exec(t))) cands.push(iso(y4(+m[3]), +m[2], +m[1]));
+  for (const re of [/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g]) while ((m = re.exec(t))) cands.push(iso(+m[1], +m[2], +m[3]));
+  const reMes = /\b(\d{1,2})\s*(?:de\s+)?([a-z]{3,10})\.?,?\s*(?:(?:de|del)\s+)?(\d{4})?/g;
+  while ((m = reMes.exec(t))) { const mes = MESES[m[2].slice(0, 3)]; if (mes) cands.push(iso(m[3] ? +m[3] : new Date().getFullYear(), mes, +m[1])); }
+  const reEn = /\b([a-z]{3,10})\.?\s+(\d{1,2}),?\s+(\d{4})\b/g;
+  while ((m = reEn.exec(t))) { const mes = MESES[m[1].slice(0, 3)]; if (mes) cands.push(iso(+m[3], mes, +m[2])); }
+  return cands.find(f => f && f <= hoy() && Date.parse(f) > lim) || null;
+}
+
+const CONOCIDOS = ['Mercado Libre', 'Mercado Pago', 'Amazon', 'Walmart', 'Bodega Aurrera', "Sam's Club", 'Costco', 'Soriana', 'Chedraui', 'La Comer', 'OXXO', '7-Eleven',
+  'Liverpool', 'Coppel', 'Elektra', 'Home Depot', 'Office Depot', 'Uber Eats', 'Uber', 'DiDi Food', 'DiDi', 'Rappi', 'Shein', 'Temu', 'AliExpress', 'CFE', 'Telmex', 'Telcel',
+  'AT&T', 'Izzi', 'Totalplay', 'Megacable', 'Netflix', 'Spotify', 'PayPal', 'Sanborns', 'Farmacias Guadalajara', 'Farmacias del Ahorro', 'Starbucks', 'Steren', 'Pemex', 'Cinépolis'];
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function extraerProveedor(texto) {
+  const t = norm(texto), pegado = t.replace(/[^a-z0-9]/g, '');
+  const historial = [...new Set(S.capturas.map(c => c.proveedor).filter(p => p && p.length >= 3))].sort((a, b) => b.length - a.length);
+  for (const p of historial) if (t.includes(norm(p))) return p;
+  for (const p of CONOCIDOS) {
+    const n = norm(p), j = n.replace(/[^a-z0-9]/g, '');
+    if (new RegExp('(^|[^a-z0-9])' + reEsc(n) + '($|[^a-z0-9])').test(t) || (j.length >= 6 && pegado.includes(j))) return p;
+  }
+  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+  const etiqueta = /^(comercio|establecimiento|negocio|tienda|vendedor|vendido por|beneficiario|destinatario|para|pagaste a|enviaste a|pago a|compra en)\b\s*:?\s*/i;
+  for (let i = 0; i < lineas.length; i++) {
+    const m = lineas[i].match(etiqueta);
+    if (!m) continue;
+    const resto = lineas[i].slice(m[0].length).trim() || lineas[i + 1] || '';
+    if (/[a-z]{3}/i.test(resto)) return resto.replace(/[^\p{L}\p{N}&.' -]/gu, '').trim().slice(0, 40);
+  }
+  return '';
+}
+const reglaPara = texto => { const t = norm(texto); return (S.cat.reglas || []).find(r => r.patron && t.includes(norm(r.patron))); };
+
+/* =====================================================================
+   Pantalla principal
+   ===================================================================== */
+function renderHome() {
+  const mes = hoy().slice(0, 7);
+  const delMes = S.capturas.filter(c => c.fecha.slice(0, 7) === mes);
+  const pendientes = S.capturas.filter(c => !c.enviado);
+  const porSuc = new Map();
+  for (const c of delMes) porSuc.set(c.sucursalId || '', (porSuc.get(c.sucursalId || '') || 0) + c.monto);
+  const mesTxt = new Date().toLocaleDateString('es-MX', { month: 'long' });
+  $('#resumen').innerHTML = `
+    ${!S.cat.negocios.length ? `<div class="card" style="background:var(--warn-bg);border-color:transparent;color:var(--warn)">
+      Aún no tienes tus negocios y sucursales en el celular. <button class="btn" data-act="ajustes" style="margin-top:8px;width:100%">Agregarlos</button></div>` : ''}
+    <div class="card">
+      <div class="kv"><b>Este mes (${esc(mesTxt)})</b><b class="num">${money(sum(delMes, c => c.monto))}</b></div>
+      ${[...porSuc].sort((a, b) => b[1] - a[1]).map(([id, v]) => `<div class="kv small"><span class="muted">${id ? esc(sucursal(id)?.etiqueta || '(sucursal eliminada)') : 'Sin sucursal'}</span><span class="num">${money(v)}</span></div>`).join('')}
+      ${pendientes.length ? `<button class="btn primary" data-act="enviar" style="width:100%;margin-top:10px">Enviar a la computadora (${pendientes.length})</button>`
+        : S.capturas.length ? '<p class="small muted" style="margin:8px 0 0">Todo enviado a la computadora ✓</p>' : ''}
+    </div>`;
+  const orden = S.capturas.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado.localeCompare(a.creado));
+  if (!orden.length) { $('#lista').innerHTML = '<div class="empty">Toma una captura de pantalla del comprobante de tu compra y léela aquí.</div>'; return; }
+  let h = '', dia = '';
+  for (const c of orden.slice(0, 300)) {
+    if (c.fecha !== dia) {
+      dia = c.fecha;
+      h += `<div class="dia"><span>${esc(fDia(dia))}</span><span class="num">${money(sum(orden.filter(x => x.fecha === dia), x => x.monto))}</span></div>`;
+    }
+    h += `<button class="item" data-act="editar" data-id="${c.id}"><span class="dot ${c.enviado ? 'ok' : ''}" title="${c.enviado ? 'Enviada' : 'Sin enviar'}"></span>
+      <span class="t"><b>${esc(c.concepto || c.proveedor || 'Sin concepto')}</b><span>${esc([c.concepto ? c.proveedor : '', sucursal(c.sucursalId)?.etiqueta || 'Sin sucursal'].filter(Boolean).join(' · '))}</span></span>
+      <span class="num">${money(c.monto)}</span></button>`;
+  }
+  $('#lista').innerHTML = h;
+}
+
+/* =====================================================================
+   Revisar / editar una captura
+   ===================================================================== */
+const RV = { id: null, blob: null, comprimida: null, texto: '', sucursalId: '', tocado: {}, token: 0 };
+
+function chipsSucursal() {
+  const opts = [...sucursales().map(s => [s.id, s.etiqueta]), ['', 'Sin asignar']];
+  $('#rvSuc').innerHTML = opts.map(([id, l]) => `<button type="button" class="chip" data-suc="${id}" aria-pressed="${id === RV.sucursalId}">${esc(l)}</button>`).join('');
+}
+function abrirRevision(c, blob) {
+  RV.token++;
+  Object.assign(RV, { id: c?.id || null, blob: blob || null, comprimida: null, texto: c?.ocrTexto || '', sucursalId: c ? c.sucursalId : S.prefs.sucursalId || '', tocado: {} });
+  if (RV.sucursalId && !sucursal(RV.sucursalId)) RV.sucursalId = '';
+  $('#rvTitulo').textContent = c ? 'Editar compra' : 'Nueva compra';
+  $('#rvMonto').value = c ? plain(c.monto) : '';
+  $('#rvConc').value = c?.concepto || '';
+  $('#rvProv').value = c?.proveedor || '';
+  $('#rvFecha').value = c?.fecha || hoy();
+  $('#rvNotas').value = c?.notas || '';
+  const ctaSel = c ? c.cuentaId : S.prefs.cuentaId;
+  $('#rvCta').innerHTML = '<option value="">(sin especificar)</option>' + S.cat.cuentas.map(x => `<option value="${x.id}" ${x.id === ctaSel ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('');
+  $('#rvMontos').innerHTML = '';
+  $('#rvBorrar').hidden = !c;
+  $('#rvTexto').textContent = RV.texto; $('#rvTxtBox').hidden = !RV.texto;
+  const recientes = [...new Set(S.capturas.slice().sort((a, b) => b.creado.localeCompare(a.creado)).map(x => x.concepto).filter(Boolean))].slice(0, 6);
+  $('#rvConcChips').innerHTML = recientes.map(t => `<button type="button" class="chip" data-conc="${esc(t)}">${esc(t)}</button>`).join('');
+  $('#dlProv').innerHTML = [...new Set([...S.capturas.map(x => x.proveedor), ...CONOCIDOS].filter(Boolean))].map(p => `<option value="${esc(p)}">`).join('');
+  chipsSucursal();
+  $('#rvThumb').hidden = true;
+  $('#revisar').hidden = false; $('#home').hidden = true; document.querySelector('body > .top').hidden = true;
+  window.scrollTo(0, 0);
+  if (blob) leerImagen(blob);
+  else if (c?.tieneImagen) idb.get('imagenes', c.id).then(b => { if (b && RV.id === c.id) mostrarMiniatura(b, 'Comprobante guardado', 1); });
+  else setTimeout(() => $('#rvMonto').focus(), 50);
+  history.pushState({ rv: 1 }, '');
+}
+function cerrarRevision() {
+  RV.token++;
+  $('#revisar').hidden = true; $('#home').hidden = false; document.querySelector('body > .top').hidden = false;
+  if (RV.url) { URL.revokeObjectURL(RV.url); RV.url = null; }
+  renderHome();
+}
+function mostrarMiniatura(blob, estado, prog) {
+  if (RV.url) URL.revokeObjectURL(RV.url);
+  RV.url = URL.createObjectURL(blob);
+  $('#rvImg').src = RV.url; $('#rvThumb').hidden = false;
+  $('#rvEstado').textContent = estado; $('#rvProg').value = prog; $('#rvProg').hidden = prog >= 1;
+}
+const ETAPAS = { 'loading tesseract core': 'Preparando el lector…', 'initializing tesseract': 'Preparando el lector…', 'loading language traineddata': 'Cargando idioma (sólo la primera vez)…', 'initializing api': 'Preparando el lector…', 'recognizing text': 'Leyendo la imagen…' };
+async function leerImagen(blob) {
+  const token = RV.token;
+  mostrarMiniatura(blob, 'Preparando la imagen…', 0);
+  try {
+    const { canvas, comprimida } = await prepararImagen(blob);
+    RV.comprimida = comprimida;
+    OCR.onProg = m => { if (token === RV.token) { $('#rvEstado').textContent = ETAPAS[m.status] || 'Leyendo…'; $('#rvProg').value = m.status === 'recognizing text' ? m.progress : 0.05; } };
+    const w = await obtenerWorker();
+    const { data } = await w.recognize(canvas);
+    if (token !== RV.token) return;
+    aplicarTexto(data.text || '');
+  } catch (e) {
+    console.error(e);
+    if (token !== RV.token) return;
+    $('#rvEstado').textContent = 'No se pudo leer la imagen; escribe el monto a mano.'; $('#rvProg').hidden = true;
+  }
+}
+function aplicarTexto(texto) {
+  RV.texto = texto;
+  $('#rvTexto').textContent = texto; $('#rvTxtBox').hidden = !texto.trim();
+  const montos = extraerMontos(texto);
+  const fecha = extraerFecha(texto), prov = extraerProveedor(texto), regla = reglaPara(texto);
+  if (montos.length && !RV.tocado.monto) $('#rvMonto').value = plain(montos[0].v);
+  $('#rvMontos').innerHTML = montos.slice(0, 6).map(o => `<button type="button" class="chip" data-monto="${o.v}" aria-pressed="${plain(o.v) === $('#rvMonto').value}">${money(o.v)}</button>`).join('');
+  if (fecha && !RV.tocado.fecha) $('#rvFecha').value = fecha;
+  const proveedor = regla?.proveedor || prov;
+  if (proveedor && !RV.tocado.prov) $('#rvProv').value = proveedor;
+  if (!RV.tocado.suc) {
+    const previa = S.capturas.filter(c => proveedor && norm(c.proveedor) === norm(proveedor)).sort((a, b) => b.creado.localeCompare(a.creado))[0];
+    const sid = regla?.sucursalId || previa?.sucursalId;
+    if (sid && sucursal(sid)) { RV.sucursalId = sid; chipsSucursal(); }
+    if (previa?.cuentaId && cuenta(previa.cuentaId) && !RV.tocado.cta) $('#rvCta').value = previa.cuentaId;
+  }
+  $('#rvEstado').textContent = montos.length ? 'Listo. Revisa el monto.' : 'No encontré un monto; escríbelo a mano.';
+  $('#rvProg').hidden = true;
+}
+async function guardarRevision() {
+  const monto = parseMonto($('#rvMonto').value);
+  if (!monto || monto <= 0) { toast('Escribe el monto.'); $('#rvMonto').focus(); return; }
+  const previo = RV.id ? S.capturas.find(c => c.id === RV.id) : null;
+  const c = Object.assign(previo || { id: uid(), creado: new Date().toISOString(), enviado: null, tieneImagen: false }, {
+    fecha: $('#rvFecha').value || hoy(), monto, concepto: $('#rvConc').value.trim(), proveedor: $('#rvProv').value.trim(),
+    sucursalId: RV.sucursalId, cuentaId: $('#rvCta').value, notas: $('#rvNotas').value.trim(), ocrTexto: RV.texto
+  });
+  if (previo) c.enviado = null; // si se edita, hay que volver a enviarla
+  if (RV.comprimida) { await idb.put('imagenes', RV.comprimida, c.id); c.tieneImagen = true; }
+  await idb.put('capturas', c);
+  if (!previo) S.capturas.push(c);
+  Object.assign(S.prefs, { sucursalId: c.sucursalId, cuentaId: c.cuentaId }); guardarPrefs();
+  toast(previo ? 'Cambios guardados' : `Guardada: ${money(monto)}`);
+  history.back();
+}
+async function borrarCaptura() {
+  if (!confirm('¿Eliminar esta compra del celular?')) return;
+  await idb.del('capturas', RV.id); await idb.del('imagenes', RV.id);
+  S.capturas = S.capturas.filter(c => c.id !== RV.id);
+  history.back();
+}
+
+/* =====================================================================
+   Enviar a la computadora (CSV que importa ../index.html)
+   ===================================================================== */
+function csv(filas) {
+  const c = v => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return '﻿' + filas.map(r => r.map(c).join(',')).join('\r\n');
+}
+async function enviar(todas) {
+  const lista = S.capturas.filter(c => todas || !c.enviado).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  if (!lista.length) return toast('No hay compras por enviar.');
+  const filas = [['id_captura', 'fecha', 'monto', 'proveedor', 'concepto', 'negocio', 'sucursal', 'sucursal_id', 'cuenta', 'cuenta_id', 'notas']];
+  for (const c of lista) {
+    const s = sucursal(c.sucursalId), k = cuenta(c.cuentaId);
+    filas.push([c.id, c.fecha, plain(c.monto), c.proveedor, c.concepto, s?.negocio || '', s?.nombre || '', c.sucursalId || '', k?.nombre || '', c.cuentaId || '', c.notas]);
+  }
+  const nombre = `capturas-celular-${hoy()}.csv`;
+  const file = new File([csv(filas)], nombre, { type: 'text/csv' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Compras capturadas' });
+    else descargar(file);
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    descargar(file);
+  }
+  const f = hoy();
+  for (const c of lista) { c.enviado = f; await idb.put('capturas', c); }
+  renderHome();
+  toast(`${lista.length} compra(s) enviadas. En la computadora: Importar / conciliar → elige el archivo.`, 5000);
+}
+function descargar(file) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* =====================================================================
+   Ajustes: negocios, cuentas y datos
+   ===================================================================== */
+function renderAjustes() {
+  const enviadas = S.capturas.filter(c => c.enviado).length;
+  $('#ajustesBody').innerHTML = `
+    <div class="row" style="margin-bottom:8px"><h2 style="flex:1;margin:0">Negocios y cuentas</h2><button class="icon" data-act="cerrar-ajustes" aria-label="Cerrar">✕</button></div>
+    <p class="small muted">Lo más fácil: en la computadora, en "Negocios y reglas", usa <b>Enviar al celular</b> y abre aquí ese archivo. Así las sucursales, cuentas y reglas son las mismas.</p>
+    <label class="btn" style="display:block;text-align:center;cursor:pointer">Cargar archivo de la computadora<input type="file" id="fileCat" hidden></label>
+    <h2 style="margin-top:18px">Sucursales</h2>
+    <div>${S.cat.negocios.flatMap(n => n.sucursales.map(s => `<span class="tag">${esc(n.sucursales.length === 1 ? n.nombre : n.nombre + ' · ' + s.nombre)}<button data-act="del-suc" data-id="${s.id}" aria-label="Quitar">×</button></span>`)).join('') || '<span class="small muted">Ninguna todavía.</span>'}</div>
+    <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input id="nNeg" placeholder="Negocio"><input id="nSuc" placeholder="Sucursal (opcional)"><button class="btn" data-act="add-suc">+</button></div>
+    <h2 style="margin-top:18px">Cuentas / tarjetas</h2>
+    <div>${S.cat.cuentas.map(k => `<span class="tag">${esc(k.nombre)}<button data-act="del-cta" data-id="${k.id}" aria-label="Quitar">×</button></span>`).join('') || '<span class="small muted">Ninguna todavía.</span>'}</div>
+    <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input id="nCta" placeholder="Ej. Tarjeta BBVA 1234"><button class="btn" data-act="add-cta">+</button></div>
+    ${(S.cat.reglas || []).length ? `<p class="small muted">${S.cat.reglas.length} regla(s) de asignación cargadas desde la computadora.</p>` : ''}
+    <h2 style="margin-top:22px">Datos</h2>
+    <p class="small muted">${S.capturas.length} compra(s) en este celular, ${enviadas} ya enviada(s).</p>
+    <div class="row"><button class="btn" data-act="reenviar">Reenviar todas</button><button class="btn danger" data-act="limpiar" ${enviadas ? '' : 'disabled'}>Borrar enviadas</button></div>
+    <p class="small muted" style="margin-top:14px">Reenviar no duplica nada: la computadora reconoce las compras que ya importó.</p>
+    ${instalable()}`;
+}
+function instalable() {
+  if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) return '';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return `<h2 style="margin-top:22px">Instalar en el celular</h2><p class="small muted">${ios
+    ? 'En Safari toca <b>Compartir</b> → <b>Agregar a pantalla de inicio</b>.'
+    : 'En Chrome abre el menú ⋮ → <b>Instalar app</b> (o "Agregar a pantalla principal"). Ya instalada, al compartir una captura de pantalla aparecerá <b>Compras</b> como destino.'}</p>`;
+}
+function negocioPorNombre(nombre) {
+  let n = S.cat.negocios.find(x => norm(x.nombre) === norm(nombre));
+  if (!n) { n = { id: uid(), nombre, sucursales: [] }; S.cat.negocios.push(n); }
+  return n;
+}
+
+/* =====================================================================
+   Eventos
+   ===================================================================== */
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act],[data-suc],[data-conc],[data-monto]');
+  if (!el) return;
+  if (el.dataset.suc !== undefined) { RV.sucursalId = el.dataset.suc; RV.tocado.suc = true; chipsSucursal(); return; }
+  if (el.dataset.conc !== undefined) { $('#rvConc').value = el.dataset.conc; return; }
+  if (el.dataset.monto !== undefined) {
+    $('#rvMonto').value = plain(+el.dataset.monto); RV.tocado.monto = true;
+    document.querySelectorAll('[data-monto]').forEach(b => b.setAttribute('aria-pressed', b === el));
+    return;
+  }
+  const id = el.dataset.id;
+  switch (el.dataset.act) {
+    case 'editar': abrirRevision(S.capturas.find(c => c.id === id)); break;
+    case 'enviar': enviar(false); break;
+    case 'reenviar': $('#ajustes').close(); enviar(true); break;
+    case 'ajustes': renderAjustes(); $('#ajustes').showModal(); break;
+    case 'cerrar-ajustes': $('#ajustes').close(); renderHome(); break;
+    case 'add-suc': {
+      const neg = $('#nNeg').value.trim(), suc = $('#nSuc').value.trim();
+      if (!neg) return toast('Escribe el nombre del negocio.');
+      const n = negocioPorNombre(neg);
+      const nombre = suc || 'Principal';
+      if (!n.sucursales.some(s => norm(s.nombre) === norm(nombre))) n.sucursales.push({ id: uid(), nombre });
+      await guardarCat(); renderAjustes(); break;
+    }
+    case 'del-suc':
+      for (const n of S.cat.negocios) n.sucursales = n.sucursales.filter(s => s.id !== id);
+      S.cat.negocios = S.cat.negocios.filter(n => n.sucursales.length);
+      await guardarCat(); renderAjustes(); break;
+    case 'add-cta': {
+      const v = $('#nCta').value.trim();
+      if (v) { S.cat.cuentas.push({ id: uid(), nombre: v }); await guardarCat(); renderAjustes(); }
+      break;
+    }
+    case 'del-cta': S.cat.cuentas = S.cat.cuentas.filter(k => k.id !== id); await guardarCat(); renderAjustes(); break;
+    case 'limpiar': {
+      const env = S.capturas.filter(c => c.enviado);
+      if (!confirm(`¿Borrar del celular las ${env.length} compra(s) que ya se enviaron a la computadora?`)) return;
+      for (const c of env) { await idb.del('capturas', c.id); await idb.del('imagenes', c.id); }
+      S.capturas = S.capturas.filter(c => !c.enviado);
+      renderAjustes(); break;
+    }
+  }
+});
+$('#btnAjustes').addEventListener('click', () => { renderAjustes(); $('#ajustes').showModal(); });
+$('#ajustes').addEventListener('close', renderHome);
+$('#fileImg').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) abrirRevision(null, f); });
+$('#btnManual').addEventListener('click', () => abrirRevision(null));
+$('#rvCancelar').addEventListener('click', () => history.back());
+$('#rvGuardar').addEventListener('click', guardarRevision);
+$('#rvBorrar').addEventListener('click', borrarCaptura);
+$('#rvImg').addEventListener('click', () => { $('#zoomImg').src = $('#rvImg').src; $('#zoom').showModal(); });
+$('#rvMonto').addEventListener('input', () => { RV.tocado.monto = true; document.querySelectorAll('[data-monto]').forEach(b => b.setAttribute('aria-pressed', plain(+b.dataset.monto) === $('#rvMonto').value)); });
+$('#rvFecha').addEventListener('input', () => { RV.tocado.fecha = true; });
+$('#rvProv').addEventListener('input', () => { RV.tocado.prov = true; });
+$('#rvCta').addEventListener('change', () => { RV.tocado.cta = true; });
+window.addEventListener('popstate', () => { if (!$('#revisar').hidden) cerrarRevision(); });
+
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'fileCat' || !e.target.files[0]) return;
+  try {
+    const d = JSON.parse(await e.target.files[0].text());
+    if (!Array.isArray(d.negocios)) throw new Error('Ese archivo no trae negocios.');
+    S.cat = { negocios: d.negocios, cuentas: d.cuentas || [], reglas: d.reglas || [] };
+    await guardarCat(); renderAjustes();
+    toast(`Cargados: ${sucursales().length} sucursal(es), ${S.cat.cuentas.length} cuenta(s).`);
+  } catch (err) { toast('No se pudo leer: ' + err.message, 4000); }
+});
+
+// Pegar una imagen (portapapeles)
+document.addEventListener('paste', e => {
+  if (!$('#revisar').hidden) return;
+  const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/'));
+  if (f) abrirRevision(null, f);
+});
+if (navigator.clipboard && navigator.clipboard.read) {
+  $('#btnPegar').hidden = false;
+  $('#btnPegar').addEventListener('click', async () => {
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const tipo = item.types.find(t => t.startsWith('image/'));
+        if (tipo) return abrirRevision(null, await item.getType(tipo));
+      }
+      toast('No hay ninguna imagen copiada.');
+    } catch (err) { toast('No se pudo leer el portapapeles.'); }
+  });
+}
+
+/* ---------- Inicio ---------- */
+(async () => {
+  try { await cargarEstado(); }
+  catch (e) { document.body.innerHTML = '<p class="wrap">Este navegador no permite guardar datos (¿modo incógnito?). Abre la app en una ventana normal.</p>'; return; }
+  renderHome();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e));
+  }
+  // Imagen recibida desde "Compartir" (Android): el service worker la deja en caché.
+  if (new URLSearchParams(location.search).has('compartido') && 'caches' in window) {
+    history.replaceState(null, '', location.pathname);
+    const cache = await caches.open('compartido');
+    const r = await cache.match('ultima');
+    if (r) { await cache.delete('ultima'); abrirRevision(null, await r.blob()); }
+  }
+  // Pre-carga el lector en segundo plano para que la primera lectura sea rápida.
+  setTimeout(() => { if ('requestIdleCallback' in window) requestIdleCallback(() => obtenerWorker().catch(() => {})); }, 1500);
+})();
+</script>
+</body>
+</html>

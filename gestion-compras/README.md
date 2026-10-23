@@ -2,13 +2,17 @@
 
 Una herramienta sencilla para saber, cada mes, **qué compra le corresponde a cada negocio o sucursal**, **qué ya se pagó** y **qué falta por pagar**, sin cuadrar números a mano.
 
-Es un solo archivo (`index.html`). No requiere instalar nada: se abre con doble clic en Chrome, Edge o Firefox.
+Son dos partes que trabajan juntas:
+
+- **`index.html` – en la computadora**: el cuadre del mes, importación de estados de cuenta, pagos y reportes. Se abre con doble clic en Chrome, Edge o Firefox.
+- **`movil/` – en el celular**: capturas la compra en el momento, leyendo el monto de la captura de pantalla del comprobante. Ver [movil/README.md](movil/README.md).
 
 ## Cómo se usa
 
 1. **Negocios y reglas**: da de alta tus negocios, sus sucursales y las cuentas/tarjetas con las que pagas.
 2. **Importar / conciliar**: sube tu archivo (Excel `.xlsx` o `.csv`).
    - **Estado de cuenta** (banco o tarjeta): cada cargo se registra como una compra *ya pagada* con esa cuenta. Si el cargo coincide con una compra que ya tenías por pagar (mismo importe, fecha cercana), se propone ligarlo como **pago** de esa compra. Los abonos y los movimientos ya importados se ignoran solos.
+   - **Compras capturadas en el celular**: el archivo `capturas-celular-….csv` que manda la app. Se reconoce solo; cada compra entra pagada, con su sucursal y cuenta. Las que ya importaste se ignoran.
    - **Listado de compras / facturas por pagar**: cada renglón se vuelve una compra *pendiente*. Si el archivo trae una columna de sucursal, se asigna automáticamente.
    - La herramienta adivina qué columna es cuál (fecha, descripción, cargo, abono…). Puedes corregirlo antes de confirmar.
    - Antes de registrar ves un **cuadre**: total de cargos del archivo contra lo que se va a registrar y lo ignorado.

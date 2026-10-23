@@ -681,7 +681,8 @@ function dlgPago(id, compraId) {
 const IMP = { tipo: 'estado', archivo: '', rows: null, header: 0, map: {}, fmt: 'dmy', signo: 'auto', cuentaId: '', filas: [], resultado: '' };
 const CAMPOS = {
   estado: [['fecha', 'Fecha', 1], ['desc', 'Descripción', 1], ['monto', 'Importe (una columna)', 0], ['cargo', 'Cargo / retiro', 0], ['abono', 'Abono / depósito', 0], ['ref', 'Referencia', 0]],
-  compras: [['fecha', 'Fecha', 1], ['proveedor', 'Proveedor', 1], ['total', 'Total', 1], ['folio', 'Folio / factura', 0], ['concepto', 'Concepto', 0], ['sucursal', 'Sucursal / negocio', 0], ['vence', 'Vencimiento', 0], ['categoria', 'Categoría', 0]]
+  compras: [['fecha', 'Fecha', 1], ['proveedor', 'Proveedor', 1], ['total', 'Total', 1], ['folio', 'Folio / factura', 0], ['concepto', 'Concepto', 0], ['sucursal', 'Sucursal / negocio', 0], ['vence', 'Vencimiento', 0], ['categoria', 'Categoría', 0]],
+  capturas: [] // CSV de la app del celular: columnas fijas, no se mapean
 };
 const PISTAS = {
   fecha: /^fecha|^date|fecha de (operacion|compra|movimiento)/, desc: /descrip|concepto|detalle|movimiento|establecimiento|comercio/,
@@ -696,9 +697,12 @@ function vImportar() {
     <div class="row" style="margin-bottom:10px">
       <label class="row"><input type="radio" name="imptipo" value="estado" ${I.tipo === 'estado' ? 'checked' : ''}> Estado de cuenta (banco o tarjeta)</label>
       <label class="row"><input type="radio" name="imptipo" value="compras" ${I.tipo === 'compras' ? 'checked' : ''}> Listado de compras / facturas por pagar</label>
+      <label class="row"><input type="radio" name="imptipo" value="capturas" ${I.tipo === 'capturas' ? 'checked' : ''}> Compras capturadas en el celular</label>
     </div>
     <p class="small muted">${I.tipo === 'estado'
       ? 'Cada cargo se convierte en una compra <b>ya pagada</b> con esa cuenta, o se liga como pago a una compra que ya tenías registrada. Las reglas asignan proveedor y sucursal solas.'
+      : I.tipo === 'capturas'
+      ? 'Sube el archivo <b>capturas-celular-….csv</b> que enviaste desde la app del celular. Cada compra entra <b>ya pagada</b>, con la sucursal y la cuenta elegidas en el celular. Las que ya importaste antes se ignoran solas.'
       : 'Cada renglón se convierte en una compra <b>por pagar</b>. Si el archivo trae una columna de sucursal se asigna automáticamente.'}</p>
     <div class="row">
       ${I.tipo === 'estado' ? `<label class="row small muted">Cuenta <select id="impCuenta">${DB.cuentas.length ? opcionesCuenta(I.cuentaId) : '<option value="">(agrega una cuenta primero)</option>'}</select></label>` : ''}
@@ -709,6 +713,7 @@ function vImportar() {
     ${!DB.negocios.length ? `<div class="alert warn" style="margin-top:12px">Aún no tienes sucursales; podrás importar pero todo quedará "sin asignar". <button class="link" data-act="ir" data-tab="catalogos">Agregarlas</button></div>` : ''}
   </div>`;
   if (!I.rows) return h;
+  if (I.tipo === 'capturas') return h + vPrevia();
 
   const hdr = I.rows[I.header] || [];
   const cols = hdr.map((v, k) => `<option value="${k}">${esc(String(v || 'Columna ' + (k + 1)).slice(0, 40))}</option>`).join('');
@@ -725,10 +730,21 @@ function vImportar() {
   const faltan = CAMPOS[I.tipo].filter(([k, , req]) => req && I.map[k] === undefined).map(x => x[1]);
   if (I.tipo === 'estado' && I.map.monto === undefined && I.map.cargo === undefined) faltan.push('Importe o Cargo');
   if (faltan.length) return h + `<div class="alert warn">Indica la columna de: ${faltan.join(', ')}.</div>`;
-
-  const F = I.filas, act = F.filter(f => f.accion !== 'ignorar');
+  return h + vPrevia();
+}
+function vPrevia() {
+  const I = IMP, F = I.filas, act = F.filter(f => f.accion !== 'ignorar');
   const cargos = F.filter(f => !f.abono);
-  const res = I.tipo === 'estado'
+  const pagadas = I.tipo !== 'compras'; // estado de cuenta y celular: cada renglón ya es dinero que salió
+  if (I.tipo === 'capturas' && !(I.rows[I.header] || []).map(norm).includes('id_captura')) return `<div class="alert warn">Este archivo no es de la app del celular. Elige otro tipo de importación arriba.</div>`;
+  const res = I.tipo === 'capturas'
+    ? `<div class="kpis" style="margin-bottom:12px">
+        <div class="kpi"><div class="l">Compras en el archivo</div><div class="v">${money(sum(F, f => f.importe))}</div><div class="s">${F.length} compra(s)</div></div>
+        <div class="kpi"><div class="l">Se registrarán</div><div class="v">${money(sum(act, f => f.importe))}</div><div class="s">${act.length} compra(s)</div></div>
+        <div class="kpi"><div class="l">Ya importadas antes</div><div class="v">${F.filter(f => f.dup).length}</div><div class="s">se ignoran</div></div>
+        <div class="kpi"><div class="l">Sin sucursal</div><div class="v">${act.filter(f => f.accion === 'nueva' && !f.sucursalId).length}</div><div class="s">quedarán por asignar</div></div>
+      </div>`
+    : I.tipo === 'estado'
     ? `<div class="kpis" style="margin-bottom:12px">
         <div class="kpi"><div class="l">Cargos en el archivo</div><div class="v">${money(sum(cargos, f => f.importe))}</div><div class="s">${cargos.length} movimiento(s)</div></div>
         <div class="kpi"><div class="l">Se registrarán</div><div class="v">${money(sum(act, f => f.importe))}</div><div class="s">${act.length} movimiento(s)</div></div>
@@ -742,16 +758,16 @@ function vImportar() {
       </div>`;
   const pag = pagadoPorCompra();
   const pendientes = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) })).filter(x => x.saldo > 0);
-  h += `<div class="card"><h2>3. Revisa y confirma</h2>${res}
+  return `<div class="card"><h2>${I.tipo === 'capturas' ? '2' : '3'}. Revisa y confirma</h2>${res}
     ${I.invalidas ? `<p class="small muted">${I.invalidas} renglón(es) sin fecha o importe válidos se omitieron (encabezados, saldos, totales…).</p>` : ''}
-    <div class="tw" style="max-height:60vh;overflow:auto"><table><thead><tr><th>Acción</th><th>Fecha</th><th>${I.tipo === 'estado' ? 'Descripción' : 'Folio / concepto'}</th><th class="num">Importe</th><th>Proveedor</th><th>Sucursal</th><th></th></tr></thead><tbody>
+    <div class="tw" style="max-height:60vh;overflow:auto"><table><thead><tr><th>Acción</th><th>Fecha</th><th>${I.tipo === 'estado' ? 'Descripción' : I.tipo === 'capturas' ? 'Concepto / pagado con' : 'Folio / concepto'}</th><th class="num">Importe</th><th>Proveedor</th><th>Sucursal</th><th></th></tr></thead><tbody>
     ${F.map((f, k) => `<tr data-k="${k}" style="${f.accion === 'ignorar' ? 'opacity:.55' : ''}">
       <td><select data-imp="accion">
-        <option value="nueva" ${f.accion === 'nueva' ? 'selected' : ''}>${I.tipo === 'estado' ? 'Nueva compra pagada' : 'Nueva compra'}</option>
-        ${I.tipo === 'estado' && pendientes.length ? `<option value="pagar" ${f.accion === 'pagar' ? 'selected' : ''}>Pago a compra existente</option>` : ''}
+        <option value="nueva" ${f.accion === 'nueva' ? 'selected' : ''}>${pagadas ? 'Nueva compra pagada' : 'Nueva compra'}</option>
+        ${pagadas && pendientes.length ? `<option value="pagar" ${f.accion === 'pagar' ? 'selected' : ''}>Pago a compra existente</option>` : ''}
         <option value="ignorar" ${f.accion === 'ignorar' ? 'selected' : ''}>Ignorar</option></select>
         ${f.dup ? '<div><span class="tag neutral">Ya importado</span></div>' : f.abono ? '<div><span class="tag neutral">Abono</span></div>' : f.regla ? '<div><span class="tag info">Regla</span></div>' : f.match ? '<div><span class="tag info">Coincidencia</span></div>' : ''}</td>
-      <td>${fFecha(f.fecha)}</td><td class="small" style="max-width:260px">${esc(f.desc)}</td><td class="num">${money(f.importe)}</td>
+      <td>${fFecha(f.fecha)}</td><td class="small" style="max-width:260px">${esc(f.desc)}${I.tipo === 'capturas' ? `<div class="muted">${esc(f.cuentaNombre || 'Cuenta sin especificar')}</div>` : ''}</td><td class="num">${money(f.importe)}</td>
       ${f.accion === 'pagar'
         ? `<td colspan="2"><select data-imp="compraId" class="inline-edit">${pendientes.map(({ c, saldo }) => `<option value="${c.id}" ${c.id === f.compraId ? 'selected' : ''}>${fFecha(c.fecha)} · ${esc(c.proveedor)} ${esc(c.folio)} · saldo ${money(saldo)}</option>`).join('')}</select></td>`
         : `<td><input data-imp="proveedor" class="inline-edit" value="${esc(f.proveedor)}"></td><td><select data-imp="sucursalId" class="inline-edit">${opcionesSucursal(f.sucursalId)}</select></td>`}
@@ -759,7 +775,6 @@ function vImportar() {
     </tbody></table></div>
     <div class="row end" style="margin-top:12px"><button class="btn" data-act="imp-cancelar">Cancelar</button>
       <button class="btn primary" data-act="imp-confirmar" ${act.length ? '' : 'disabled'}>Registrar ${act.length} movimiento(s)</button></div></div>`;
-  return h;
 }
 
 async function leerArchivo(file) {
@@ -851,13 +866,24 @@ function construirFilas() {
       const f = { fecha, desc, importe, abono, huella, dup, regla: !!regla, ref: String(val(r, 'ref') ?? '').trim(),
         proveedor: regla?.proveedor || limpiarDesc(desc), sucursalId: regla?.sucursalId || '', categoria: regla?.categoria || '', accion: 'nueva', compraId: '', match: false };
       if (dup || abono) f.accion = 'ignorar';
-      else {
-        // ¿Hay una compra registrada con ese mismo saldo y fecha cercana? -> es su pago
-        const cand = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) - (usado.get(c.id) || 0) }))
-          .filter(x => x.saldo === importe && diasEntre(x.c.fecha, fecha) >= -5 && diasEntre(x.c.fecha, fecha) <= 60)
-          .sort((a, b) => Math.abs(diasEntre(a.c.fecha, fecha)) - Math.abs(diasEntre(b.c.fecha, fecha)))[0];
-        if (cand) { f.accion = 'pagar'; f.compraId = cand.c.id; f.match = true; usado.set(cand.c.id, (usado.get(cand.c.id) || 0) + importe); }
-      }
+      else ligarCoincidencia(f, pag, usado);
+      out.push(f);
+    }
+  } else if (I.tipo === 'capturas') {
+    const H = (I.rows[I.header] || []).map(norm);
+    const pag = pagadoPorCompra(), usado = new Map();
+    for (const r of datos) {
+      const g = k => String(r[H.indexOf(k)] ?? '').trim();
+      const id = g('id_captura'), fecha = parseFecha(g('fecha'), 'dmy'), importe = Math.abs(parseMonto(g('monto')) || 0);
+      if (!id || !fecha || !importe) { I.invalidas++; continue; }
+      const huella = 'cap:' + id, dup = !!DB.importados[huella];
+      const concepto = g('concepto'), proveedor = g('proveedor'), regla = reglaPara(proveedor + ' ' + concepto);
+      const sucursalId = (sucursal(g('sucursal_id')) && g('sucursal_id')) || buscarSucursalPorNombre(g('negocio') + ' ' + g('sucursal'))
+        || buscarSucursalPorNombre(g('negocio')) || buscarSucursalPorNombre(g('sucursal')) || regla?.sucursalId || '';
+      const cuentaId = (DB.cuentas.some(c => c.id === g('cuenta_id')) && g('cuenta_id')) || DB.cuentas.find(c => norm(c.nombre) === norm(g('cuenta')))?.id || '';
+      const f = { fecha, desc: concepto, concepto, notas: g('notas'), importe, huella, dup, regla: false, ref: 'Celular', cuentaId, cuentaNombre: g('cuenta'),
+        proveedor: proveedor || regla?.proveedor || concepto || 'Compra (celular)', sucursalId, categoria: regla?.categoria || '', accion: dup ? 'ignorar' : 'nueva', compraId: '', match: false };
+      if (!dup) ligarCoincidencia(f, pag, usado);
       out.push(f);
     }
   } else {
@@ -875,6 +901,21 @@ function construirFilas() {
   }
   I.filas = out;
 }
+// ¿Hay una compra registrada con ese mismo saldo y fecha cercana? -> el movimiento es su pago
+function ligarCoincidencia(f, pag, usado) {
+  const cand = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) - (usado.get(c.id) || 0) }))
+    .filter(x => x.saldo === f.importe && diasEntre(x.c.fecha, f.fecha) >= -5 && diasEntre(x.c.fecha, f.fecha) <= 60)
+    .sort((a, b) => Math.abs(diasEntre(a.c.fecha, f.fecha)) - Math.abs(diasEntre(b.c.fecha, f.fecha)))[0];
+  if (cand) { f.accion = 'pagar'; f.compraId = cand.c.id; f.match = true; usado.set(cand.c.id, (usado.get(cand.c.id) || 0) + f.importe); }
+}
+// Cuenta de un renglón del celular; si no existe en la computadora se crea con su nombre.
+function cuentaDeCaptura(f) {
+  if (f.cuentaId && DB.cuentas.some(c => c.id === f.cuentaId)) return f.cuentaId;
+  const nombre = f.cuentaNombre || 'Celular (sin especificar)';
+  let c = DB.cuentas.find(x => norm(x.nombre) === norm(nombre));
+  if (!c) { c = { id: uid(), nombre }; DB.cuentas.push(c); }
+  return c.id;
+}
 function confirmarImportacion() {
   const I = IMP;
   if (I.tipo === 'estado' && !I.cuentaId) { alert('Elige la cuenta a la que pertenece el estado de cuenta.'); return; }
@@ -888,10 +929,11 @@ function confirmarImportacion() {
       nC++; monto += f.importe; continue;
     }
     let compraId = f.compraId, aplicado = f.importe;
+    const origen = I.tipo === 'capturas' ? 'celular' : 'estado';
     if (f.accion === 'nueva') {
       compraId = uid();
-      DB.compras.push({ id: compraId, origen: 'estado', fecha: f.fecha, vence: '', proveedor: f.proveedor || limpiarDesc(f.desc), folio: '', concepto: f.desc,
-        categoria: f.categoria, total: f.importe, asignaciones: f.sucursalId ? [{ sucursalId: f.sucursalId, monto: f.importe }] : [], notas: '' });
+      DB.compras.push({ id: compraId, origen, fecha: f.fecha, vence: '', proveedor: f.proveedor || limpiarDesc(f.desc), folio: '', concepto: f.desc,
+        categoria: f.categoria, total: f.importe, asignaciones: f.sucursalId ? [{ sucursalId: f.sucursalId, monto: f.importe }] : [], notas: f.notas || '' });
       nC++;
     } else {
       const c = DB.compras.find(x => x.id === compraId);
@@ -899,7 +941,7 @@ function confirmarImportacion() {
       aplicado = Math.min(f.importe, c.total - (pag.get(c.id) || 0));
       pag.set(c.id, (pag.get(c.id) || 0) + aplicado);
     }
-    DB.pagos.push({ id: uid(), origen: 'estado', fecha: f.fecha, cuentaId: I.cuentaId, monto: f.importe, referencia: f.ref || f.desc, notas: '',
+    DB.pagos.push({ id: uid(), origen, fecha: f.fecha, cuentaId: I.tipo === 'capturas' ? cuentaDeCaptura(f) : I.cuentaId, monto: f.importe, referencia: f.ref || f.desc, notas: '',
       aplicaciones: aplicado > 0 ? [{ compraId, monto: aplicado }] : [] });
     DB.importados[f.huella] = 1;
     nP++; monto += f.importe;
@@ -907,7 +949,7 @@ function confirmarImportacion() {
   guardar();
   const sinSuc = I.filas.filter(f => f.accion === 'nueva' && !f.sucursalId).length;
   Object.assign(IMP, { rows: null, archivo: '', filas: [], map: {},
-    resultado: `Listo: ${nC} compra(s) nueva(s)${I.tipo === 'estado' ? ` y ${nP} pago(s)` : ''} por ${money(monto)}.` +
+    resultado: `Listo: ${nC} compra(s) nueva(s)${I.tipo !== 'compras' ? ` y ${nP} pago(s)` : ''} por ${money(monto)}.` +
       (sinSuc ? ` ${sinSuc} quedaron sin sucursal: <button class="link" data-act="ver-compras" data-estado="sinasignar">asignarlas ahora</button>.` : '') });
   render();
 }
@@ -934,6 +976,11 @@ function vCatalogos() {
     <div class="row" style="margin-bottom:10px">${DB.cuentas.map(c => `<span class="tag neutral" style="padding:3px 10px">${esc(c.nombre)}
       <button class="link small" data-act="ren-cuenta" data-id="${c.id}" aria-label="Renombrar">✎</button><button class="link small" data-act="del-cuenta" data-id="${c.id}" aria-label="Eliminar">×</button></span>`).join('') || '<span class="muted">Aún no hay cuentas.</span>'}</div>
     <div class="row"><input id="nuevaCuenta" placeholder="Ej. Tarjeta BBVA 1234, Efectivo caja chica" style="flex:1;min-width:200px"><button class="btn primary" data-act="add-cuenta">Agregar cuenta</button></div>
+  </div>
+  <div class="card"><h2>App del celular</h2>
+    <p class="small muted" style="margin-top:-4px">Para capturar compras desde el teléfono (lee el monto de la captura de pantalla), abre la app <b>movil/</b> en el celular.
+      Descarga este archivo, mándatelo al celular (WhatsApp, correo, Drive…) y ábrelo en la app, en ⚙︎ → "Cargar archivo de la computadora": tendrá las mismas sucursales, cuentas y reglas.</p>
+    <button class="btn" data-act="catalogo-celular">Enviar negocios, cuentas y reglas al celular</button>
   </div>
   <div class="card"><h2>Reglas de asignación automática</h2>
     <p class="small muted" style="margin-top:-4px">Si la descripción del movimiento (o el proveedor) contiene el texto, se asigna sola al importar. Se aplica la primera que coincida.</p>
@@ -1080,6 +1127,10 @@ document.addEventListener('click', e => {
       if (uso) return alert(`No se puede eliminar: tiene ${uso} pago(s) registrados.`);
       DB.cuentas = DB.cuentas.filter(c => c.id !== id); guardar(); render();
     },
+    'catalogo-celular'() {
+      const cat = { tipo: 'catalogo', generado: hoy(), negocios: DB.negocios, cuentas: DB.cuentas, reglas: DB.reglas.filter(r => r.patron) };
+      descargar(`negocios-para-celular-${hoy()}.json`, JSON.stringify(cat), 'application/json');
+    },
     'add-regla'() { DB.reglas.push({ id: uid(), patron: '', proveedor: '', sucursalId: '', categoria: '' }); guardar(); render(); },
     'del-regla'() { DB.reglas = DB.reglas.filter(r => r.id !== id); guardar(); render(); },
     recordar() {
@@ -1108,7 +1159,9 @@ document.addEventListener('change', async e => {
     try {
       const rows = await leerArchivo(t.files[0]);
       if (!rows.length) throw new Error('El archivo está vacío.');
-      Object.assign(IMP, { rows, archivo: t.files[0].name, header: detectarEncabezado(rows), resultado: '' });
+      const hCel = rows.findIndex(r => r.map(norm).includes('id_captura')); // CSV de la app del celular
+      if (hCel >= 0) IMP.tipo = 'capturas'; else if (IMP.tipo === 'capturas') IMP.tipo = 'estado';
+      Object.assign(IMP, { rows, archivo: t.files[0].name, header: hCel >= 0 ? hCel : detectarEncabezado(rows), resultado: '' });
       if (!IMP.cuentaId) IMP.cuentaId = DB.cuentas[0]?.id || '';
       adivinarColumnas(); construirFilas();
     } catch (err) { alert(err.message); }
