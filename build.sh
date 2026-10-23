@@ -2,6 +2,7 @@
 # Compila las clases modificadas y genera:
 #   dist/chromispos.jar  (src/ + src-common/ sobre original/chromispos.jar)
 #   dist/admin.jar       (src-admin/ + src-common/ sobre original-admin/admin.jar)
+#   dist/restaurar.jar   (restaurador de respaldos, se abre con doble clic)
 # Requiere JDK 11 o superior.
 set -e
 cd "$(dirname "$0")"
@@ -25,3 +26,6 @@ build_jar() {
 
 build_jar chromispos original/chromispos.jar "" src src-common
 build_jar admin original-admin/admin.jar "$JAVAFX" src-admin src-common
+# Restaurador de respaldos que funciona solo (doble clic), sin mysql.exe
+java tools/RestoreJar.java build/admin/classes original/chromispos.jar original-admin/admin.jar dist/restaurar.jar
+echo "Generado: dist/restaurar.jar"
