@@ -1,0 +1,280 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+(c)John Lewis - 2021
+XML to build JavaFX menu
+
+menuEntry type  - menuItem          insert menu item into the menu
+                - separator         insert menu separator
+                - subMenu           insert a sub menu
+                - checkmenuitem     insert checkmenuitem
+
+menuItem option - text              chromispos.properties entry to use
+                - shortCutKey1      key char to be used (must be assigned along with shortCutKey2)
+                - shortCutKey2      valid options for shortCutKey2 &  shortCutKey3 ALT_ANY, ALT_DOWN, CONTROL_ANY,
+                - shortCutKey3      CONTROL_DOWN, META_ANY, META_DOWN, SHIFT_ANY, SHIFT_DOWN
+                - permissionclass   the class used the rolepermissions table to allow this action, if the class
+                                    is not present in user list the menuitem will not be display. If the option is not present
+                                    the menuItem will be displayed regardless of permissions
+
+                - actionClass       the class of the action to run upon selection
+                - accessName        the access name used in roles to execute the class
+                - previousClass     This is required to maintain backward compatability
+                - actionMethod      the method within the above class to run
+                - directAction      A direct java action for example System.exit(0)
+                - alwaysAvailable   The item line will always be enabled regardless of permissions
+
+-->
+
+<menuBar>
+    <menuTitle text = "menu.inventory">
+        <menuEntry  type="menuitem"
+                    text = "menu.attributes"
+                    actionClass="uk.chromis.administration.attributes.Attribute"
+                    accessName="Attributes"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.auxiliary"
+                    actionClass="uk.chromis.administration.auxiliary.Auxiliary"
+                    accessName="Auxiliary"
+                    actionMethod="showPanel"/>  
+        <menuEntry  type="menuitem"
+                    text = "menu.categories"
+                    actionClass="uk.chromis.administration.categories.Category"
+                    accessName="Categories"
+                    actionMethod="showPanel" />
+        <menuEntry  type="menuitem"
+                    text = "menu.products"
+                    actionClass="uk.chromis.administration.products.Product"
+                    accessName="Products"
+                    actionMethod="showPanel" />  
+        <menuEntry  type="menuitem"
+                    text = "menu.recipes"
+                    actionClass="uk.chromis.administration.recipes.Recipe"
+                    accessName="Recipes"
+                    actionMethod="showPanel"/>                              
+    </menuTitle>
+    
+    <menuTitle text = "menu.stock">
+        <menuEntry  type="menuitem"
+                    text = "menu.orders"                    
+                    actionClass="uk.chromis.administration.orders.Orders"
+                    accessName="Orders"
+                    actionMethod="showPanel"/> 
+        <menuEntry  type="menuitem"
+                    text = "menu.suppliers"
+                    actionClass="uk.chromis.administration.suppliers.Supplier"
+                    accessName="Suppliers"
+                    actionMethod="showPanel" />           
+        <menuEntry  type="menuitem"
+                    text = "menu.stockDiary"
+                    actionClass="uk.chromis.administration.inventory.Stock"
+                    accessName="Stock"
+                    actionMethod="showPanel"/>    
+        <menuEntry  type="menuitem"
+                    text = "menu.stockInventory"
+                    actionClass="uk.chromis.administration.inventory.Inventory"
+                    accessName="Inventory"
+                    actionMethod="showPanel"
+                    showCheck="select count(*) from accountperiod "/>
+        <menuEntry  type="menuitem"
+                    text = "Conteos programados"
+                    actionClass="uk.chromis.administration.stockcount.StockCount"
+                    accessName="Inventory"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Reposición"
+                    actionClass="uk.chromis.administration.restock.Restock"
+                    accessName="Orders"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Pedido tentativo"
+                    actionClass="uk.chromis.administration.restock.DraftOrder"
+                    accessName="Orders"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Recepción de mercancía"
+                    actionClass="uk.chromis.administration.receiving.Receiving"
+                    accessName="Orders"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Autorizar costos"
+                    actionClass="uk.chromis.administration.receiving.PriceApproval"
+                    accessName="Products"
+                    actionMethod="showPanel"/>     
+    </menuTitle>            
+                            
+    <menuTitle text = "menu.users">
+        <menuEntry  type="menuitem"
+                    text = "Asistencia automática"
+                    actionClass="uk.chromis.administration.attendance.Attendance"
+                    accessName="EmployeeHolidays"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.leaves"
+                    actionClass="uk.chromis.administration.employees.EmployeeAbsences"
+                    accessName="EmployeeHolidays"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.roles"
+                    actionClass="uk.chromis.administration.roles.Roles"
+                    accessName="UserRoles"                   
+                    actionMethod="showPanel"/>   
+        <menuEntry  type="menuitem"
+                    text = "menu.users"
+                    actionClass="uk.chromis.administration.users.Users"
+                    accessName="Users"
+                    actionMethod="showPanel" />                                 
+    </menuTitle>
+
+    <menuTitle text = "menu.customers">
+        <menuEntry  type="menuitem"
+                    text = "menu.customers"
+                    actionClass="uk.chromis.administration.customers.Customer"
+                    accessName="Customers"
+                    actionMethod="showPanel"/>  
+        <menuEntry  type="menuitem"
+                    text = "Entregas"
+                    actionClass="uk.chromis.administration.delivery.Deliveries"
+                    accessName="Customers"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Gestor de entregas"
+                    actionClass="uk.chromis.administration.delivery.DeliveryManager"
+                    accessName="Customers"
+                    actionMethod="showPanel"/>
+    </menuTitle>
+
+
+    <menuTitle text = "menu.maintenance">
+        <menuEntry  type="menuitem"
+                    text = "menu.companyDetails"
+                    actionClass="uk.chromis.administration.company.Company"
+                    accessName="Company"
+                    actionMethod="showPanel"/> 
+        <menuEntry  type="menuitem"
+                    text = "menu.floors"
+                    actionClass="uk.chromis.administration.floors.Floors"
+                    accessName="Floors"
+                    actionMethod="showPanel" /> 
+        <menuEntry  type="menuitem"
+                    text = "menu.warehouses"
+                    actionClass="uk.chromis.administration.locations.Locations"
+                    accessName="Warehouses"
+                    actionMethod="showPanel" /> 
+        <menuEntry  type="menuitem"
+                    text = "menu.resources"
+                    actionClass="uk.chromis.administration.resources.Resources"
+                    accessName="Resources"
+                    actionMethod="showPanel"/> 
+        <menuEntry  type="menuitem"
+                    text = "menu.taxes"
+                    actionClass="uk.chromis.administration.tax.Taxes"
+                    accessName="TaxSetup"
+                    actionMethod="showPanel" /> 
+        <menuEntry  type="menuitem"
+                    text = "menu.uom"
+                    actionClass="uk.chromis.administration.uom.Uom"
+                    accessName="UOM"
+                    actionMethod="showPanel" /> 
+    </menuTitle>  
+    
+    <menuTitle text = "menu.giftCard">
+
+    </menuTitle>
+    
+    <menuTitle text = "menu.reporting">
+       
+        <menuEntry  type="menuitem"
+                    text = "menu.reports"
+                    actionClass="uk.chromis.administration.reporting.Report"
+                    accessName="Reports"                    
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.reportQueries"
+                    actionClass="uk.chromis.administration.reporting.CustomQueries"
+                    accessName="ReportQueries"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.reportCreator"
+                    actionClass="uk.chromis.administration.reporting.ReportCreator"
+                    accessName="ReportCreator"
+                    actionMethod="showPanel"/> 
+        <menuEntry  type="menuitem"
+                    text = "menu.reportConfiguration"
+                    actionClass="uk.chromis.administration.reporting.ReportConfig"
+                    accessName="menu.reportconfig"
+                    actionMethod="showConfig"/> 
+    </menuTitle>
+    
+    
+    <menuTitle text = "menu.loyaltyCard">
+
+    </menuTitle>
+    
+    <menuTitle text = "menu.utilities">
+        <menuEntry  type="menuitem"
+                    text = "menu.importTools"
+                    actionClass="uk.chromis.administration.utilities.DataImport"
+                    accessName="DataImport"
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "menu.productPricing"
+                    actionClass="uk.chromis.administration.utilities.ProductPricing"
+                    accessName="ProductPricing"
+                    actionMethod="showPanel"/>   
+        <menuEntry  type="menuitem"
+                    text = "menu.resetpickup"
+                    actionClass="uk.chromis.administration.menu.UserDefinedActions"
+                    accessName="ResetPickup"
+                    actionMethod="resetPickupID" />
+        <menuEntry  type="menuitem"
+                    text = "menu.databasebackup"
+                    actionClass="uk.chromis.administration.menu.UserDefinedActions"
+                    accessName="DatabaseBackup"
+                    actionMethod="databaseBackup" />
+        <menuEntry  type="menuitem"
+                    text = "Respaldos programados"
+                    actionClass="uk.chromis.administration.backups.ScheduledBackups"
+                    accessName="DatabaseBackup"
+                    actionMethod="showPanel"/>  
+        <menuEntry  type="menuitem"
+                    text = "menu.saveResources"
+                    actionClass="uk.chromis.administration.utilities.BlobReader"
+                    accessName="BlobReader"
+                    actionMethod="BlobReader" />    
+        <menuEntry  type="menuitem"
+                    text = "menu.repairtriggers"
+                    actionClass="uk.chromis.administration.menu.UserDefinedActions"
+                    accessName="access.triggerrepair"
+                    actionMethod="repairTriggers" />          
+    </menuTitle>
+    
+
+    <menuTitle text = "menu.options">
+        <!--        <menuEntry  type="checkmenuitem"
+        text = "menu.autosave"
+        actionClass="uk.chromis.administration.menu.CheckedItems"
+        option="autosave"
+        actionMethod="setOption" />-->
+        <menuEntry  type="checkmenuitem"
+                    text = "menu.enableWebCam"
+                    actionClass="uk.chromis.administration.menu.CheckedItems"
+                    option="webcam"
+                    actionMethod="setOption" />
+        <menuEntry  type="singleuseitem"
+                    text = "menu.initializeStockTake"
+                    sql = "select count(*) from accountperiod "
+                    actionClass="uk.chromis.administration.menu.LogicalUse"
+                    actionMethod="setPeriodDate"/>                
+    </menuTitle>
+
+    <menuTitle text = "menu.help">
+        <menuEntry  type="menuitem"
+                    text = "menu.about"
+                    actionClass="uk.chromis.administration.about.About"
+                    actionMethod="showAbout"  
+                    alwaysAvailable = "true"/>
+    </menuTitle>
+
+</menuBar>
+

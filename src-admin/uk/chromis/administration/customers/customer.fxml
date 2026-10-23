@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+/*
+**    Chromis Administration  - Open Source Point of Sale
+**
+**    This file is part of Chromis Administration Version Chromis V1.5.4
+**
+**    Copyright (c) 2015-2023 Chromis & previous Openbravo POS related works   
+**
+**    https://www.chromis.co.uk
+**   
+**    Chromis POS is free software: you can redistribute it and/or modify
+**    it under the terms of the GNU General Public License as published by
+**    the Free Software Foundation, either version 3 of the License, or
+**    (at your option) any later version.
+**
+**    Chromis POS is distributed in the hope that it will be useful,
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**    GNU General Public License for more details.
+**
+**    You should have received a copy of the GNU General Public License
+**    along with Chromis POS.  If not, see <http://www.gnu.org/licenses/>
+**
+*/
+-->
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.RadioButton?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.text.Font?>
+<?import uk.chromis.custom.toggleswitch.ToggleSwitch?>
+
+<AnchorPane fx:id="apAnchor" minHeight="700.0" minWidth="1020.0" prefWidth="1216.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="uk.chromis.administration.customers.CustomerController">
+    <children>
+        <Label fx:id="lblSeletedTitle" alignment="CENTER_RIGHT" layoutX="733.0" layoutY="57.0" prefHeight="25.0" prefWidth="250.0" text="label">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label>
+        <Label fx:id="lblPanelName" layoutX="10.0" layoutY="57.0" prefHeight="25.0" prefWidth="364.0" text="Label">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label> 
+        <Separator fx:id="separator" layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
+        <TabPane fx:id="tpDataPane" layoutX="15.0" layoutY="80.0" minHeight="316.0" minWidth="940.0" prefHeight="316.0" prefWidth="995.0" tabClosingPolicy="UNAVAILABLE">
+            <tabs>
+                <Tab fx:id="tabGeneral" style="-fx-border-radius: 0 6 0 0, 0 5 0 0;" text="%tab.customer1">
+                    <content>
+                        <Pane maxWidth="985.0" prefHeight="287.0" prefWidth="985.0" style="-fx-border-color: #d1d4d6;">
+                            <children>
+                                <Pane fx:id="paneRadio" layoutY="6.0" prefHeight="31.0" prefWidth="364.0">
+                                    <children>
+                                        <RadioButton fx:id="btnAccount" layoutX="141.0" layoutY="5.0" mnemonicParsing="false" selected="true" text="%radio.account" />
+                                        <RadioButton fx:id="btnLoyalty" layoutX="233.0" layoutY="5.0" mnemonicParsing="false" text="%radio.loyalty" />
+                                        <Label fx:id="lblCustomerType" alignment="CENTER_RIGHT" layoutY="2.0" prefHeight="25.0" prefWidth="137.0" text="%lbl.customerType" />
+                                    </children>
+                                </Pane>
+                                <Pane fx:id="paneName" layoutY="39.0" prefHeight="242.0" prefWidth="586.0">
+                                    <children>
+                                        <TextField fx:id="txtAccountName" layoutX="171.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="250.0" style="-fx-border-color: #AA0000;" />
+                                        <ToggleSwitch fx:id="tswtAccountActive" layoutX="172.0" layoutY="66.0" prefHeight="18.0" prefWidth="33.0" selected="true" />
+                                        <Label alignment="CENTER_RIGHT" layoutY="63.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.accountActive" />
+                                        <Label alignment="CENTER_RIGHT" maxWidth="165.0" minWidth="165.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.name" />
+                              <TextField fx:id="txtAccountNo" layoutX="171.0" layoutY="33.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="134.0" style="-fx-border-color: #AA0000;" />
+                              <Label alignment="CENTER_RIGHT" layoutY="34.0" maxWidth="165.0" minWidth="165.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.accountNumber" />
+                              <Pane fx:id="paneTax" layoutY="89.0" prefHeight="152.0" prefWidth="584.0">
+                                 <children>
+                                    <DatePicker fx:id="reviewDate" layoutX="172.0" layoutY="122.0" prefHeight="25.0" prefWidth="140.0" />
+                                    <Label fx:id="lblTaxReview" alignment="CENTER_RIGHT" layoutX="3.0" layoutY="122.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.reviewdate" />
+                                    <Label fx:id="lblTaxExempt" alignment="CENTER_RIGHT" layoutX="3.0" layoutY="88.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.taxexempt" />
+                                    <TextArea fx:id="exemptMessage" disable="true" editable="false" focusTraversable="false" layoutX="7.0" layoutY="9.0" prefHeight="68.0" prefWidth="571.0" styleClass="exempt" text="%msg.taxexemptnotice" wrapText="true" />
+                                    <ToggleSwitch fx:id="tswtTaxExempt" layoutX="172.0" layoutY="92.0" prefHeight="18.0" prefWidth="33.0" />
+                                 </children>
+                              </Pane>
+                                    </children>
+                                </Pane>
+                                <Pane fx:id="paneStatistics" layoutX="629.0" layoutY="37.0" prefHeight="190.0" prefWidth="220.0">
+                                    <children>
+                                        <TextField fx:id="txtCreditLimit" alignment="CENTER_RIGHT" layoutX="119.0" layoutY="2.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="95.0" text="0.00" />
+                                        <TextField fx:id="txtCurrentCredit" alignment="CENTER_RIGHT" editable="false" layoutX="119.0" layoutY="33.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="95.0" text="0.00" />
+                                        <TextField fx:id="txtLastDate" alignment="CENTER_RIGHT" editable="false" layoutX="119.0" layoutY="63.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="95.0" />
+                                        <Label alignment="CENTER_RIGHT" layoutY="2.0" prefHeight="25.0" prefWidth="115.0" text="%lbl.creditLimit" />
+                                        <Label alignment="CENTER_RIGHT" layoutY="33.0" prefHeight="25.0" prefWidth="116.0" text="%lbl.currentCredit" />
+                                        <Label alignment="CENTER_RIGHT" layoutY="66.0" prefHeight="25.0" prefWidth="116.0" text="%lbl.lastDate" />
+                                        <TextField fx:id="txtDiscount" alignment="CENTER_RIGHT" layoutX="119.0" layoutY="93.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="61.0" text="0.00" />
+                                        <Label layoutX="183.0" layoutY="93.0" prefHeight="25.0" text="\%" />
+                                        <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="91.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="%lbl.customerDiscount" />
+                                        <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="124.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="Precio sobre costo" />
+                                        <ToggleSwitch fx:id="tswtCostPricing" layoutX="125.0" layoutY="128.0" prefHeight="18.0" prefWidth="33.0" />
+                                        <TextField fx:id="txtCostMarkup" alignment="CENTER_RIGHT" disable="true" layoutX="119.0" layoutY="155.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="61.0" text="0.00" />
+                                        <Label layoutX="183.0" layoutY="155.0" prefHeight="25.0" text="\%" />
+                                        <Label alignment="CENTER_RIGHT" layoutX="-35.0" layoutY="155.0" maxWidth="165.0" minWidth="150.0" prefHeight="25.0" prefWidth="150.0" text="Margen sobre costo" />
+                                    </children>
+                                </Pane>
+                            </children>
+                        </Pane>
+                    </content>
+                </Tab>
+                <Tab fx:id="tabContact" style="-fx-border-radius: 0 6 0 0, 0 5 0 0;" text="%tab.customer2">
+                    <content>
+                        <Pane maxWidth="985.0" prefHeight="287.0" prefWidth="985.0" style="-fx-border-color: #d1d4d6;">
+                            <children>
+                                <TextField fx:id="txtFirstName" layoutX="117.0" layoutY="10.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="164.0" />
+                                <TextField fx:id="txtSurname" layoutX="355.0" layoutY="10.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="150.0" />
+                                <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="40.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.address" />
+                                <TextField fx:id="txtAddressLine1" layoutX="117.0" layoutY="40.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="235.0" />
+                                <TextField fx:id="txtAddressLine2" layoutX="116.0" layoutY="70.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="235.0" />
+                                <TextField fx:id="txtCity" layoutX="116.0" layoutY="100.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="235.0" />
+                                <TextField fx:id="txtPostcode" layoutX="425.0" layoutY="100.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="68.0" />
+                                <TextField fx:id="txtTelephone" layoutX="116.0" layoutY="130.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="150.0" />
+                                <TextField fx:id="txtMobile" layoutX="425.0" layoutY="130.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="150.0" />
+                                <TextField fx:id="txtFax" layoutX="116.0" layoutY="161.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="132.0" />
+                                <TextField fx:id="txtEmail" layoutX="116.0" layoutY="191.0" maxHeight="27.0" maxWidth="233.0" minHeight="27.0" minWidth="120.0" prefHeight="27.0" prefWidth="230.0" />
+                                <DatePicker fx:id="dob" layoutX="116.0" layoutY="222.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" />
+                                <TextArea fx:id="txtComments" layoutX="611.0" layoutY="10.0" prefHeight="181.0" prefWidth="353.0" />
+                                <Label alignment="CENTER_RIGHT" layoutY="100.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.city" />
+                                <Label alignment="CENTER_RIGHT" layoutX="356.0" layoutY="100.0" minHeight="25.0" minWidth="63.0" prefHeight="25.0" prefWidth="63.0" text="%lbl.postCode" />
+                                <Label alignment="CENTER_RIGHT" layoutY="130.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.telephone" />
+                                <Label alignment="CENTER_RIGHT" layoutX="311.0" layoutY="130.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.mobile" />
+                                <Label alignment="CENTER_RIGHT" layoutY="161.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.fax" />
+                                <Label layoutX="518.0" layoutY="10.0" maxHeight="25.0" maxWidth="100.0" minHeight="25.0" minWidth="91.0" prefHeight="25.0" prefWidth="91.0" text="%lbl.comments" />
+                                <Label alignment="CENTER_RIGHT" layoutY="192.0" maxHeight="25.0" maxWidth="111.0" minHeight="25.0" minWidth="110.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.email" />
+                                <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="222.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.dob" />
+                                <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="10.0" prefHeight="25.0" prefWidth="110.0" text="%lbl.firstName" />
+                                <Label alignment="CENTER_RIGHT" layoutX="284.0" layoutY="10.0" prefHeight="25.0" prefWidth="66.0" text="%lbl.surname" />
+                        <Pane fx:id="paneMarketing" layoutX="350.0" layoutY="193.0" prefHeight="33.0" prefWidth="386.0">
+                           <children>
+                              <Label alignment="CENTER_RIGHT" layoutX="1.0" layoutY="-1.0" maxWidth="165.0" minWidth="126.0" prefHeight="25.0" prefWidth="126.0" text="%lbl.receiveMartketing" />
+                              <Label layoutX="175.0" layoutY="-1.0" prefHeight="25.0" prefWidth="210.0" text="%lbl.emailRequired">
+                                 <font>
+                                    <Font name="System Italic" size="12.0" />
+                                 </font>
+                              </Label>
+                              <ToggleSwitch fx:id="tswtMarketing" layoutX="131.0" layoutY="2.0" prefHeight="18.0" prefWidth="30.0" />
+                           </children>
+                        </Pane>
+                            </children>
+                            
+                            
+                        </Pane>
+                    </content>
+                </Tab>
+            <Tab fx:id="tabImage" text="%tab.customer3">
+               <content>
+                  <Pane fx:id="paneImageBox" maxWidth="985.0" prefHeight="287.0" prefWidth="985.0" style="-fx-border-color: #d1d4d6;">
+                     <children>
+                        <Pane fx:id="paneAccount" layoutX="14.0" layoutY="14.0" prefHeight="116.0" prefWidth="501.0" style="-fx-background-color: transparent;">
+                           <children>
+                              <Button fx:id="btnAssign" layoutX="171.0" layoutY="39.0" mnemonicParsing="false" onAction="#btnCustomerCardNumber" prefHeight="25.0" prefWidth="150.0" text="%btn.assignCard" />
+                              <Button fx:id="btnClear" layoutX="330.0" layoutY="39.0" mnemonicParsing="false" onAction="#btnClearCustomerCard" prefHeight="25.0" prefWidth="150.0" text="%btn.clearCard" />
+                              <ToggleSwitch fx:id="tswtEnableLoyalty" layoutX="171.0" layoutY="76.0" prefHeight="18.0" prefWidth="33.0" />
+                              <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="6.0" maxWidth="165.0" minWidth="165.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.cardNumber" />
+                              <Label fx:id="txtEnableLoyalty" alignment="CENTER_RIGHT" layoutX="2.0" layoutY="72.0" maxWidth="165.0" minWidth="165.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.enableLoyaltyAccount" />
+                              <TextField fx:id="txtCardNumber" editable="false" layoutX="171.0" layoutY="6.0" maxHeight="27.0" maxWidth="250.0" minHeight="27.0" minWidth="150.0" prefHeight="27.0" prefWidth="250.0" />
+                           </children>
+                        </Pane>
+                        <Pane fx:id="paneLoyalty" layoutX="15.0" layoutY="144.0" prefHeight="68.0" prefWidth="438.0">
+                           <children>
+                              <TextField fx:id="txtLoyaltyCardNumber" editable="false" layoutX="171.0" layoutY="2.0" maxHeight="27.0" maxWidth="250.0" minHeight="27.0" minWidth="150.0" prefHeight="27.0" prefWidth="250.0" />
+                              <Button fx:id="btnLoyaltyAssign" layoutX="171.0" layoutY="36.0" mnemonicParsing="false" onAction="#btnLoyaltyCardNumber" prefHeight="25.0" prefWidth="114.0" text="%btn.assignCard" />
+                              <Label alignment="CENTER_RIGHT" layoutX="2.0" layoutY="2.0" maxWidth="165.0" minWidth="165.0" prefHeight="25.0" prefWidth="165.0" text="%lbl.cardNumber" />
+                           </children>
+                        </Pane>
+                     </children></Pane>
+               </content>
+            </Tab>
+                <Tab fx:id="tabTransactions" style="-fx-border-radius: 0 6 0 0, 0 5 0 0;" text="%tab.customer4">
+                    <content>
+                        <Pane maxWidth="985.0" prefHeight="287.0" prefWidth="985.0" style="-fx-border-color: #d1d4d6;">
+                            <children>
+                                <StackPane layoutX="240.0" layoutY="2.0" prefHeight="285.0" prefWidth="743.0" style="-fx-background-color: transparent;">
+                                    <TableView fx:id="transactionTable" prefHeight="281.0" prefWidth="985.0" styleClass="left">
+                                        <columns>
+                                            <TableColumn fx:id="receiptNumber" prefWidth="100.0" text="%tablecol.receipt" />
+                                            <TableColumn fx:id="receiptType" prefWidth="120.0" styleClass="left" text="%tablecol.receiptType" />
+                                            <TableColumn fx:id="receiptDate" prefWidth="100.0" styleClass="center" text="%tablecol.receiptDate" />
+                                            <TableColumn fx:id="receiptTotal" prefWidth="157.0" styleClass="right" text="%tablecol.receiptAmount" />
+                                        </columns>
+                                    </TableView>
+                                </StackPane>
+                                <DatePicker fx:id="dpTransactions" layoutX="30.0" layoutY="121.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" />
+                                <Label layoutX="20.0" layoutY="93.0" maxHeight="25.0" prefHeight="25.0" prefWidth="137.0" text="%lbl.sinceDate" />
+                                <Label layoutX="20.0" layoutY="25.0" maxHeight="25.0" prefHeight="25.0" prefWidth="148.0" text="Total Transaction found " />
+                                <Label fx:id="txtTransactionCount" alignment="CENTER_RIGHT" layoutX="30.0" layoutY="53.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="60.0" style="-fx-border-color: #d1d3d6;" text="0" />
+                            </children>
+                        </Pane>                    
+                    </content>
+                </Tab>
+                <Tab fx:id="tabLoyalty" style="-fx-border-radius: 0 6 0 0, 0 5 0 0;" text="%tab.customer5">
+                    <content>
+                        <Pane maxWidth="985.0" prefHeight="287.0" prefWidth="985.0" style="-fx-border-color: #d1d4d6;">
+                            <children>
+                                <StackPane layoutX="240.0" layoutY="3.0" prefHeight="278.0" prefWidth="743.0" style="-fx-background-color: transparent;">
+                                    <TableView fx:id="loyaltyTable" prefHeight="280.0" prefWidth="985.0">
+                                        <columns>
+                                            <TableColumn fx:id="activityDate" prefWidth="90.0" styleClass="left" text="%tablecol.activityDate" />
+                                            <TableColumn fx:id="activity" prefWidth="523.0" styleClass="left" text="%tablecol.activity" />
+                                            <TableColumn fx:id="activitypoints" prefWidth="127.0" styleClass="center" text="%tablecol.activityPoints" />
+                                            <TableColumn fx:id="cardbalance" prefWidth="89.0" styleClass="center" text="%tablecol.cardBalance" />
+                                            <TableColumn fx:id="receiptNumberloyalty" prefWidth="83.0" styleClass="center" text="%tablecol.receipt" />
+                                        </columns>
+                                    </TableView>
+
+                                </StackPane>
+                                <DatePicker fx:id="dpLoyalty" layoutX="30.0" layoutY="121.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" />
+                                <Label layoutX="20.0" layoutY="93.0" maxHeight="25.0" prefHeight="25.0" prefWidth="137.0" text="%lbl.sinceDate" />
+                                <Label layoutX="20.0" layoutY="25.0" maxHeight="25.0" prefHeight="25.0" prefWidth="148.0" text="Total Transaction found " />                                    
+                                <Label fx:id="txtLoayaltyCount" alignment="CENTER_RIGHT" layoutX="30.0" layoutY="53.0" maxHeight="27.0" minHeight="27.0" prefHeight="27.0" prefWidth="60.0" style="-fx-border-color: #d1d3d6;" text="0">
+                                </Label>
+                            </children>
+                        </Pane>                    
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane> 
+        <HBox layoutX="14.0" layoutY="400.0" maxHeight="-Infinity" minHeight="290.0" minWidth="1014.0" prefHeight="${apAnchor.height-415}" prefWidth="${apAnchor.width-37}" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="14.0">
+            <children>
+                <StackPane layoutX="10.0" maxHeight="-Infinity" minHeight="290.0" prefHeight="${apAnchor.height-415}" prefWidth="${apAnchor.width-37}" style="-fx-background-color: transparent;">                   
+                    <TableView fx:id="mainTable" layoutX="10.0" maxHeight="-Infinity" minWidth="974.0" prefHeight="${apAnchor.height-415}" prefWidth="1175.0">
+                        <columns>
+                            <TableColumn fx:id="accountname" prefWidth="250.0" styleClass="left" text="%tablecol.accountName" />
+                            <TableColumn fx:id="accountnumber" minWidth="0.0" prefWidth="120.0" styleClass="left" text="%tablecol.accountnumber" />
+                            <TableColumn fx:id="active" minWidth="0.0" prefWidth="74.0" styleClass="center" text="%tablecol.accountActive" />
+                     <TableColumn fx:id="exempt" minWidth="0.0" prefWidth="92.0" styleClass="center" text="%tablecol.taxExempt" />
+                     <TableColumn fx:id="reviewdate" minWidth="0.0" prefWidth="118.0" styleClass="center" text="%tablecol.reviewDate" />
+                            <TableColumn fx:id="loyaltycol" minWidth="0.0" prefWidth="76.0" styleClass="center" text="%tablecol.loyalty" />
+                            <TableColumn fx:id="account" minWidth="0.0" prefWidth="83.0" styleClass="center" text="%tablecol.account" />
+                            <TableColumn fx:id="marketable" minWidth="0.0" styleClass="center" text="%tablecol.marketable" />
+                            <TableColumn fx:id="email" minWidth="0.0" prefWidth="425.0" styleClass="left" text="%tablecol.email" />
+                        </columns>
+                    </TableView>
+                </StackPane>
+            </children>
+        </HBox>       
+    </children>
+</AnchorPane>

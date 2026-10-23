@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane fx:id="apAnchor" minHeight="700.0" minWidth="1020.0" prefWidth="1216.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="uk.chromis.administration.delivery.DeliveriesController">
+    <children>
+        <Label layoutX="10.0" layoutY="57.0" prefHeight="25.0" prefWidth="500.0" text="Entregas a domicilio">
+            <font>
+                <Font name="System Bold Italic" size="14.0" />
+            </font>
+        </Label>
+        <Separator layoutX="5.0" layoutY="77.0" prefHeight="6.0" prefWidth="990.0" />
+
+        <HBox alignment="CENTER_LEFT" layoutX="15.0" layoutY="88.0" spacing="20.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <CheckBox fx:id="chkButton" onAction="#saveSettings" text="Mostrar el botón Mostrador / Entrega en la caja" />
+                <CheckBox fx:id="chkAsk" onAction="#saveSettings" text="Al cobrar a un cliente, preguntar si es entrega" />
+            </children>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" layoutX="15.0" layoutY="120.0" spacing="14.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0">
+            <children>
+                <CheckBox fx:id="chkDelivered" onAction="#refresh" text="Ver también las entregadas de los últimos 7 días" />
+                <Button mnemonicParsing="false" onAction="#refresh" text="Actualizar" />
+                <Label fx:id="lblSummary" />
+                <Button mnemonicParsing="false" onAction="#importWebCustomers" text="Importar clientes de la web (CSV)..." />
+            </children>
+        </HBox>
+
+        <TableView fx:id="table" editable="true" layoutX="15.0" layoutY="154.0" AnchorPane.bottomAnchor="60.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" AnchorPane.topAnchor="154.0">
+            <columns>
+                <TableColumn fx:id="colDelivered" prefWidth="88.0" text="Entregada" />
+                <TableColumn fx:id="colTicket" prefWidth="55.0" style="-fx-alignment: CENTER-RIGHT;" text="Ticket" />
+                <TableColumn fx:id="colSaleDate" prefWidth="115.0" text="Venta" />
+                <TableColumn fx:id="colDeliveryDate" prefWidth="85.0" text="Entrega" />
+                <TableColumn fx:id="colCustomer" prefWidth="150.0" text="Cliente" />
+                <TableColumn fx:id="colName" prefWidth="125.0" text="Recibe" />
+                <TableColumn fx:id="colAddress" prefWidth="225.0" text="Dirección" />
+                <TableColumn fx:id="colPhone" prefWidth="95.0" text="Teléfono" />
+                <TableColumn fx:id="colComments" prefWidth="147.0" text="Indicaciones" />
+                <TableColumn fx:id="colTotal" prefWidth="75.0" style="-fx-alignment: CENTER-RIGHT;" text="Total" />
+            </columns>
+        </TableView>
+
+        <Label text="Las entregas se marcan en la caja con el botón Mostrador / Entrega (o con el cargo de envío de Chromis). El ticket impreso lleva los datos de entrega." textFill="#555555" wrapText="true" AnchorPane.bottomAnchor="34.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+        <Label fx:id="lblMessage" textFill="#b00020" wrapText="true" AnchorPane.bottomAnchor="12.0" AnchorPane.leftAnchor="15.0" AnchorPane.rightAnchor="15.0" />
+    </children>
+</AnchorPane>
