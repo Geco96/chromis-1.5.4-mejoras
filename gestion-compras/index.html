@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compras y Pagos</title>
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#fff; --surface-2:#eef1f5; --text:#1a1f26; --muted:#5d6876; --border:#d9dee5;
+  --accent:#2453c2; --accent-text:#fff; --accent-soft:#e7eefc;
+  --ok:#1b7442; --ok-bg:#e3f3e9; --warn:#975400; --warn-bg:#fcf0db; --bad:#b0261b; --bad-bg:#fce7e5;
+  --radius:10px; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.05);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121519; --surface:#1b1f25; --surface-2:#242a32; --text:#e7ebf0; --muted:#9aa5b3; --border:#323a45;
+    --accent:#7aa2ff; --accent-text:#0d1320; --accent-soft:#1f2b45;
+    --ok:#6fd39a; --ok-bg:#16301f; --warn:#f2b75c; --warn-bg:#352812; --bad:#ff8a80; --bad-bg:#3a1a18;
+    --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121519; --surface:#1b1f25; --surface-2:#242a32; --text:#e7ebf0; --muted:#9aa5b3; --border:#323a45;
+  --accent:#7aa2ff; --accent-text:#0d1320; --accent-soft:#1f2b45;
+  --ok:#6fd39a; --ok-bg:#16301f; --warn:#f2b75c; --warn-bg:#352812; --bad:#ff8a80; --bad-bg:#3a1a18;
+  --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+.bar{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar h1{font-size:17px;margin:0;flex:1;min-width:160px}
+nav{max-width:1200px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto}
+nav button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;color:var(--muted);font:inherit;cursor:pointer;white-space:nowrap}
+nav button[aria-current="page"]{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:16px}
+h2{font-size:16px;margin:0 0 10px}
+h3{font-size:14px;margin:18px 0 8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row.end{justify-content:flex-end}
+.spacer{flex:1}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 8px;min-width:0}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+textarea{width:100%;min-height:54px}
+button.btn{background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:6px 12px;cursor:pointer}
+button.btn:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+button.danger{color:var(--bad)}
+button.link{background:none;border:0;padding:2px 4px;color:var(--accent);cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+.kpi .l{color:var(--muted);font-size:12px}
+.kpi .v{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+tr.grp td{background:var(--surface-2);font-weight:600}
+tr.tot td{font-weight:650;border-top:2px solid var(--border)}
+td.sub{padding-left:22px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.bad{background:var(--bad-bg);color:var(--bad)}
+.tag.info{background:var(--accent-soft);color:var(--accent)}
+.tag.neutral{background:var(--surface-2);color:var(--muted)}
+.meter{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;background:var(--ok)}
+.alert{border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;border:1px solid var(--border)}
+.alert.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.alert.info{background:var(--accent-soft);color:var(--text);border-color:transparent}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.grid2 label,.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.grid2 label>*,.field>*{font-size:14px;color:var(--text)}
+.full{grid-column:1/-1}
+dialog{border:1px solid var(--border);border-radius:12px;padding:0;background:var(--surface);color:var(--text);width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:rgba(10,14,20,.45)}
+dialog form{display:flex;flex-direction:column;max-height:calc(100vh - 34px)}
+.dh{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:650}
+.db{padding:16px;overflow:auto}
+.df{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.alloc{display:grid;grid-template-columns:minmax(0,1fr) 130px 32px;gap:6px;align-items:center;margin-bottom:6px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.empty{padding:28px 12px;text-align:center;color:var(--muted)}
+.onb ol{margin:6px 0 0;padding-left:20px}
+.onb li{margin:4px 0}
+.inline-edit{width:100%;min-width:120px}
+td input,td select{padding:4px 6px}
+.chk{width:16px;height:16px}
+@media (max-width:640px){
+  .grid2{grid-template-columns:1fr}
+  .alloc{grid-template-columns:minmax(0,1fr) 100px 32px}
+  .kpi .v{font-size:18px}
+}
+@media print{
+  header,nav,.noprint,button{display:none!important}
+  body{background:#fff;color:#000}
+  .card,.kpi{box-shadow:none;border-color:#bbb}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Compras y Pagos</h1>
+    <label class="row small muted">Mes <input type="month" id="mes"></label>
+  </div>
+  <nav id="tabs">
+    <button data-tab="resumen">Resumen</button>
+    <button data-tab="compras">Compras</button>
+    <button data-tab="pagos">Pagos</button>
+    <button data-tab="importar">Importar / conciliar</button>
+    <button data-tab="catalogos">Negocios y reglas</button>
+    <button data-tab="datos">Respaldo</button>
+  </nav>
+</header>
+<main id="view"></main>
+<dialog id="dlg"></dialog>
+
+<script>
+'use strict';
+/* =====================================================================
+   Gestión de compras y pagos por negocio / sucursal
+   - Todo el estado vive en DB y se guarda en localStorage.
+   - Los importes se guardan en CENTAVOS (enteros) para no perder cuadre.
+   ===================================================================== */
+
+const KEY = 'gestionCompras.v1';
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const sum = (arr, f = x => x) => arr.reduce((a, x) => a + (f(x) || 0), 0);
+
+/* ---------- Estado ---------- */
+function vacio() {
+  return {
+    version: 1,
+    negocios: [],          // {id, nombre, sucursales:[{id, nombre}]}
+    cuentas: [],           // {id, nombre}
+    reglas: [],            // {id, patron, proveedor, sucursalId, categoria}
+    compras: [],           // {id, fecha, vence, proveedor, folio, concepto, categoria, total, asignaciones:[{sucursalId, monto}], notas, origen}
+    pagos: [],             // {id, fecha, cuentaId, monto, referencia, notas, aplicaciones:[{compraId, monto}], origen}
+    importados: {},        // huellas de movimientos ya importados (evita duplicados)
+    ajustes: { simbolo: '$', ultimoRespaldo: null }
+  };
+}
+let DB = cargar();
+function cargar() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return Object.assign(vacio(), JSON.parse(raw));
+  } catch (e) { console.warn(e); }
+  return vacio();
+}
+function guardar() {
+  try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+  catch (e) { alert('No se pudo guardar en este navegador. Exporta un respaldo desde la pestaña Respaldo.\n\n' + e.message); }
+}
+
+const UI = { tab: 'resumen', mes: hoy().slice(0, 7), f: { todos: false, sucursal: '', estado: '', q: '', cuenta: '' }, sel: new Set() };
+try { const t = localStorage.getItem(KEY + '.tab'); if (t) UI.tab = t; } catch (e) {}
+
+/* ---------- Dinero y fechas ---------- */
+const nf = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = c => (c < 0 ? '-' : '') + DB.ajustes.simbolo + nf.format(Math.abs(c || 0) / 100);
+const plain = c => ((c || 0) / 100).toFixed(2);
+
+function parseMonto(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return isFinite(v) ? Math.round(v * 100) : null;
+  let s = String(v).trim();
+  let neg = /^\(.*\)$/.test(s) || /-/.test(s);
+  s = s.replace(/[^\d.,]/g, '');
+  if (!s) return null;
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc > ld) {
+    // "1.234,56" o "12,5" -> coma decimal ; "1,234" -> separador de miles
+    s = s.length - lc - 1 <= 2 ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else s = s.replace(/,/g, '');
+  const n = parseFloat(s);
+  if (!isFinite(n)) return null;
+  return Math.round(n * 100) * (neg ? -1 : 1);
+}
+
+function hoy() { const d = new Date(); return iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+function iso(y, m, d) {
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 1900)) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+const y4 = y => (y < 100 ? 2000 + y : y);
+const MESES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12, jan: 1, apr: 4, aug: 8, dec: 12 };
+function parseFecha(v, fmt = 'dmy') {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : iso(v.getFullYear(), v.getMonth() + 1, v.getDate());
+  if (typeof v === 'number') {
+    if (v > 20000 && v < 80000) { // número de serie de Excel
+      const d = new Date(Math.round((v - 25569) * 86400000));
+      return iso(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+    }
+    return null;
+  }
+  const s = norm(v);
+  let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return iso(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{1,2})[-\/. ]([a-z]{3})[a-z]*\.?[-\/. ]+(\d{2,4})/);
+  if (m && MESES[m[2]]) return iso(y4(+m[3]), MESES[m[2]], +m[1]);
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if (m) { const a = +m[1], b = +m[2], y = y4(+m[3]); return fmt === 'mdy' ? iso(y, a, b) : iso(y, b, a); }
+  return null;
+}
+const fFecha = s => (s ? s.split('-').reverse().join('/') : '');
+function diasEntre(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 86400000); }
+function nombreMes(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+}
+
+/* ---------- Catálogos ---------- */
+function todasSucursales() {
+  const out = [];
+  for (const n of DB.negocios) for (const s of n.sucursales) out.push({ ...s, negocio: n });
+  return out;
+}
+function sucursal(id) { return todasSucursales().find(s => s.id === id); }
+function etiqueta(id) {
+  const s = sucursal(id);
+  if (!s) return '(eliminada)';
+  return s.negocio.sucursales.length === 1 ? s.negocio.nombre : `${s.negocio.nombre} · ${s.nombre}`;
+}
+function opcionesSucursal(sel, vacioTxt = '— Sin asignar —') {
+  let h = `<option value="">${esc(vacioTxt)}</option>`;
+  for (const n of DB.negocios) {
+    h += `<optgroup label="${esc(n.nombre)}">`;
+    for (const s of n.sucursales) h += `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(n.sucursales.length === 1 ? n.nombre : n.nombre + ' · ' + s.nombre)}</option>`;
+    h += '</optgroup>';
+  }
+  return h;
+}
+function opcionesCuenta(sel) {
+  return DB.cuentas.map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
+}
+function cuentaNombre(id) { return DB.cuentas.find(c => c.id === id)?.nombre || '(sin cuenta)'; }
+function buscarSucursalPorNombre(txt) {
+  const t = norm(txt);
+  if (!t) return '';
+  for (const s of todasSucursales()) {
+    const full = norm(s.negocio.nombre + ' ' + s.nombre);
+    if (t === norm(s.nombre) || t === norm(s.negocio.nombre) && s.negocio.sucursales.length === 1 || t.replace(/[-·]/g, ' ').replace(/\s+/g, ' ') === full) return s.id;
+  }
+  return '';
+}
+function reglaPara(desc) {
+  const d = norm(desc);
+  return DB.reglas.find(r => r.patron && d.includes(norm(r.patron)));
+}
+
+/* ---------- Cálculos ---------- */
+// Cuánto se ha pagado de cada compra (opcionalmente ignorando un pago)
+function pagadoPorCompra(excluirPagoId) {
+  const m = new Map();
+  for (const p of DB.pagos) {
+    if (p.id === excluirPagoId) continue;
+    for (const a of p.aplicaciones) m.set(a.compraId, (m.get(a.compraId) || 0) + a.monto);
+  }
+  return m;
+}
+function infoCompra(c, pagados) {
+  const pagado = Math.min(pagados.get(c.id) || 0, c.total);
+  const saldo = c.total - pagado;
+  const asignado = sum(c.asignaciones, a => a.monto);
+  const sinAsignar = c.total - asignado;
+  const vencida = saldo > 0 && c.vence && c.vence < hoy();
+  const estado = saldo <= 0 ? 'pagada' : pagado > 0 ? 'parcial' : 'pendiente';
+  return { pagado, saldo, asignado, sinAsignar, vencida, estado };
+}
+function tagEstado(i) {
+  if (i.estado === 'pagada') return '<span class="tag ok">Pagada</span>';
+  if (i.vencida) return '<span class="tag bad">Vencida</span>';
+  if (i.estado === 'parcial') return '<span class="tag warn">Parcial</span>';
+  return '<span class="tag warn">Por pagar</span>';
+}
+const enMes = (fecha, ym) => fecha && fecha.slice(0, 7) === ym;
+
+/* ---------- Navegación ---------- */
+function render() {
+  $$('#tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
+  $('#mes').value = UI.mes;
+  const v = $('#view');
+  v.innerHTML = ({ resumen: vResumen, compras: vCompras, pagos: vPagos, importar: vImportar, catalogos: vCatalogos, datos: vDatos }[UI.tab] || vResumen)();
+}
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]');
+  if (!b) return;
+  UI.tab = b.dataset.tab;
+  try { localStorage.setItem(KEY + '.tab', UI.tab); } catch (e2) {}
+  render();
+});
+$('#mes').addEventListener('change', e => { if (e.target.value) { UI.mes = e.target.value; render(); } });
+
+function avisoRespaldo() {
+  if (!DB.compras.length && !DB.pagos.length) return '';
+  const u = DB.ajustes.ultimoRespaldo;
+  if (u && diasEntre(u, hoy()) < 7) return '';
+  return `<div class="alert warn noprint">Tus datos sólo están guardados en este navegador. ${u ? 'Último respaldo: ' + fFecha(u) + '.' : 'Aún no has hecho un respaldo.'}
+    <button class="link" data-act="respaldo">Descargar respaldo ahora</button></div>`;
+}
+
+/* =====================================================================
+   RESUMEN
+   ===================================================================== */
+function vResumen() {
+  if (!DB.negocios.length) {
+    return `<div class="card onb"><h2>Empecemos</h2>
+      <p class="muted">Esta herramienta te ayuda a saber qué compra corresponde a cada negocio/sucursal y qué falta por pagar.</p>
+      <ol>
+        <li>Da de alta tus <b>negocios y sucursales</b> y las <b>cuentas o tarjetas</b> con las que pagas.</li>
+        <li><b>Importa</b> tu estado de cuenta o tu listado de compras (Excel o CSV).</li>
+        <li>Asigna cada compra a su sucursal. Crea <b>reglas</b> ("OXXO → Sucursal Centro") para que la próxima vez se asigne sola.</li>
+        <li>Revisa aquí el cuadre del mes por sucursal.</li>
+      </ol>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" data-act="ir" data-tab="catalogos">Agregar mis negocios</button>
+        <button class="btn" data-act="demo">Probar con datos de ejemplo</button>
+      </div></div>`;
+  }
+  const ym = UI.mes;
+  const pag = pagadoPorCompra();
+  const compras = DB.compras.filter(c => enMes(c.fecha, ym));
+  const info = new Map(DB.compras.map(c => [c.id, infoCompra(c, pag)]));
+
+  // Por sucursal (prorrateando lo pagado según la asignación)
+  const porSuc = new Map();
+  let sinAsig = { comprado: 0, pagado: 0, n: 0 };
+  for (const c of compras) {
+    const i = info.get(c.id);
+    const ratio = c.total ? i.pagado / c.total : 0;
+    for (const a of c.asignaciones) {
+      const r = porSuc.get(a.sucursalId) || { comprado: 0, pagado: 0, n: 0 };
+      r.comprado += a.monto; r.pagado += Math.round(a.monto * ratio); r.n++;
+      porSuc.set(a.sucursalId, r);
+    }
+    if (i.sinAsignar) { sinAsig.comprado += i.sinAsignar; sinAsig.pagado += Math.round(i.sinAsignar * ratio); sinAsig.n++; }
+  }
+  const totMes = sum(compras, c => c.total);
+  const pagMes = sum(compras, c => info.get(c.id).pagado);
+  const pagosMes = DB.pagos.filter(p => enMes(p.fecha, ym));
+  const salidaMes = sum(pagosMes, p => p.monto);
+  const pendientes = DB.compras.filter(c => info.get(c.id).saldo > 0);
+  const porPagar = sum(pendientes, c => info.get(c.id).saldo);
+  const vencidas = pendientes.filter(c => info.get(c.id).vencida);
+  const pagosSinAplicar = DB.pagos.map(p => ({ p, libre: p.monto - sum(p.aplicaciones, a => a.monto) })).filter(x => x.libre > 0);
+
+  let filas = '';
+  for (const n of DB.negocios) {
+    const rs = n.sucursales.map(s => ({ s, r: porSuc.get(s.id) || { comprado: 0, pagado: 0, n: 0 } }));
+    const t = { comprado: sum(rs, x => x.r.comprado), pagado: sum(rs, x => x.r.pagado) };
+    const multi = n.sucursales.length > 1;
+    filas += filaResumen(n.nombre, t, multi ? 'grp' : '', multi ? '' : n.sucursales[0].id);
+    if (multi) for (const x of rs) filas += filaResumen(x.s.nombre, x.r, 'sub', x.s.id);
+  }
+  if (sinAsig.comprado) filas += `<tr><td><span class="tag warn">Sin asignar</span> <span class="small muted">${sinAsig.n} compra(s)</span></td>
+      <td class="num">${money(sinAsig.comprado)}</td><td class="num">${money(sinAsig.pagado)}</td><td class="num">${money(sinAsig.comprado - sinAsig.pagado)}</td><td></td>
+      <td class="noprint"><button class="link" data-act="ver-compras" data-estado="sinasignar">Asignar</button></td></tr>`;
+  filas += `<tr class="tot"><td>Total del mes</td><td class="num">${money(totMes)}</td><td class="num">${money(pagMes)}</td><td class="num">${money(totMes - pagMes)}</td><td></td><td class="noprint"></td></tr>`;
+
+  const prox = pendientes.slice().sort((a, b) => (a.vence || a.fecha).localeCompare(b.vence || b.fecha)).slice(0, 8);
+
+  return `${avisoRespaldo()}
+  <div class="row" style="margin-bottom:12px"><h2 style="margin:0">${esc(nombreMes(ym).replace(/^\p{L}/u, m => m.toUpperCase()))}</h2><span class="spacer"></span>
+    <button class="btn noprint" onclick="print()">Imprimir</button>
+    <button class="btn noprint" data-act="csv-resumen">Exportar CSV</button></div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Compras del mes</div><div class="v">${money(totMes)}</div><div class="s">${compras.length} compra(s)</div></div>
+    <div class="kpi"><div class="l">Pagos realizados en el mes</div><div class="v">${money(salidaMes)}</div><div class="s">${pagosMes.length} pago(s)</div></div>
+    <div class="kpi"><div class="l">Por pagar (todos los meses)</div><div class="v">${money(porPagar)}</div><div class="s">${vencidas.length ? `<span style="color:var(--bad)">${vencidas.length} vencida(s)</span>` : pendientes.length + ' compra(s)'}</div></div>
+    <div class="kpi"><div class="l">Sin asignar a sucursal (mes)</div><div class="v" style="${sinAsig.comprado ? 'color:var(--warn)' : ''}">${money(sinAsig.comprado)}</div><div class="s">${sinAsig.n} compra(s)</div></div>
+  </div>
+  <div class="card"><h2>Cuadre por negocio y sucursal</h2>
+    <p class="small muted" style="margin-top:-4px">Compras con fecha en el mes. Lo pagado se reparte según cómo se asignó cada compra.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Negocio / sucursal</th><th class="num">Comprado</th><th class="num">Pagado</th><th class="num">Pendiente</th><th>% pagado</th><th class="noprint"></th></tr></thead>
+      <tbody>${filas}</tbody></table></div></div>
+  <div class="card"><h2>Próximos pagos</h2>
+    ${prox.length ? `<div class="tw"><table><thead><tr><th>Vence</th><th>Proveedor</th><th>Sucursal</th><th class="num">Saldo</th><th></th><th class="noprint"></th></tr></thead><tbody>
+      ${prox.map(c => { const i = info.get(c.id); return `<tr><td>${fFecha(c.vence) || '<span class="muted">' + fFecha(c.fecha) + '</span>'}</td><td>${esc(c.proveedor)}<div class="small muted">${esc(c.folio || c.concepto || '')}</div></td>
+        <td class="small">${asigTxt(c)}</td><td class="num">${money(i.saldo)}</td><td>${tagEstado(i)}</td>
+        <td class="noprint"><button class="link" data-act="pagar" data-id="${c.id}">Pagar</button></td></tr>`; }).join('')}
+      </tbody></table></div>${pendientes.length > prox.length ? `<p class="small"><button class="link" data-act="ver-compras" data-estado="pendientes">Ver las ${pendientes.length} pendientes</button></p>` : ''}`
+      : '<div class="empty">No hay compras pendientes de pago.</div>'}
+  </div>
+  ${pagosSinAplicar.length ? `<div class="card"><h2>Pagos sin aplicar a una compra</h2><p class="small muted">Dinero que salió pero no está ligado a ninguna compra (anticipos, o compras que falta registrar).</p>
+    <div class="tw"><table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Referencia</th><th class="num">Sin aplicar</th><th class="noprint"></th></tr></thead><tbody>
+    ${pagosSinAplicar.map(x => `<tr><td>${fFecha(x.p.fecha)}</td><td>${esc(cuentaNombre(x.p.cuentaId))}</td><td>${esc(x.p.referencia)}</td><td class="num">${money(x.libre)}</td><td class="noprint"><button class="link" data-act="editar-pago" data-id="${x.p.id}">Aplicar</button></td></tr>`).join('')}
+    </tbody></table></div></div>` : ''}`;
+}
+function filaResumen(nombre, r, cls, sucId) {
+  const pct = r.comprado ? Math.round(100 * r.pagado / r.comprado) : 0;
+  return `<tr class="${cls === 'grp' ? 'grp' : ''}"><td class="${cls === 'sub' ? 'sub' : ''}">${esc(nombre)}</td>
+    <td class="num">${money(r.comprado)}</td><td class="num">${money(r.pagado)}</td><td class="num">${money(r.comprado - r.pagado)}</td>
+    <td>${r.comprado ? `<div class="row" style="flex-wrap:nowrap"><div class="meter" style="flex:1"><i style="width:${pct}%"></i></div><span class="small muted">${pct}%</span></div>` : ''}</td>
+    <td class="noprint">${sucId && r.comprado ? `<button class="link" data-act="ver-compras" data-suc="${sucId}">Ver</button>` : ''}</td></tr>`;
+}
+function asigTxt(c) {
+  if (!c.asignaciones.length) return '<span class="tag warn">Sin asignar</span>';
+  if (c.asignaciones.length === 1 && c.asignaciones[0].monto === c.total) return esc(etiqueta(c.asignaciones[0].sucursalId));
+  const resto = c.total - sum(c.asignaciones, a => a.monto);
+  return c.asignaciones.map(a => `${esc(etiqueta(a.sucursalId))} <span class="muted">${money(a.monto)}</span>`).join('<br>') +
+    (resto ? `<br><span class="tag warn">Falta ${money(resto)}</span>` : '');
+}
+
+/* =====================================================================
+   COMPRAS
+   ===================================================================== */
+function comprasFiltradas() {
+  const pag = pagadoPorCompra(), f = UI.f, q = norm(f.q);
+  return DB.compras.map(c => ({ c, i: infoCompra(c, pag) })).filter(({ c, i }) => {
+    if (!f.todos && !enMes(c.fecha, UI.mes)) return false;
+    if (f.sucursal && !c.asignaciones.some(a => a.sucursalId === f.sucursal)) return false;
+    if (f.estado === 'pendientes' && i.saldo <= 0) return false;
+    if (f.estado === 'pagadas' && i.saldo > 0) return false;
+    if (f.estado === 'vencidas' && !i.vencida) return false;
+    if (f.estado === 'sinasignar' && !i.sinAsignar) return false;
+    if (q && !norm([c.proveedor, c.folio, c.concepto, c.categoria, c.notas].join(' ')).includes(q)) return false;
+    return true;
+  }).sort((a, b) => b.c.fecha.localeCompare(a.c.fecha));
+}
+function vCompras() {
+  const f = UI.f, lista = comprasFiltradas();
+  UI.sel = new Set([...UI.sel].filter(id => lista.some(x => x.c.id === id)));
+  const t = { total: sum(lista, x => x.c.total), pagado: sum(lista, x => x.i.pagado), saldo: sum(lista, x => x.i.saldo) };
+  return `${avisoRespaldo()}<div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn primary" data-act="nueva-compra">+ Nueva compra</button>
+      <span class="spacer"></span>
+      <button class="btn" data-act="csv-compras">Exportar CSV</button>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <label class="row small muted"><input type="checkbox" class="chk" data-f="todos" ${f.todos ? 'checked' : ''}> Todos los meses</label>
+      <select data-f="sucursal">${opcionesSucursal(f.sucursal, 'Todas las sucursales')}</select>
+      <select data-f="estado">
+        ${[['', 'Todos los estados'], ['pendientes', 'Por pagar'], ['vencidas', 'Vencidas'], ['pagadas', 'Pagadas'], ['sinasignar', 'Sin asignar a sucursal']].map(([v, l]) => `<option value="${v}" ${f.estado === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      <input type="search" data-f="q" placeholder="Buscar proveedor, folio…" value="${esc(f.q)}" style="flex:1;min-width:160px">
+    </div>
+    ${UI.sel.size ? `<div class="alert info row"><b>${UI.sel.size}</b> seleccionada(s). Asignar completas a:
+       <select id="bulkSuc">${opcionesSucursal('', 'Elegir sucursal…')}</select>
+       <button class="btn primary" data-act="bulk-asignar">Asignar</button>
+       <button class="link" data-act="bulk-limpiar">Quitar selección</button></div>` : ''}
+    ${lista.length ? `<div class="tw"><table>
+      <thead><tr><th><input type="checkbox" class="chk" data-act="sel-todas" ${UI.sel.size === lista.length ? 'checked' : ''} aria-label="Seleccionar todas"></th>
+        <th>Fecha</th><th>Proveedor</th><th>Sucursal</th><th class="num">Total</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${lista.map(({ c, i }) => `<tr>
+        <td><input type="checkbox" class="chk" data-act="sel" data-id="${c.id}" ${UI.sel.has(c.id) ? 'checked' : ''} aria-label="Seleccionar"></td>
+        <td>${fFecha(c.fecha)}${c.vence ? `<div class="small muted">vence ${fFecha(c.vence)}</div>` : ''}</td>
+        <td>${esc(c.proveedor)}<div class="small muted">${esc([c.folio, c.concepto].filter(Boolean).join(' · '))}</div></td>
+        <td class="small">${asigTxt(c)}</td>
+        <td class="num">${money(c.total)}</td><td class="num">${i.saldo ? money(i.saldo) : '<span class="muted">—</span>'}</td>
+        <td>${tagEstado(i)}</td>
+        <td style="white-space:nowrap"><button class="link" data-act="editar-compra" data-id="${c.id}">Editar</button>${i.saldo > 0 ? `<button class="link" data-act="pagar" data-id="${c.id}">Pagar</button>` : ''}</td></tr>`).join('')}
+        <tr class="tot"><td></td><td colspan="3">${lista.length} compra(s)</td><td class="num">${money(t.total)}</td><td class="num">${money(t.saldo)}</td><td colspan="2" class="small muted">Pagado ${money(t.pagado)}</td></tr>
+      </tbody></table></div>` : `<div class="empty">No hay compras con estos filtros${f.todos ? '' : ' en ' + esc(nombreMes(UI.mes))}.</div>`}
+  </div>`;
+}
+
+function dlgCompra(id) {
+  const c = id ? DB.compras.find(x => x.id === id) : { fecha: hoy(), vence: '', proveedor: '', folio: '', concepto: '', categoria: '', total: 0, asignaciones: [], notas: '' };
+  const proveedores = [...new Set(DB.compras.map(x => x.proveedor).filter(Boolean))].sort();
+  const categorias = [...new Set(DB.compras.map(x => x.categoria).filter(Boolean))].sort();
+  const asig = c.asignaciones.length ? c.asignaciones : [{ sucursalId: '', monto: null }];
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form method="dialog" id="fCompra">
+    <div class="dh">${id ? 'Editar compra' : 'Nueva compra'}</div>
+    <div class="db"><div class="grid2">
+      <label>Fecha<input type="date" name="fecha" required value="${c.fecha}"></label>
+      <label>Vence (opcional)<input type="date" name="vence" value="${c.vence || ''}"></label>
+      <label>Proveedor<input name="proveedor" list="dlProv" required value="${esc(c.proveedor)}" autocomplete="off"></label>
+      <label>Folio / factura<input name="folio" value="${esc(c.folio)}"></label>
+      <label>Concepto<input name="concepto" value="${esc(c.concepto)}"></label>
+      <label>Categoría<input name="categoria" list="dlCat" value="${esc(c.categoria)}" placeholder="Mercancía, servicios, renta…"></label>
+      <label>Total<input name="total" inputmode="decimal" required value="${c.total ? plain(c.total) : ''}"></label>
+      <div class="full"><div class="small muted" style="margin-bottom:6px">¿A qué sucursal(es) le corresponde?</div>
+        <div id="allocs">${asig.map(filaAlloc).join('')}</div>
+        <div class="row"><button type="button" class="btn" data-act="alloc-add">+ Otra sucursal</button>
+          <button type="button" class="btn" data-act="alloc-igual">Repartir en partes iguales</button>
+          <span class="spacer"></span><span id="allocInfo" class="small"></span></div></div>
+      <label class="full">Notas<textarea name="notas">${esc(c.notas)}</textarea></label>
+    </div>
+    <datalist id="dlProv">${proveedores.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+    <datalist id="dlCat">${categorias.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+    <p id="err" class="small" style="color:var(--bad)"></p></div>
+    <div class="df">${id ? `<button type="button" class="btn danger" data-act="borrar-compra" data-id="${id}">Eliminar</button>` : ''}
+      <span class="spacer"></span><button value="cancel" class="btn" formnovalidate>Cancelar</button><button class="btn primary" value="ok">Guardar</button></div>
+  </form>`;
+  const form = $('#fCompra');
+  const upd = () => {
+    const total = parseMonto(form.total.value) || 0;
+    const asignado = sum($$('.alloc', form), r => parseMonto($('input', r).value));
+    const vacias = $$('.alloc', form).filter(r => $('select', r).value && !$('input', r).value.trim()).length;
+    const el = $('#allocInfo');
+    if (vacias) el.innerHTML = `<span class="muted">El resto (${money(total - asignado)}) irá a la sucursal sin importe</span>`;
+    else if (asignado === total) el.innerHTML = `<span style="color:var(--ok)">Asignado completo</span>`;
+    else el.innerHTML = `<span style="color:var(--warn)">Asignado ${money(asignado)} de ${money(total)}</span>`;
+  };
+  form.addEventListener('input', upd);
+  form.addEventListener('change', upd);
+  form.addEventListener('click', e => {
+    const a = e.target.closest('[data-act]')?.dataset.act;
+    if (a === 'alloc-add') { $('#allocs').insertAdjacentHTML('beforeend', filaAlloc({ sucursalId: '', monto: null })); upd(); }
+    if (a === 'alloc-del') { e.target.closest('.alloc').remove(); upd(); }
+    if (a === 'alloc-igual') {
+      const rows = $$('.alloc', form).filter(r => $('select', r).value), total = parseMonto(form.total.value) || 0;
+      rows.forEach((r, k) => { const base = Math.floor(total / rows.length); $('input', r).value = plain(base + (k === 0 ? total - base * rows.length : 0)); });
+      upd();
+    }
+  });
+  form.addEventListener('submit', e => {
+    if (e.submitter?.value !== 'ok') return;
+    const total = parseMonto(form.total.value);
+    const err = m => { e.preventDefault(); $('#err').textContent = m; };
+    if (!total || total <= 0) return err('Escribe un total válido.');
+    let rows = $$('.alloc', form).map(r => ({ sucursalId: $('select', r).value, monto: parseMonto($('input', r).value) })).filter(r => r.sucursalId);
+    const fijo = sum(rows, r => r.monto), vacias = rows.filter(r => r.monto == null);
+    if (vacias.length) { // reparte lo que falta entre las filas sin importe
+      const resto = total - fijo, base = Math.floor(resto / vacias.length);
+      vacias.forEach((r, k) => { r.monto = base + (k === 0 ? resto - base * vacias.length : 0); });
+    }
+    rows = rows.filter(r => r.monto > 0);
+    const asignado = sum(rows, r => r.monto);
+    if (asignado > total) return err(`Lo asignado (${money(asignado)}) es mayor que el total (${money(total)}).`);
+    const ids = rows.map(r => r.sucursalId);
+    if (new Set(ids).size !== ids.length) return err('Hay una sucursal repetida; junta sus importes en una sola fila.');
+    const pagado = pagadoPorCompra().get(id) || 0;
+    if (id && total < pagado) return err(`Esta compra ya tiene ${money(pagado)} pagado; el total no puede ser menor.`);
+    const datos = {
+      fecha: form.fecha.value, vence: form.vence.value || '', proveedor: form.proveedor.value.trim(), folio: form.folio.value.trim(),
+      concepto: form.concepto.value.trim(), categoria: form.categoria.value.trim(), total, asignaciones: rows, notas: form.notas.value.trim()
+    };
+    if (id) Object.assign(c, datos); else DB.compras.push({ id: uid(), origen: 'manual', ...datos });
+    guardar(); render();
+  });
+  upd();
+  dlg.showModal();
+}
+function filaAlloc(a) {
+  return `<div class="alloc"><select aria-label="Sucursal">${opcionesSucursal(a.sucursalId, 'Elegir sucursal…')}</select>
+    <input inputmode="decimal" placeholder="Importe" aria-label="Importe" value="${a.monto != null ? plain(a.monto) : ''}">
+    <button type="button" class="btn" data-act="alloc-del" aria-label="Quitar" title="Quitar">×</button></div>`;
+}
+
+/* =====================================================================
+   PAGOS
+   ===================================================================== */
+function vPagos() {
+  const f = UI.f;
+  const lista = DB.pagos.filter(p => (f.todos || enMes(p.fecha, UI.mes)) && (!f.cuenta || p.cuentaId === f.cuenta)).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const porCuenta = new Map();
+  for (const p of lista) porCuenta.set(p.cuentaId, (porCuenta.get(p.cuentaId) || 0) + p.monto);
+  const compra = id => DB.compras.find(c => c.id === id);
+  return `${avisoRespaldo()}<div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn primary" data-act="nuevo-pago">+ Registrar pago</button><span class="spacer"></span>
+      <label class="row small muted"><input type="checkbox" class="chk" data-f="todos" ${f.todos ? 'checked' : ''}> Todos los meses</label>
+      <select data-f="cuenta"><option value="">Todas las cuentas</option>${opcionesCuenta(f.cuenta)}</select>
+    </div>
+    ${porCuenta.size ? `<h3 style="margin-top:0">Total por cuenta ${f.todos ? '' : 'en ' + esc(nombreMes(UI.mes))}</h3>
+      <p class="small muted" style="margin-top:-4px">Compáralo contra el total de cargos de tu estado de cuenta para cuadrar.</p>
+      <div class="tw" style="margin-bottom:12px"><table><tbody>${[...porCuenta].map(([k, v]) => `<tr><td>${esc(cuentaNombre(k))}</td><td class="num">${money(v)}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="num">${money(sum([...porCuenta.values()]))}</td></tr></tbody></table></div>` : ''}
+    ${lista.length ? `<div class="tw"><table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Referencia</th><th>Aplicado a</th><th class="num">Monto</th><th></th></tr></thead><tbody>
+      ${lista.map(p => { const libre = p.monto - sum(p.aplicaciones, a => a.monto); return `<tr><td>${fFecha(p.fecha)}</td><td>${esc(cuentaNombre(p.cuentaId))}</td><td>${esc(p.referencia)}</td>
+        <td class="small">${p.aplicaciones.map(a => { const c = compra(a.compraId); return c ? `${esc(c.proveedor)}${c.folio ? ' · ' + esc(c.folio) : ''} <span class="muted">${money(a.monto)}</span>` : ''; }).join('<br>')}
+          ${libre > 0 ? `<br><span class="tag warn">Sin aplicar ${money(libre)}</span>` : ''}</td>
+        <td class="num">${money(p.monto)}</td><td><button class="link" data-act="editar-pago" data-id="${p.id}">Editar</button></td></tr>`; }).join('')}
+      </tbody></table></div>` : `<div class="empty">No hay pagos ${f.todos ? '' : 'en ' + esc(nombreMes(UI.mes))}.</div>`}
+  </div>`;
+}
+
+function dlgPago(id, compraId) {
+  if (!DB.cuentas.length) { alert('Primero agrega una cuenta o forma de pago en "Negocios y reglas".'); UI.tab = 'catalogos'; render(); return; }
+  const p = id ? DB.pagos.find(x => x.id === id) : { fecha: hoy(), cuentaId: DB.cuentas[0].id, monto: 0, referencia: '', notas: '', aplicaciones: [] };
+  const pag = pagadoPorCompra(id);
+  const aplic = new Map(p.aplicaciones.map(a => [a.compraId, a.monto]));
+  if (compraId) { const c = DB.compras.find(x => x.id === compraId); aplic.set(compraId, c.total - (pag.get(compraId) || 0)); }
+  const cands = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) }))
+    .filter(x => x.saldo > 0 || aplic.has(x.c.id)).sort((a, b) => a.c.fecha.localeCompare(b.c.fecha));
+  const montoIni = id ? p.monto : sum([...aplic.values()]);
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form method="dialog" id="fPago">
+    <div class="dh">${id ? 'Editar pago' : 'Registrar pago'}</div>
+    <div class="db"><div class="grid2">
+      <label>Fecha<input type="date" name="fecha" required value="${p.fecha}"></label>
+      <label>Cuenta / forma de pago<select name="cuentaId">${opcionesCuenta(p.cuentaId)}</select></label>
+      <label>Monto<input name="monto" inputmode="decimal" required value="${montoIni ? plain(montoIni) : ''}"></label>
+      <label>Referencia<input name="referencia" value="${esc(p.referencia)}" placeholder="Transferencia, cheque, autorización…"></label>
+    </div>
+    <h3>¿Qué compras paga?</h3>
+    <div class="row" style="margin-bottom:8px"><input type="search" id="fltProv" placeholder="Filtrar por proveedor" style="flex:1">
+      <button type="button" class="btn" data-act="auto-aplicar">Aplicar automático (más antiguas primero)</button></div>
+    ${cands.length ? `<div class="tw" style="max-height:300px;overflow:auto"><table><thead><tr><th></th><th>Fecha</th><th>Proveedor</th><th class="num">Saldo</th><th class="num">Aplicar</th></tr></thead><tbody>
+      ${cands.map(({ c, saldo }) => `<tr data-cid="${c.id}" data-saldo="${saldo}" data-prov="${esc(norm(c.proveedor + ' ' + c.folio))}">
+        <td><input type="checkbox" class="chk" ${aplic.has(c.id) ? 'checked' : ''} aria-label="Aplicar"></td><td>${fFecha(c.fecha)}</td>
+        <td>${esc(c.proveedor)}<div class="small muted">${esc(c.folio || c.concepto || '')} · ${esc(c.asignaciones.map(a => etiqueta(a.sucursalId)).join(', ') || 'sin asignar')}</div></td>
+        <td class="num">${money(saldo)}</td><td class="num"><input inputmode="decimal" style="width:110px;text-align:right" value="${aplic.has(c.id) ? plain(aplic.get(c.id)) : ''}" aria-label="Importe a aplicar"></td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">No hay compras pendientes. Puedes guardar el pago como anticipo y aplicarlo después.</div>'}
+    <p id="pagoInfo" class="small"></p>
+    <label class="field">Notas<textarea name="notas">${esc(p.notas)}</textarea></label>
+    <p id="err" class="small" style="color:var(--bad)"></p></div>
+    <div class="df">${id ? `<button type="button" class="btn danger" data-act="borrar-pago" data-id="${id}">Eliminar</button>` : ''}
+      <span class="spacer"></span><button value="cancel" class="btn" formnovalidate>Cancelar</button><button class="btn primary" value="ok">Guardar</button></div>
+  </form>`;
+  const form = $('#fPago');
+  const filas = () => $$('tr[data-cid]', form);
+  const leer = () => filas().filter(r => $('input[type=checkbox]', r).checked).map(r => ({ compraId: r.dataset.cid, monto: parseMonto($('input[inputmode]', r).value) || 0, saldo: +r.dataset.saldo }));
+  const upd = () => {
+    const monto = parseMonto(form.monto.value) || 0, ap = sum(leer(), a => a.monto);
+    $('#pagoInfo').innerHTML = `Aplicado ${money(ap)} · ${ap > monto ? `<span style="color:var(--bad)">excede el pago por ${money(ap - monto)}</span>` : ap < monto ? `<span style="color:var(--warn)">sin aplicar ${money(monto - ap)}</span>` : '<span style="color:var(--ok)">cuadra</span>'}`;
+  };
+  form.addEventListener('input', e => {
+    if (e.target.id === 'fltProv') { const q = norm(e.target.value); filas().forEach(r => { r.hidden = q && !r.dataset.prov.includes(q); }); return; }
+    const r = e.target.closest('tr[data-cid]');
+    if (r && e.target.type !== 'checkbox') $('input[type=checkbox]', r).checked = !!e.target.value.trim();
+    upd();
+  });
+  form.addEventListener('change', e => {
+    const r = e.target.closest('tr[data-cid]');
+    if (r && e.target.type === 'checkbox') {
+      const inp = $('input[inputmode]', r);
+      if (e.target.checked && !inp.value) {
+        const monto = parseMonto(form.monto.value) || 0, otros = sum(leer().filter(a => a.compraId !== r.dataset.cid), a => a.monto);
+        const disp = monto ? Math.max(0, monto - otros) : +r.dataset.saldo;
+        inp.value = plain(Math.min(+r.dataset.saldo, disp || +r.dataset.saldo));
+        if (!monto) form.monto.value = plain(sum(leer(), a => a.monto));
+      }
+      if (!e.target.checked) inp.value = '';
+    }
+    upd();
+  });
+  form.addEventListener('click', e => {
+    if (e.target.closest('[data-act]')?.dataset.act !== 'auto-aplicar') return;
+    let resto = parseMonto(form.monto.value) || 0;
+    for (const r of filas()) {
+      const chk = $('input[type=checkbox]', r), inp = $('input[inputmode]', r);
+      const v = r.hidden ? 0 : Math.min(resto, +r.dataset.saldo);
+      chk.checked = v > 0; inp.value = v > 0 ? plain(v) : ''; resto -= v;
+    }
+    upd();
+  });
+  form.addEventListener('submit', e => {
+    if (e.submitter?.value !== 'ok') return;
+    const err = m => { e.preventDefault(); $('#err').textContent = m; };
+    const monto = parseMonto(form.monto.value);
+    if (!monto || monto <= 0) return err('Escribe un monto válido.');
+    const aps = leer().filter(a => a.monto > 0);
+    const malo = aps.find(a => a.monto > a.saldo);
+    if (malo) return err(`Se aplica más que el saldo de una compra (${money(malo.saldo)}).`);
+    if (sum(aps, a => a.monto) > monto) return err('Lo aplicado es mayor que el monto del pago.');
+    const datos = { fecha: form.fecha.value, cuentaId: form.cuentaId.value, monto, referencia: form.referencia.value.trim(), notas: form.notas.value.trim(), aplicaciones: aps.map(({ compraId, monto }) => ({ compraId, monto })) };
+    if (id) Object.assign(p, datos); else DB.pagos.push({ id: uid(), origen: 'manual', ...datos });
+    guardar(); render();
+  });
+  upd();
+  dlg.showModal();
+}
+
+/* =====================================================================
+   IMPORTAR / CONCILIAR
+   ===================================================================== */
+const IMP = { tipo: 'estado', archivo: '', rows: null, header: 0, map: {}, fmt: 'dmy', signo: 'auto', cuentaId: '', filas: [], resultado: '' };
+const CAMPOS = {
+  estado: [['fecha', 'Fecha', 1], ['desc', 'Descripción', 1], ['monto', 'Importe (una columna)', 0], ['cargo', 'Cargo / retiro', 0], ['abono', 'Abono / depósito', 0], ['ref', 'Referencia', 0]],
+  compras: [['fecha', 'Fecha', 1], ['proveedor', 'Proveedor', 1], ['total', 'Total', 1], ['folio', 'Folio / factura', 0], ['concepto', 'Concepto', 0], ['sucursal', 'Sucursal / negocio', 0], ['vence', 'Vencimiento', 0], ['categoria', 'Categoría', 0]]
+};
+const PISTAS = {
+  fecha: /^fecha|^date|fecha de (operacion|compra|movimiento)/, desc: /descrip|concepto|detalle|movimiento|establecimiento|comercio/,
+  monto: /^(importe|monto|cantidad|amount)$/, cargo: /cargo|retiro|debito|egreso|salida/, abono: /abono|deposito|credito|ingreso|entrada/,
+  ref: /^ref|referencia|autoriz|folio/, proveedor: /proveedor|emisor|razon social|nombre/, total: /^total|importe|monto/, folio: /folio|factura|^no\.?|numero/,
+  concepto: /concepto|descrip|detalle/, sucursal: /sucursal|tienda|negocio|destino/, vence: /venc/, categoria: /categoria|tipo|rubro/
+};
+
+function vImportar() {
+  const I = IMP;
+  let h = `${avisoRespaldo()}<div class="card"><h2>1. ¿Qué vas a importar?</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="row"><input type="radio" name="imptipo" value="estado" ${I.tipo === 'estado' ? 'checked' : ''}> Estado de cuenta (banco o tarjeta)</label>
+      <label class="row"><input type="radio" name="imptipo" value="compras" ${I.tipo === 'compras' ? 'checked' : ''}> Listado de compras / facturas por pagar</label>
+    </div>
+    <p class="small muted">${I.tipo === 'estado'
+      ? 'Cada cargo se convierte en una compra <b>ya pagada</b> con esa cuenta, o se liga como pago a una compra que ya tenías registrada. Las reglas asignan proveedor y sucursal solas.'
+      : 'Cada renglón se convierte en una compra <b>por pagar</b>. Si el archivo trae una columna de sucursal se asigna automáticamente.'}</p>
+    <div class="row">
+      ${I.tipo === 'estado' ? `<label class="row small muted">Cuenta <select id="impCuenta">${DB.cuentas.length ? opcionesCuenta(I.cuentaId) : '<option value="">(agrega una cuenta primero)</option>'}</select></label>` : ''}
+      <input type="file" id="impFile" accept=".csv,.txt,.tsv,.xlsx,.xls">
+      ${I.archivo ? `<span class="small muted">${esc(I.archivo)} · ${I.rows.length} renglones</span>` : ''}
+    </div>
+    ${I.resultado ? `<div class="alert info" style="margin-top:12px">${I.resultado}</div>` : ''}
+    ${!DB.negocios.length ? `<div class="alert warn" style="margin-top:12px">Aún no tienes sucursales; podrás importar pero todo quedará "sin asignar". <button class="link" data-act="ir" data-tab="catalogos">Agregarlas</button></div>` : ''}
+  </div>`;
+  if (!I.rows) return h;
+
+  const hdr = I.rows[I.header] || [];
+  const cols = hdr.map((v, k) => `<option value="${k}">${esc(String(v || 'Columna ' + (k + 1)).slice(0, 40))}</option>`).join('');
+  h += `<div class="card"><h2>2. Columnas del archivo</h2>
+    <div class="grid2">
+      ${CAMPOS[I.tipo].map(([k, l, req]) => `<label>${l}${req ? '' : ' (opcional)'}
+        <select data-map="${k}"><option value="">—</option>${cols.replace(`value="${I.map[k]}"`, `value="${I.map[k]}" selected`)}</select></label>`).join('')}
+      <label>Fila de encabezados<input type="number" min="1" max="${I.rows.length}" id="impHeader" value="${I.header + 1}"></label>
+      <label>Formato de fecha<select id="impFmt"><option value="dmy" ${I.fmt === 'dmy' ? 'selected' : ''}>día/mes/año</option><option value="mdy" ${I.fmt === 'mdy' ? 'selected' : ''}>mes/día/año</option></select></label>
+      ${I.tipo === 'estado' ? `<label>Si el importe viene en una sola columna, los cargos son
+        <select id="impSigno"><option value="auto" ${I.signo === 'auto' ? 'selected' : ''}>Detectar automáticamente</option><option value="neg" ${I.signo === 'neg' ? 'selected' : ''}>Negativos</option><option value="pos" ${I.signo === 'pos' ? 'selected' : ''}>Positivos</option></select></label>` : ''}
+    </div></div>`;
+
+  const faltan = CAMPOS[I.tipo].filter(([k, , req]) => req && I.map[k] === undefined).map(x => x[1]);
+  if (I.tipo === 'estado' && I.map.monto === undefined && I.map.cargo === undefined) faltan.push('Importe o Cargo');
+  if (faltan.length) return h + `<div class="alert warn">Indica la columna de: ${faltan.join(', ')}.</div>`;
+
+  const F = I.filas, act = F.filter(f => f.accion !== 'ignorar');
+  const cargos = F.filter(f => !f.abono);
+  const res = I.tipo === 'estado'
+    ? `<div class="kpis" style="margin-bottom:12px">
+        <div class="kpi"><div class="l">Cargos en el archivo</div><div class="v">${money(sum(cargos, f => f.importe))}</div><div class="s">${cargos.length} movimiento(s)</div></div>
+        <div class="kpi"><div class="l">Se registrarán</div><div class="v">${money(sum(act, f => f.importe))}</div><div class="s">${act.length} movimiento(s)</div></div>
+        <div class="kpi"><div class="l">Ignorados</div><div class="v">${money(sum(F.filter(f => f.accion === 'ignorar' && !f.abono), f => f.importe))}</div><div class="s">${F.filter(f => f.dup).length} ya importado(s) antes</div></div>
+        <div class="kpi"><div class="l">Abonos (no son compras)</div><div class="v">${money(sum(F.filter(f => f.abono), f => f.importe))}</div><div class="s">${F.filter(f => f.abono).length} movimiento(s)</div></div>
+      </div>`
+    : `<div class="kpis" style="margin-bottom:12px">
+        <div class="kpi"><div class="l">Total del archivo</div><div class="v">${money(sum(F, f => f.importe))}</div><div class="s">${F.length} renglón(es)</div></div>
+        <div class="kpi"><div class="l">Se registrarán</div><div class="v">${money(sum(act, f => f.importe))}</div><div class="s">${act.length} compra(s)</div></div>
+        <div class="kpi"><div class="l">Sin sucursal</div><div class="v">${act.filter(f => !f.sucursalId).length}</div><div class="s">quedarán por asignar</div></div>
+      </div>`;
+  const pag = pagadoPorCompra();
+  const pendientes = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) })).filter(x => x.saldo > 0);
+  h += `<div class="card"><h2>3. Revisa y confirma</h2>${res}
+    ${I.invalidas ? `<p class="small muted">${I.invalidas} renglón(es) sin fecha o importe válidos se omitieron (encabezados, saldos, totales…).</p>` : ''}
+    <div class="tw" style="max-height:60vh;overflow:auto"><table><thead><tr><th>Acción</th><th>Fecha</th><th>${I.tipo === 'estado' ? 'Descripción' : 'Folio / concepto'}</th><th class="num">Importe</th><th>Proveedor</th><th>Sucursal</th><th></th></tr></thead><tbody>
+    ${F.map((f, k) => `<tr data-k="${k}" style="${f.accion === 'ignorar' ? 'opacity:.55' : ''}">
+      <td><select data-imp="accion">
+        <option value="nueva" ${f.accion === 'nueva' ? 'selected' : ''}>${I.tipo === 'estado' ? 'Nueva compra pagada' : 'Nueva compra'}</option>
+        ${I.tipo === 'estado' && pendientes.length ? `<option value="pagar" ${f.accion === 'pagar' ? 'selected' : ''}>Pago a compra existente</option>` : ''}
+        <option value="ignorar" ${f.accion === 'ignorar' ? 'selected' : ''}>Ignorar</option></select>
+        ${f.dup ? '<div><span class="tag neutral">Ya importado</span></div>' : f.abono ? '<div><span class="tag neutral">Abono</span></div>' : f.regla ? '<div><span class="tag info">Regla</span></div>' : f.match ? '<div><span class="tag info">Coincidencia</span></div>' : ''}</td>
+      <td>${fFecha(f.fecha)}</td><td class="small" style="max-width:260px">${esc(f.desc)}</td><td class="num">${money(f.importe)}</td>
+      ${f.accion === 'pagar'
+        ? `<td colspan="2"><select data-imp="compraId" class="inline-edit">${pendientes.map(({ c, saldo }) => `<option value="${c.id}" ${c.id === f.compraId ? 'selected' : ''}>${fFecha(c.fecha)} · ${esc(c.proveedor)} ${esc(c.folio)} · saldo ${money(saldo)}</option>`).join('')}</select></td>`
+        : `<td><input data-imp="proveedor" class="inline-edit" value="${esc(f.proveedor)}"></td><td><select data-imp="sucursalId" class="inline-edit">${opcionesSucursal(f.sucursalId)}</select></td>`}
+      <td>${f.accion === 'nueva' && I.tipo === 'estado' ? `<button class="link small" data-act="recordar" data-k="${k}" title="Crear una regla para asignar automáticamente movimientos parecidos">Recordar</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row end" style="margin-top:12px"><button class="btn" data-act="imp-cancelar">Cancelar</button>
+      <button class="btn primary" data-act="imp-confirmar" ${act.length ? '' : 'disabled'}>Registrar ${act.length} movimiento(s)</button></div></div>`;
+  return h;
+}
+
+async function leerArchivo(file) {
+  const buf = await file.arrayBuffer();
+  if (/\.xlsx?$/i.test(file.name)) {
+    if (!window.XLSX) await new Promise((ok, ko) => {
+      const s = document.createElement('script'); s.src = XLSX_URL; s.onload = ok;
+      s.onerror = () => ko(new Error('No se pudo cargar el lector de Excel (¿sin internet?). Guarda el archivo como CSV e inténtalo de nuevo.'));
+      document.head.appendChild(s);
+    });
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+  }
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
+  return parseCSV(text);
+}
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '');
+  const muestra = text.split(/\r?\n/).slice(0, 10).join('\n').replace(/"[^"]*"/g, '');
+  const delim = [',', ';', '\t', '|'].map(d => [d, muestra.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === delim) { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+function detectarEncabezado(rows) {
+  const claves = /fecha|date|descrip|concepto|importe|monto|cargo|abono|proveedor|total|folio|referencia/;
+  for (let k = 0; k < Math.min(rows.length, 40); k++) {
+    const celdas = rows[k].filter(c => String(c).trim());
+    if (celdas.length >= 2 && celdas.filter(c => claves.test(norm(c))).length >= 2) return k;
+  }
+  return 0;
+}
+function adivinarColumnas() {
+  const hdr = (IMP.rows[IMP.header] || []).map(norm), usadas = new Set();
+  IMP.map = {};
+  for (const [k] of CAMPOS[IMP.tipo]) {
+    const j = hdr.findIndex((h, j) => !usadas.has(j) && PISTAS[k] && PISTAS[k].test(h));
+    if (j >= 0) { IMP.map[k] = j; usadas.add(j); }
+  }
+  if (IMP.tipo === 'estado' && (IMP.map.cargo !== undefined || IMP.map.abono !== undefined)) delete IMP.map.monto;
+}
+function limpiarDesc(d) {
+  const s = String(d).replace(/[\w*\-\/:.#]*\d[\w*\-\/:.#]*/g, ' ')
+    .replace(/\b(compra|cargo|pago|pos|tdc|tdd|tarjeta|debito|credito|spei|ref|aut|mx|mex|suc|sucursal|sa de cv|s\.a\.)\b/gi, ' ')
+    .replace(/[^\p{L}\p{N}&.' ]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return (s || String(d).trim()).slice(0, 40).toLowerCase().replace(/(^|\s)\p{L}/gu, m => m.toUpperCase());
+}
+function construirFilas() {
+  const I = IMP, m = I.map, out = [];
+  const val = (r, k) => (m[k] === undefined ? '' : r[m[k]]);
+  I.invalidas = 0;
+  const datos = I.rows.slice(I.header + 1);
+  if (I.tipo === 'estado') {
+    let signoNeg = I.signo === 'neg';
+    if (I.signo === 'auto' && m.monto !== undefined) {
+      const ns = datos.map(r => parseMonto(val(r, 'monto'))).filter(n => n);
+      signoNeg = ns.filter(n => n < 0).length > ns.length / 2;
+    }
+    const vistos = {};
+    const pag = pagadoPorCompra(), usado = new Map();
+    for (const r of datos) {
+      const fecha = parseFecha(val(r, 'fecha'), I.fmt);
+      const desc = String(val(r, 'desc') ?? '').trim();
+      let importe = null, abono = false;
+      if (m.cargo !== undefined || m.abono !== undefined) {
+        const c = parseMonto(val(r, 'cargo')), a = parseMonto(val(r, 'abono'));
+        if (c) importe = Math.abs(c); else if (a) { importe = Math.abs(a); abono = true; }
+      } else {
+        const n = parseMonto(val(r, 'monto'));
+        if (n) { importe = Math.abs(n); abono = signoNeg ? n > 0 : n < 0; }
+      }
+      if (!fecha || !importe) { I.invalidas++; continue; }
+      const base = [I.cuentaId, fecha, importe, norm(desc)].join('|');
+      vistos[base] = (vistos[base] || 0) + 1;
+      const huella = base + '#' + vistos[base];
+      const dup = !!DB.importados[huella];
+      const regla = reglaPara(desc);
+      const f = { fecha, desc, importe, abono, huella, dup, regla: !!regla, ref: String(val(r, 'ref') ?? '').trim(),
+        proveedor: regla?.proveedor || limpiarDesc(desc), sucursalId: regla?.sucursalId || '', categoria: regla?.categoria || '', accion: 'nueva', compraId: '', match: false };
+      if (dup || abono) f.accion = 'ignorar';
+      else {
+        // ¿Hay una compra registrada con ese mismo saldo y fecha cercana? -> es su pago
+        const cand = DB.compras.map(c => ({ c, saldo: c.total - Math.min(pag.get(c.id) || 0, c.total) - (usado.get(c.id) || 0) }))
+          .filter(x => x.saldo === importe && diasEntre(x.c.fecha, fecha) >= -5 && diasEntre(x.c.fecha, fecha) <= 60)
+          .sort((a, b) => Math.abs(diasEntre(a.c.fecha, fecha)) - Math.abs(diasEntre(b.c.fecha, fecha)))[0];
+        if (cand) { f.accion = 'pagar'; f.compraId = cand.c.id; f.match = true; usado.set(cand.c.id, (usado.get(cand.c.id) || 0) + importe); }
+      }
+      out.push(f);
+    }
+  } else {
+    for (const r of datos) {
+      const fecha = parseFecha(val(r, 'fecha'), I.fmt), total = parseMonto(val(r, 'total'));
+      const proveedor = String(val(r, 'proveedor') ?? '').trim();
+      if (!fecha || !total || !proveedor) { I.invalidas++; continue; }
+      const folio = String(val(r, 'folio') ?? '').trim(), concepto = String(val(r, 'concepto') ?? '').trim();
+      const regla = reglaPara(proveedor + ' ' + concepto);
+      const dup = DB.compras.some(c => norm(c.proveedor) === norm(proveedor) && (folio ? c.folio === folio : c.fecha === fecha && c.total === Math.abs(total)));
+      out.push({ fecha, desc: [folio, concepto].filter(Boolean).join(' · '), importe: Math.abs(total), proveedor, folio, concepto,
+        vence: parseFecha(val(r, 'vence'), I.fmt) || '', categoria: String(val(r, 'categoria') ?? '').trim() || regla?.categoria || '',
+        sucursalId: buscarSucursalPorNombre(val(r, 'sucursal')) || regla?.sucursalId || '', regla: !!regla, dup, accion: dup ? 'ignorar' : 'nueva' });
+    }
+  }
+  I.filas = out;
+}
+function confirmarImportacion() {
+  const I = IMP;
+  if (I.tipo === 'estado' && !I.cuentaId) { alert('Elige la cuenta a la que pertenece el estado de cuenta.'); return; }
+  let nC = 0, nP = 0, monto = 0;
+  const pag = pagadoPorCompra();
+  for (const f of I.filas) {
+    if (f.accion === 'ignorar') continue;
+    if (I.tipo === 'compras') {
+      DB.compras.push({ id: uid(), origen: 'importado', fecha: f.fecha, vence: f.vence, proveedor: f.proveedor, folio: f.folio, concepto: f.concepto,
+        categoria: f.categoria, total: f.importe, asignaciones: f.sucursalId ? [{ sucursalId: f.sucursalId, monto: f.importe }] : [], notas: '' });
+      nC++; monto += f.importe; continue;
+    }
+    let compraId = f.compraId, aplicado = f.importe;
+    if (f.accion === 'nueva') {
+      compraId = uid();
+      DB.compras.push({ id: compraId, origen: 'estado', fecha: f.fecha, vence: '', proveedor: f.proveedor || limpiarDesc(f.desc), folio: '', concepto: f.desc,
+        categoria: f.categoria, total: f.importe, asignaciones: f.sucursalId ? [{ sucursalId: f.sucursalId, monto: f.importe }] : [], notas: '' });
+      nC++;
+    } else {
+      const c = DB.compras.find(x => x.id === compraId);
+      if (!c) continue;
+      aplicado = Math.min(f.importe, c.total - (pag.get(c.id) || 0));
+      pag.set(c.id, (pag.get(c.id) || 0) + aplicado);
+    }
+    DB.pagos.push({ id: uid(), origen: 'estado', fecha: f.fecha, cuentaId: I.cuentaId, monto: f.importe, referencia: f.ref || f.desc, notas: '',
+      aplicaciones: aplicado > 0 ? [{ compraId, monto: aplicado }] : [] });
+    DB.importados[f.huella] = 1;
+    nP++; monto += f.importe;
+  }
+  guardar();
+  const sinSuc = I.filas.filter(f => f.accion === 'nueva' && !f.sucursalId).length;
+  Object.assign(IMP, { rows: null, archivo: '', filas: [], map: {},
+    resultado: `Listo: ${nC} compra(s) nueva(s)${I.tipo === 'estado' ? ` y ${nP} pago(s)` : ''} por ${money(monto)}.` +
+      (sinSuc ? ` ${sinSuc} quedaron sin sucursal: <button class="link" data-act="ver-compras" data-estado="sinasignar">asignarlas ahora</button>.` : '') });
+  render();
+}
+
+/* =====================================================================
+   CATÁLOGOS
+   ===================================================================== */
+function usoSucursal(id) { return DB.compras.filter(c => c.asignaciones.some(a => a.sucursalId === id)).length; }
+function vCatalogos() {
+  return `<div class="card"><h2>Negocios y sucursales</h2>
+    ${DB.negocios.map(n => `<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div class="row"><b style="flex:1">${esc(n.nombre)}</b>
+        <button class="link" data-act="ren-negocio" data-id="${n.id}">Renombrar</button>
+        <button class="link" data-act="add-sucursal" data-id="${n.id}">+ Sucursal</button>
+        <button class="link danger" data-act="del-negocio" data-id="${n.id}">Eliminar</button></div>
+      <div class="row" style="margin-top:6px">${n.sucursales.map(s => `<span class="tag neutral" style="padding:3px 10px">${esc(s.nombre)}
+        <button class="link small" data-act="ren-sucursal" data-id="${s.id}" aria-label="Renombrar">✎</button>${n.sucursales.length > 1 ? `<button class="link small" data-act="del-sucursal" data-id="${s.id}" aria-label="Eliminar">×</button>` : ''}</span>`).join('')}</div>
+    </div>`).join('') || '<p class="muted">Aún no hay negocios.</p>'}
+    <div class="row"><input id="nuevoNegocio" placeholder="Nombre del negocio" style="flex:1;min-width:180px"><input id="nuevasSuc" placeholder="Sucursales separadas por coma (opcional)" style="flex:2;min-width:200px">
+      <button class="btn primary" data-act="add-negocio">Agregar negocio</button></div>
+  </div>
+  <div class="card"><h2>Cuentas y formas de pago</h2>
+    <p class="small muted" style="margin-top:-4px">Tarjetas, cuentas de banco, efectivo… Cada pago sale de una de ellas.</p>
+    <div class="row" style="margin-bottom:10px">${DB.cuentas.map(c => `<span class="tag neutral" style="padding:3px 10px">${esc(c.nombre)}
+      <button class="link small" data-act="ren-cuenta" data-id="${c.id}" aria-label="Renombrar">✎</button><button class="link small" data-act="del-cuenta" data-id="${c.id}" aria-label="Eliminar">×</button></span>`).join('') || '<span class="muted">Aún no hay cuentas.</span>'}</div>
+    <div class="row"><input id="nuevaCuenta" placeholder="Ej. Tarjeta BBVA 1234, Efectivo caja chica" style="flex:1;min-width:200px"><button class="btn primary" data-act="add-cuenta">Agregar cuenta</button></div>
+  </div>
+  <div class="card"><h2>Reglas de asignación automática</h2>
+    <p class="small muted" style="margin-top:-4px">Si la descripción del movimiento (o el proveedor) contiene el texto, se asigna sola al importar. Se aplica la primera que coincida.</p>
+    ${DB.reglas.length ? `<div class="tw"><table><thead><tr><th>Si contiene</th><th>Proveedor</th><th>Sucursal</th><th>Categoría</th><th></th></tr></thead><tbody>
+      ${DB.reglas.map(r => `<tr data-regla="${r.id}"><td><input data-rg="patron" value="${esc(r.patron)}" class="inline-edit"></td><td><input data-rg="proveedor" value="${esc(r.proveedor)}" class="inline-edit"></td>
+        <td><select data-rg="sucursalId" class="inline-edit">${opcionesSucursal(r.sucursalId)}</select></td><td><input data-rg="categoria" value="${esc(r.categoria)}" class="inline-edit"></td>
+        <td><button class="link danger" data-act="del-regla" data-id="${r.id}">Eliminar</button></td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="add-regla">+ Nueva regla</button>
+      <span class="small muted">También puedes crearlas con el botón "Recordar" al importar.</span></div>
+  </div>
+  <div class="card"><h2>Ajustes</h2>
+    <label class="row small muted">Símbolo de moneda <input id="simbolo" value="${esc(DB.ajustes.simbolo)}" style="width:70px"></label></div>`;
+}
+
+/* =====================================================================
+   RESPALDO
+   ===================================================================== */
+function vDatos() {
+  return `<div class="card"><h2>Respaldo</h2>
+    <p class="muted">Los datos se guardan en este navegador, en esta computadora. Descarga un respaldo con frecuencia (por ejemplo cada semana) y guárdalo en tu Drive/Dropbox o USB.
+      Para usar la herramienta en otra computadora, descarga el respaldo aquí y cárgalo allá.</p>
+    <p class="small">Contenido: ${DB.negocios.length} negocio(s), ${DB.compras.length} compra(s), ${DB.pagos.length} pago(s), ${DB.reglas.length} regla(s).
+      ${DB.ajustes.ultimoRespaldo ? 'Último respaldo: ' + fFecha(DB.ajustes.ultimoRespaldo) : ''}</p>
+    <div class="row"><button class="btn primary" data-act="respaldo">Descargar respaldo (.json)</button>
+      <label class="btn" style="display:inline-block;cursor:pointer">Cargar respaldo… <input type="file" id="cargarRespaldo" accept=".json" hidden></label></div></div>
+  <div class="card"><h2>Exportar</h2>
+    <div class="row"><button class="btn" data-act="csv-compras-todo">Todas las compras (CSV, un renglón por sucursal)</button>
+      <button class="btn" data-act="csv-pagos">Todos los pagos (CSV)</button></div></div>
+  <div class="card"><h2>Borrar todo</h2><p class="small muted">Elimina todos los datos de este navegador. Descarga un respaldo antes.</p>
+    <button class="btn danger" data-act="borrar-todo">Borrar todos los datos</button></div>`;
+}
+function descargar(nombre, contenido, tipo) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+  a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function csv(filas) {
+  const c = v => { const s = String(v ?? ''); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return '﻿' + filas.map(r => r.map(c).join(',')).join('\r\n');
+}
+function csvCompras(lista) {
+  const pag = pagadoPorCompra(), out = [['Fecha', 'Vence', 'Proveedor', 'Folio', 'Concepto', 'Categoría', 'Negocio', 'Sucursal', 'Importe asignado', 'Total compra', 'Pagado', 'Saldo', 'Estado']];
+  for (const c of lista) {
+    const i = infoCompra(c, pag);
+    const partes = c.asignaciones.map(a => { const s = sucursal(a.sucursalId); return [s?.negocio.nombre || '', s?.nombre || '', a.monto]; });
+    if (i.sinAsignar) partes.push(['SIN ASIGNAR', '', i.sinAsignar]);
+    for (const [neg, suc, m] of partes)
+      out.push([c.fecha, c.vence, c.proveedor, c.folio, c.concepto, c.categoria, neg, suc, plain(m), plain(c.total), plain(i.pagado), plain(i.saldo), i.estado]);
+  }
+  return csv(out);
+}
+
+/* =====================================================================
+   Eventos globales
+   ===================================================================== */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.closest('form#fCompra,form#fPago') && !/^borrar-/.test(el.dataset.act)) return;
+  const id = el.dataset.id, act = el.dataset.act;
+  const acciones = {
+    ir() { UI.tab = el.dataset.tab; render(); },
+    demo() { cargarDemo(); },
+    'ver-compras'() { Object.assign(UI.f, { estado: el.dataset.estado || '', sucursal: el.dataset.suc || '', q: '', todos: el.dataset.estado === 'pendientes' }); UI.tab = 'compras'; render(); },
+    'nueva-compra'() { dlgCompra(); },
+    'editar-compra'() { dlgCompra(id); },
+    'borrar-compra'() {
+      const ligados = DB.pagos.filter(p => p.aplicaciones.some(a => a.compraId === id)).length;
+      if (!confirm('¿Eliminar esta compra?' + (ligados ? `\n\nTiene ${ligados} pago(s) aplicado(s); los pagos se conservarán como "sin aplicar".` : ''))) return;
+      DB.compras = DB.compras.filter(c => c.id !== id);
+      DB.pagos.forEach(p => { p.aplicaciones = p.aplicaciones.filter(a => a.compraId !== id); });
+      $('#dlg').close(); guardar(); render();
+    },
+    pagar() { dlgPago(null, id); },
+    'nuevo-pago'() { dlgPago(); },
+    'editar-pago'() { dlgPago(id); },
+    'borrar-pago'() {
+      if (!confirm('¿Eliminar este pago? Las compras que pagaba volverán a quedar pendientes.')) return;
+      DB.pagos = DB.pagos.filter(p => p.id !== id); $('#dlg').close(); guardar(); render();
+    },
+    sel() { el.checked ? UI.sel.add(id) : UI.sel.delete(id); render(); },
+    'sel-todas'() { UI.sel = el.checked ? new Set(comprasFiltradas().map(x => x.c.id)) : new Set(); render(); },
+    'bulk-limpiar'() { UI.sel.clear(); render(); },
+    'bulk-asignar'() {
+      const sid = $('#bulkSuc').value;
+      if (!sid) return alert('Elige una sucursal.');
+      for (const c of DB.compras) if (UI.sel.has(c.id)) c.asignaciones = [{ sucursalId: sid, monto: c.total }];
+      UI.sel.clear(); guardar(); render();
+    },
+    'csv-compras'() { descargar(`compras-${UI.f.todos ? 'todas' : UI.mes}.csv`, csvCompras(comprasFiltradas().map(x => x.c)), 'text/csv'); },
+    'csv-compras-todo'() { descargar('compras.csv', csvCompras(DB.compras.slice().sort((a, b) => a.fecha.localeCompare(b.fecha))), 'text/csv'); },
+    'csv-pagos'() {
+      const out = [['Fecha', 'Cuenta', 'Referencia', 'Monto', 'Aplicado', 'Sin aplicar', 'Compras']];
+      for (const p of DB.pagos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha))) {
+        const ap = sum(p.aplicaciones, a => a.monto);
+        out.push([p.fecha, cuentaNombre(p.cuentaId), p.referencia, plain(p.monto), plain(ap), plain(p.monto - ap),
+          p.aplicaciones.map(a => DB.compras.find(c => c.id === a.compraId)?.proveedor || '').join(' | ')]);
+      }
+      descargar('pagos.csv', csv(out), 'text/csv');
+    },
+    'csv-resumen'() {
+      const pag = pagadoPorCompra(), out = [['Negocio', 'Sucursal', 'Comprado', 'Pagado', 'Pendiente']], acc = new Map();
+      for (const c of DB.compras.filter(c => enMes(c.fecha, UI.mes))) {
+        const i = infoCompra(c, pag), ratio = c.total ? i.pagado / c.total : 0;
+        const partes = c.asignaciones.map(a => [a.sucursalId, a.monto]);
+        if (i.sinAsignar) partes.push(['', i.sinAsignar]);
+        for (const [sid, m] of partes) { const r = acc.get(sid) || [0, 0]; r[0] += m; r[1] += Math.round(m * ratio); acc.set(sid, r); }
+      }
+      for (const [sid, [c, p]] of acc) { const s = sucursal(sid); out.push([s?.negocio.nombre || 'SIN ASIGNAR', s?.nombre || '', plain(c), plain(p), plain(c - p)]); }
+      descargar(`resumen-${UI.mes}.csv`, csv(out), 'text/csv');
+    },
+    respaldo() {
+      DB.ajustes.ultimoRespaldo = hoy(); guardar();
+      descargar(`respaldo-compras-${hoy()}.json`, JSON.stringify(DB, null, 1), 'application/json'); render();
+    },
+    'borrar-todo'() {
+      if (prompt('Esto borra TODO. Escribe BORRAR para confirmar.') !== 'BORRAR') return;
+      DB = vacio(); guardar(); render();
+    },
+    'add-negocio'() {
+      const nombre = $('#nuevoNegocio').value.trim();
+      if (!nombre) return;
+      const sucs = $('#nuevasSuc').value.split(',').map(s => s.trim()).filter(Boolean);
+      DB.negocios.push({ id: uid(), nombre, sucursales: (sucs.length ? sucs : ['Principal']).map(s => ({ id: uid(), nombre: s })) });
+      guardar(); render();
+    },
+    'ren-negocio'() { const n = DB.negocios.find(x => x.id === id), v = prompt('Nombre del negocio', n.nombre); if (v?.trim()) { n.nombre = v.trim(); guardar(); render(); } },
+    'del-negocio'() {
+      const n = DB.negocios.find(x => x.id === id), uso = sum(n.sucursales, s => usoSucursal(s.id));
+      if (uso) return alert(`No se puede eliminar: ${uso} compra(s) están asignadas a este negocio. Reasígnalas primero.`);
+      if (confirm(`¿Eliminar ${n.nombre}?`)) { DB.negocios = DB.negocios.filter(x => x.id !== id); guardar(); render(); }
+    },
+    'add-sucursal'() { const n = DB.negocios.find(x => x.id === id), v = prompt(`Nueva sucursal de ${n.nombre}`); if (v?.trim()) { n.sucursales.push({ id: uid(), nombre: v.trim() }); guardar(); render(); } },
+    'ren-sucursal'() { const s = sucursal(id), v = prompt('Nombre de la sucursal', s.nombre); if (v?.trim()) { s.negocio.sucursales.find(x => x.id === id).nombre = v.trim(); guardar(); render(); } },
+    'del-sucursal'() {
+      const s = sucursal(id), uso = usoSucursal(id);
+      if (uso) return alert(`No se puede eliminar: ${uso} compra(s) están asignadas a esta sucursal.`);
+      if (confirm(`¿Eliminar la sucursal ${s.nombre}?`)) { s.negocio.sucursales = s.negocio.sucursales.filter(x => x.id !== id); guardar(); render(); }
+    },
+    'add-cuenta'() { const v = $('#nuevaCuenta').value.trim(); if (v) { DB.cuentas.push({ id: uid(), nombre: v }); guardar(); render(); } },
+    'ren-cuenta'() { const c = DB.cuentas.find(x => x.id === id), v = prompt('Nombre de la cuenta', c.nombre); if (v?.trim()) { c.nombre = v.trim(); guardar(); render(); } },
+    'del-cuenta'() {
+      const uso = DB.pagos.filter(p => p.cuentaId === id).length;
+      if (uso) return alert(`No se puede eliminar: tiene ${uso} pago(s) registrados.`);
+      DB.cuentas = DB.cuentas.filter(c => c.id !== id); guardar(); render();
+    },
+    'add-regla'() { DB.reglas.push({ id: uid(), patron: '', proveedor: '', sucursalId: '', categoria: '' }); guardar(); render(); },
+    'del-regla'() { DB.reglas = DB.reglas.filter(r => r.id !== id); guardar(); render(); },
+    recordar() {
+      const f = IMP.filas[+el.dataset.k];
+      const pal = limpiarDesc(f.desc).split(' '), sugerido = pal[0].length >= 4 ? pal[0] : pal.slice(0, 2).join(' ');
+      const patron = prompt('Los movimientos cuya descripción contenga este texto se asignarán igual que éste:', sugerido);
+      if (!patron?.trim()) return;
+      const regla = { id: uid(), patron: patron.trim(), proveedor: f.proveedor, sucursalId: f.sucursalId, categoria: f.categoria || '' };
+      DB.reglas.unshift(regla); guardar();
+      for (const g of IMP.filas) if (g.accion === 'nueva' && norm(g.desc).includes(norm(regla.patron))) Object.assign(g, { proveedor: regla.proveedor, sucursalId: regla.sucursalId || g.sucursalId, regla: true });
+      render();
+    },
+    'imp-cancelar'() { Object.assign(IMP, { rows: null, archivo: '', filas: [], resultado: '' }); render(); },
+    'imp-confirmar'() { confirmarImportacion(); }
+  };
+  if (acciones[act]) { if (el.tagName === 'BUTTON') e.preventDefault(); acciones[act](); }
+});
+
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.closest('dialog')) return;
+  if (t.dataset.f) { UI.f[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; render(); return; }
+  if (t.name === 'imptipo') { IMP.tipo = t.value; if (IMP.rows) { adivinarColumnas(); construirFilas(); } render(); return; }
+  if (t.id === 'impCuenta') { IMP.cuentaId = t.value; if (IMP.rows) construirFilas(); render(); return; }
+  if (t.id === 'impFile' && t.files[0]) {
+    try {
+      const rows = await leerArchivo(t.files[0]);
+      if (!rows.length) throw new Error('El archivo está vacío.');
+      Object.assign(IMP, { rows, archivo: t.files[0].name, header: detectarEncabezado(rows), resultado: '' });
+      if (!IMP.cuentaId) IMP.cuentaId = DB.cuentas[0]?.id || '';
+      adivinarColumnas(); construirFilas();
+    } catch (err) { alert(err.message); }
+    render(); return;
+  }
+  if (t.dataset.map) { if (t.value === '') delete IMP.map[t.dataset.map]; else IMP.map[t.dataset.map] = +t.value; construirFilas(); render(); return; }
+  if (t.id === 'impHeader') { IMP.header = Math.max(0, Math.min(IMP.rows.length - 1, (+t.value || 1) - 1)); adivinarColumnas(); construirFilas(); render(); return; }
+  if (t.id === 'impFmt') { IMP.fmt = t.value; construirFilas(); render(); return; }
+  if (t.id === 'impSigno') { IMP.signo = t.value; construirFilas(); render(); return; }
+  if (t.dataset.imp) {
+    const f = IMP.filas[+t.closest('tr').dataset.k];
+    f[t.dataset.imp] = t.value;
+    if (t.dataset.imp === 'accion' && t.value === 'pagar' && !f.compraId) {
+      const pag = pagadoPorCompra();
+      f.compraId = DB.compras.find(c => c.total - (pag.get(c.id) || 0) > 0)?.id || '';
+    }
+    if (t.dataset.imp === 'accion') render();
+    return;
+  }
+  if (t.dataset.rg) { const r = DB.reglas.find(x => x.id === t.closest('tr').dataset.regla); r[t.dataset.rg] = t.value.trim(); guardar(); return; }
+  if (t.id === 'simbolo') { DB.ajustes.simbolo = t.value || '$'; guardar(); return; }
+  if (t.id === 'cargarRespaldo' && t.files[0]) {
+    try {
+      const d = JSON.parse(await t.files[0].text());
+      if (!Array.isArray(d.compras) || !Array.isArray(d.negocios)) throw new Error('El archivo no parece un respaldo de esta herramienta.');
+      if (!confirm(`Se reemplazarán los datos actuales por los del respaldo (${d.compras.length} compras, ${(d.pagos || []).length} pagos). ¿Continuar?`)) return;
+      DB = Object.assign(vacio(), d); guardar(); render();
+    } catch (err) { alert('No se pudo cargar: ' + err.message); }
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.dataset.f === 'q') {
+    UI.f.q = e.target.value;
+    clearTimeout(UI.tq);
+    UI.tq = setTimeout(() => { const pos = e.target.selectionStart; render(); const n = $('input[data-f="q"]'); n.focus(); n.setSelectionRange(pos, pos); }, 250);
+  }
+});
+
+/* ---------- Datos de ejemplo ---------- */
+function cargarDemo() {
+  const s = (n, ...xs) => ({ id: uid(), nombre: n, sucursales: xs.map(x => ({ id: uid(), nombre: x })) });
+  const tienda = s('Abarrotes Don Pepe', 'Centro', 'Norte'), cafe = s('Cafetería La Esquina', 'Principal');
+  DB.negocios.push(tienda, cafe);
+  const tdc = { id: uid(), nombre: 'Tarjeta crédito 4321' }, banco = { id: uid(), nombre: 'Cuenta banco 0987' };
+  DB.cuentas.push(tdc, banco);
+  const [cen, nor] = tienda.sucursales, caf = cafe.sucursales[0];
+  const ym = UI.mes, d = n => `${ym}-${String(n).padStart(2, '0')}`;
+  DB.reglas.push({ id: uid(), patron: 'costco', proveedor: 'Costco', sucursalId: cen.id, categoria: 'Mercancía' },
+    { id: uid(), patron: 'cfe', proveedor: 'CFE', sucursalId: caf.id, categoria: 'Servicios' });
+  const c = (fecha, proveedor, folio, total, asig, vence = '') => { const x = { id: uid(), origen: 'demo', fecha, vence, proveedor, folio, concepto: '', categoria: 'Mercancía', total: total * 100, asignaciones: asig.map(([sid, m]) => ({ sucursalId: sid, monto: m * 100 })), notas: '' }; DB.compras.push(x); return x; };
+  const a = c(d(2), 'Distribuidora Bimbo', 'F-1201', 3450, [[cen.id, 2000], [nor.id, 1450]]);
+  const b = c(d(5), 'Coca-Cola FEMSA', 'A-88231', 5120, [[nor.id, 5120]], d(20));
+  c(d(8), 'Café de Altura', 'CA-310', 2780, [[caf.id, 2780]], d(28));
+  const e2 = c(d(11), 'Costco', '', 6890.5, [[cen.id, 4000], [caf.id, 2890.5]]);
+  c(d(14), 'Papelería El Lápiz', '7781', 640, []);
+  DB.pagos.push({ id: uid(), origen: 'demo', fecha: d(3), cuentaId: banco.id, monto: 345000, referencia: 'SPEI 77812', notas: '', aplicaciones: [{ compraId: a.id, monto: 345000 }] },
+    { id: uid(), origen: 'demo', fecha: d(12), cuentaId: tdc.id, monto: 689050, referencia: 'Costco', notas: '', aplicaciones: [{ compraId: e2.id, monto: 689050 }] },
+    { id: uid(), origen: 'demo', fecha: d(15), cuentaId: banco.id, monto: 250000, referencia: 'Transferencia', notas: 'Abono a Coca-Cola', aplicaciones: [{ compraId: b.id, monto: 250000 }] });
+  guardar(); render();
+}
+
+render();
+</script>
+</body>
+</html>
