@@ -61,7 +61,8 @@
     };
     const st = {
         datos: null, mapa: null, pestana: 'entregas', filtro: null, busqueda: '', soloSinPin: true,
-        poligonos: [], marcadores: [], dibujo: null, editando: null, pin: null, sel: null, info: null
+        poligonos: [], marcadores: [], dibujo: null, editando: null, pin: null, sel: null, info: null,
+        sugeridos: {}, buscados: 0, buscando: false
     };
 
     function esc(t) {
@@ -122,7 +123,7 @@
                 <div class="f1"><span>#${esc(e.numero)} · ${esc(e.nombre || 'Cliente')}</span><span class="estado" style="background:${est.color}">${est.texto}</span></div>
                 <div class="det">${esc(e.direccion)}<br>${e.cuadrante ? '■ ' + esc(e.cuadrante) : '<i>Sin cuadrante</i>'} · 🚚 ${esc(e.repartidor || 'Sin repartidor')} · ${dinero(e.total)}
                 ${e.indicaciones ? '<br>📝 ' + esc(e.indicaciones) : ''}
-                ${ubicado(e) ? '' : '<br><b style="color:#E63946">📍 Cliente sin ubicar</b>' + (e.cliente ? ` <button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">Ubicar</button>` : '')}</div></div>`;
+                ${ubicado(e) ? '' : '<br><b style="color:#E63946">📍 Cliente sin ubicar</b>' + (e.cliente ? ` <button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">Ubicar</button>` : '') + textoSugerido(e)}</div></div>`;
         }).join('');
     }
 
@@ -192,6 +193,65 @@
         if (total > lista.length) html += `<div class="vacio">Y ${total - lista.length} más: escribe para buscar.</div>`;
         document.getElementById('lista').innerHTML = html;
     }
+    // ---------------- Pines sugeridos ----------------
+    // Para cada entrega cuyo cliente no tiene pin se busca su dirección en
+    // Google (una por una, máximo MAX_SUGERIDOS por vez que se abre el mapa).
+    // El pin naranja "?" es solo una sugerencia: no se guarda hasta que alguien
+    // lo confirma (y se puede arrastrar antes si quedó mal).
+    const MAX_SUGERIDOS = 25;
+
+    function textoSugerido(e) {
+        const s = st.sugeridos[e.cliente];
+        if (!e.cliente || !s) return '';
+        if (s.estado === 'buscando') return '<br><i>Buscando la dirección en Google…</i>';
+        if (s.estado === 'nada') return '<br><i>Google no encontró esta dirección: ubícalo a mano.</i>';
+        const c = esc(e.cliente);
+        return `<br><span style="color:#E67E22">❓ Sugerido: ${esc(s.formato)}</span>` +
+            (s.aproximado && !s.movido ? '<br><b style="color:#B9770E">⚠ Ubicación aproximada: revísala o arrastra el pin.</b>' : '') +
+            (s.movido ? '<br><i>Pin movido a mano.</i>' : '') +
+            `<div class="fila"><button class="verde" onclick="event.stopPropagation(); Mapa.confirmarSugerido('${c}')">Confirmar ubicación</button>` +
+            `<button class="gris" onclick="event.stopPropagation(); Mapa.verSugerido('${c}')">Ver en el mapa</button></div>`;
+    }
+
+    function sinPin(clienteId) {
+        const c = st.datos.clientes.find(x => x.id === clienteId);
+        return c && !ubicado(c);
+    }
+
+    // Mientras se dibuja o se ubica un pin no se repinta (se perdería lo que se está haciendo)
+    function refrescar(mapa) {
+        if (ocupado()) return;
+        if (st.pestana === 'entregas') pintar();
+        if (mapa) pintarMapa();
+    }
+
+    async function sugerir() {
+        if (st.buscando || !st.mapa || !google.maps.Geocoder) return;
+        st.buscando = true;
+        try {
+            const geo = new google.maps.Geocoder();
+            for (;;) {
+                const e = st.datos.entregas.find(x => x.cliente && !ubicado(x) && !st.sugeridos[x.cliente]
+                    && sinPin(x.cliente) && (x.direccion || '').trim());
+                if (!e || st.buscados >= MAX_SUGERIDOS) break;
+                st.buscados++;
+                const s = st.sugeridos[e.cliente] = { estado: 'buscando' };
+                refrescar(false);
+                const res = await new Promise(ok => geo.geocode({ address: e.direccion, region: 'mx' }, (r, estatus) => ok(estatus === 'OK' && r && r.length ? r[0] : null)));
+                if (res) {
+                    const p = res.geometry.location;
+                    Object.assign(s, { estado: 'ok', lat: p.lat(), lng: p.lng(), formato: res.formatted_address || e.direccion,
+                        aproximado: !!res.partial_match || res.geometry.location_type === 'APPROXIMATE' || res.geometry.location_type === 'GEOMETRIC_CENTER' });
+                } else {
+                    s.estado = 'nada';
+                }
+                refrescar(true);
+                await new Promise(ok => setTimeout(ok, 300));
+            }
+        } finally {
+            st.buscando = false;
+        }
+    }
 
     // ---------------- Mapa ----------------
     function pintarMapa() {
@@ -229,6 +289,24 @@
             m.addListener('click', () => { st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket); });
             st.marcadores.push(m);
         });
+        Object.keys(st.sugeridos).forEach(id => {
+            const s = st.sugeridos[id];
+            const en = d.entregas.find(x => x.cliente === id);
+            if (s.estado !== 'ok' || !en || !sinPin(id)) return;
+            const m = new google.maps.Marker({
+                position: { lat: s.lat, lng: s.lng }, map: st.mapa, title: 'Sugerido: #' + en.numero + ' ' + en.nombre, zIndex: 90, draggable: true,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#E67E22', fillOpacity: 0.85, strokeColor: '#fff', strokeWeight: 2 },
+                label: { text: '?', color: '#fff', fontSize: '11px', fontWeight: 'bold' }
+            });
+            m.sugerido = id;
+            m.addListener('click', () => { st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket); });
+            m.addListener('dragend', () => {
+                const p = m.getPosition();
+                Object.assign(s, { lat: p.lat(), lng: p.lng(), movido: true });
+                st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket);
+            });
+            st.marcadores.push(m);
+        });
     }
 
     function abrirInfo(html, pos) {
@@ -264,6 +342,7 @@
         }
         pintar();
         pintarMapa();
+        sugerir();
         return true;
     }
 
@@ -375,6 +454,18 @@
             if (!confirm('¿Quitar la ubicación de este cliente?')) return;
             if (await guardar('/api/ubicacion', { cliente: st.pin.cliente, lat: null, lng: null })) { terminar(); pintar(); pintarMapa(); }
         },
+        verSugerido: id => {
+            const s = st.sugeridos[id];
+            if (s && s.estado === 'ok') centrar(s.lat, s.lng, 17);
+        },
+        confirmarSugerido: async id => {
+            const s = st.sugeridos[id];
+            if (!s || s.estado !== 'ok') return;
+            if (await guardar('/api/ubicacion', { cliente: id, lat: s.lat, lng: s.lng })) {
+                delete st.sugeridos[id];
+                pintar(); pintarMapa(); aviso('Ubicación guardada.');
+            }
+        },
         cancelar: () => { terminar(); pintar(); pintarMapa(); }
     };
 
@@ -389,6 +480,7 @@
         st.mapa = new google.maps.Map(document.getElementById('mapa'), { center: centro, zoom: 13, clickableIcons: false, streetViewControl: false });
         st.mapa.addListener('click', ev => clicMapa(ev));
         pintarMapa();
+        sugerir();
         setInterval(() => { if (!ocupado()) recargar(); }, 60000);
     };
 

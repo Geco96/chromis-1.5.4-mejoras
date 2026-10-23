@@ -224,6 +224,27 @@ public class DeliveryManagerTest {
             Change sinId = change(s2, "preparado", Role.ADMIN, admin); sinId.opId = null;
             check("sin identificador de operación", apply(c, sinId).contains("identificador"), true);
 
+            // ---------- Cerrar entregas viejas ----------
+            java.sql.Timestamp corte = java.sql.Timestamp.valueOf("1990-02-01 00:00:00");
+            int base = DeliveryStatusStore.countOld(c, corte);
+            String v1 = sale(c, null, 10), v2 = sale(c, null, 20), v3 = sale(c, null, 30), v4 = sale(c, null, 40), v5 = sale(c, null, 50);
+            for (String v : List.of(v1, v2, v3, v4)) exec(c, "UPDATE receipts SET datenew = '1990-01-15 10:00:00' WHERE id = '" + v + "'");
+            apply(c, change(v2, "preparado", Role.ADMIN, admin));
+            check("viejas: una en ruta", apply(c, change(v2, "en_ruta", Role.ADMIN, admin)), "APPLIED");
+            apply(c, change(v3, "cancelado", Role.ADMIN, admin));
+            exec(c, "UPDATE customer_delivery SET delivered = 1 WHERE id = '" + v4 + "'");
+            check("viejas: cuenta las abiertas (no canceladas, no entregadas, no recientes)", DeliveryStatusStore.countOld(c, corte) - base, 2);
+            check("viejas: se cierran", DeliveryStatusStore.closeOld(c, corte, admin, "Administrator") - base, 2);
+            check("viejas: quedan completadas", entry(c, v1).status + " " + entry(c, v2).status, "completado completado");
+            check("viejas: entregadas en Chromis", delivered(c, v1) + delivered(c, v2), "11");
+            check("viejas: sin monto", entry(c, v1).amountReceived, null);
+            check("viejas: nota", entry(c, v2).notes, "Cerrada en bloque: vendida antes del 01/02/1990");
+            check("viejas: historial", one(c, "SELECT CONCAT(from_status, '>', to_status, ' ', role, ' ', user_name) FROM delivery_events WHERE ticket = '"
+                    + v2 + "' ORDER BY at DESC, id DESC LIMIT 1"), "en_ruta>completado ADMIN Administrator");
+            check("viejas: la cancelada sigue cancelada", entry(c, v3).status, "cancelado");
+            check("viejas: la reciente sigue abierta", entry(c, v5).status, "confirmado");
+            check("viejas: ya no queda ninguna", DeliveryStatusStore.countOld(c, corte), 0);
+
             // ---------- Importar clientes de la web ----------
             String yaExiste = customer(c, "Papelería Prueba Ya Existe");
             String dup1 = customer(c, "Papelería Prueba Repetida");

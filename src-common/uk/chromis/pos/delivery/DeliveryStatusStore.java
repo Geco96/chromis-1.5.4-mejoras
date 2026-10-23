@@ -454,6 +454,86 @@ public final class DeliveryStatusStore {
         }
     }
 
+    // ---------------- Old deliveries ----------------
+
+    /** Open (not delivered, not cancelled) deliveries sold before [before]. */
+    private static final String OLD_SQL = "FROM customer_delivery cd JOIN tickets t ON t.id = cd.id "
+            + "JOIN receipts r ON r.id = t.id LEFT JOIN delivery_status s ON s.ticket = cd.id "
+            + "WHERE t.tickettype = 0 AND r.datenew < ? AND " + STATUS_SQL + " IN ('confirmado', 'preparado', 'en_ruta', 'no_entregado')";
+
+    /** How many open deliveries were sold before [before] (to confirm before closing them). */
+    public static int countOld(Connection con, Timestamp before) throws SQLException {
+        createTables(con);
+        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) " + OLD_SQL)) {
+            ps.setTimestamp(1, before);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /**
+     * Closes as delivered, in one transaction, the open deliveries sold before
+     * [before] (old ones nobody marked: they would stay in the manager
+     * forever). Each one gets its line in the history with who did it; no
+     * amount received is recorded (it was not reported). Returns how many.
+     */
+    public static int closeOld(Connection con, Timestamp before, String userId, String userName) throws SQLException {
+        createTables(con);   // DDL before the transaction
+        String note = "Cerrada en bloque: vendida antes del "
+                + new java.text.SimpleDateFormat("dd/MM/yyyy").format(before);
+        boolean autoCommit = con.getAutoCommit();
+        con.setAutoCommit(false);
+        try {
+            List<String[]> old = new ArrayList<>();
+            try (PreparedStatement ps = con.prepareStatement("SELECT cd.id, " + STATUS_SQL + " " + OLD_SQL + " FOR UPDATE")) {
+                ps.setTimestamp(1, before);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        old.add(new String[]{rs.getString(1), rs.getString(2)});
+                    }
+                }
+            }
+            Timestamp now = new Timestamp(System.currentTimeMillis());
+            try (PreparedStatement status = con.prepareStatement("INSERT INTO delivery_status "
+                    + "(ticket, status, amount_received, issue, notes, confirmed_at, confirmed_by, updated, updated_by) "
+                    + "VALUES (?, 'completado', NULL, 'ninguno', ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = 'completado', "
+                    + "amount_received = NULL, issue = 'ninguno', notes = VALUES(notes), confirmed_at = VALUES(confirmed_at), "
+                    + "confirmed_by = VALUES(confirmed_by), updated = VALUES(updated), updated_by = VALUES(updated_by)");
+                    PreparedStatement delivered = con.prepareStatement("UPDATE customer_delivery SET delivered = 1 WHERE id = ?");
+                    PreparedStatement event = con.prepareStatement("INSERT INTO delivery_events (op_id, ticket, from_status, "
+                            + "to_status, amount_received, issue, notes, user_id, user_name, role, at) "
+                            + "VALUES (?, ?, ?, 'completado', NULL, 'ninguno', ?, ?, ?, 'ADMIN', ?)")) {
+                for (String[] d : old) {
+                    status.setString(1, d[0]);
+                    status.setString(2, note);
+                    status.setTimestamp(3, now);
+                    status.setString(4, cut(userName, 50));
+                    status.setTimestamp(5, now);
+                    status.setString(6, cut(userName, 50));
+                    status.executeUpdate();
+                    delivered.setString(1, d[0]);
+                    delivered.executeUpdate();
+                    event.setString(1, java.util.UUID.randomUUID().toString());
+                    event.setString(2, d[0]);
+                    event.setString(3, d[1]);
+                    event.setString(4, note);
+                    event.setString(5, userId);
+                    event.setString(6, cut(userName, 50));
+                    event.setTimestamp(7, now);
+                    event.executeUpdate();
+                }
+            }
+            con.commit();
+            return old.size();
+        } catch (SQLException | RuntimeException ex) {
+            con.rollback();
+            throw ex;
+        } finally {
+            con.setAutoCommit(autoCommit);
+        }
+    }
+
     /** Driver for this delivery only (null = the zone's driver). */
     public static void setDriver(Connection con, String ticketId, String driverId, String userName) throws SQLException {
         createTables(con);

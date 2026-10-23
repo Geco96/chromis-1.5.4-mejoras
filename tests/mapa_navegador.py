@@ -31,6 +31,8 @@ with sync_playwright() as p:
         loaded.append(r.request.url)
         r.fulfill(status=200, content_type='application/javascript', body=STUB)
     pg.route('**/maps.googleapis.com/**', gm)
+    # Google "encuentra" la dirección de prueba (aproximada); las demás no
+    pg.add_init_script("window.__geocode = a => a.includes('Calle Prueba 1') ? {f: 'Calle Prueba 1, Centro, CDMX', lat: 19.4401, lng: -99.1402, t: 'APPROXIMATE'} : null")
     pg.goto(url)
     pg.wait_for_function('window.__maps && window.__maps.map')
     check('carga Google Maps con la clave', 'key=CLAVE-DE-PRUEBA' in loaded[0], True)
@@ -45,6 +47,28 @@ with sync_playwright() as p:
     # Ver una entrega en el mapa
     pg.click('.tarjeta:has-text("Mapa Centro ' + run + '")')
     check('centra en la entrega', pg.evaluate("window.__maps.map.z"), 16)
+    # Pin sugerido para el cliente sin ubicar
+    sin_pin = 'Mapa Sin Pin ' + run
+    # (la prueba Java ya le puso pin: se le quita y se abre el mapa de nuevo)
+    pg.evaluate("(async () => { const c = Mapa._st.datos.clientes.find(c => c.nombre === 'Papelería " + sin_pin + "');"
+                " await fetch('/api/ubicacion', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Clave': new URLSearchParams(location.search).get('k')},"
+                " body: JSON.stringify({cliente: c.id, lat: null, lng: null})}); })()")
+    pg.reload()
+    pg.wait_for_function('window.__maps && window.__maps.map')
+    pg.wait_for_function("document.getElementById('lista').innerText.includes('Sugerido: Calle Prueba 1, Centro, CDMX')")
+    tarjeta = pg.locator('.tarjeta:has-text("' + sin_pin + '")')
+    check('sugerido aproximado avisa', 'aproximada' in tarjeta.inner_text(), True)
+    check('pin sugerido en el mapa', pg.evaluate("window.__maps.markers.filter(m => m.sugerido).length") >= 1, True)
+    # "Mapa Centro" tiene la misma dirección pero ya tiene pin: se busca una sola vez
+    check('cliente con pin no se busca', pg.evaluate("window.__maps.geocoded.filter(a => a === 'Calle Prueba 1').length"), 1)
+    # Arrastrarlo y confirmarlo
+    pg.evaluate("(() => { const m = window.__maps.markers.find(m => m.sugerido && Mapa._st.datos.clientes.find(c => c.id === m.sugerido).nombre.includes('" + sin_pin + "')); m.setPosition({lat: 19.4405, lng: -99.1405}); m._fire('dragend'); })()")
+    check('movido a mano', 'Pin movido a mano' in tarjeta.inner_text(), True)
+    tarjeta.locator('text=Confirmar ubicación').click()
+    pg.wait_for_function("document.getElementById('mensaje').innerText.includes('Ubicación guardada')")
+    c = pg.evaluate("Mapa._st.datos.clientes.find(c => c.nombre === 'Papelería " + sin_pin + "')")
+    check('sugerido confirmado', (c['lat'], c['lng']), (19.4405, -99.1405))
+    check('ya no es sugerido', 'Sugerido' in pg.locator('.tarjeta:has-text("' + sin_pin + '")').inner_text(), False)
     # Dibujar un cuadrante
     pg.click('text=Cuadrantes')
     pg.click('text=＋ Nuevo cuadrante')
@@ -79,7 +103,9 @@ with sync_playwright() as p:
     check('pin movido', (c['lat'], c['lng'], c['estado']), (19.4311, -99.1311, 'pendiente_visita'))
     # Buscar dirección sin resultados (el simulador no encuentra nada)
     pg.click('#lista >> text=Mover pin')
+    pg.fill('#dir-pin', 'Dirección que no existe')
     pg.click('text=Buscar >> nth=0')
+    pg.wait_for_timeout(300)
     check('dirección no encontrada avisa', 'No se encontró' in dialogs[-1], True)
     pg.click('text=Cancelar')
     check('sin errores de JavaScript', errors, [])

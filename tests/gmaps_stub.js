@@ -11,7 +11,7 @@
    LatLngBounds: class { extend(){} }, Size: class{}, Point: class{}, SymbolPath:{CIRCLE:0},
    DirectionsService: class { route(r,cb){ window.__maps.lastRoute=r; cb({routes:[{waypoint_order:(r.waypoints||[]).map((_,i)=>i)}]}, 'OK'); } },
    DirectionsRenderer: class { setDirections(d){ window.__maps.directions=d; } },
-   Geocoder: class { geocode(r,cb){ cb([], 'ZERO_RESULTS'); } },
+   Geocoder: class { geocode(r,cb){ window.__maps.geocoded=(window.__maps.geocoded||[]).concat([r.address]); const x=window.__geocode&&window.__geocode(r.address); setTimeout(()=>x?cb([{formatted_address:x.f, partial_match:x.p, geometry:{location:new LatLng(x.lat,x.lng), location_type:x.t||'ROOFTOP'}}],'OK'):cb([], 'ZERO_RESULTS'),0); } },
    places: {Autocomplete: class { bindTo(){} addListener(){} getPlace(){return {}} }},
    TravelMode:{DRIVING:'DRIVING'}, DirectionsStatus:{OK:'OK'},
    event:{removeListener(h){ if(h&&h.o){ h.o._l[h.n]=(h.o._l[h.n]||[]).filter(f=>f!==h.f);} }}}};

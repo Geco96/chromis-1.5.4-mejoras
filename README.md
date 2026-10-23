@@ -274,15 +274,29 @@ originales, las clases que se modificaron.
       *UserRoles*); los demás usuarios con acceso a Customers son
       *despachadores*. Un despachador no mueve entregas de cuadrantes de otro
       despachador.
-    - **Mapa** (*Abrir mapa*): se abre en el navegador de la PC (Chrome,
-      Vivaldi...), donde Google Maps funciona completo, en lugar de dentro de
-      Admin. Muestra las entregas con su color de estado y número de ticket,
+    - **Mapa** (*Abrir mapa*): en Windows se abre en **su propia ventana**
+      (Edge o Chrome en modo aplicación: sin pestañas ni barra de dirección);
+      si no hay ninguno, en el navegador de la PC. Google Maps funciona
+      completo ahí, no dentro de Admin. Muestra las entregas con su color de estado y número de ticket,
       los cuadrantes y los clientes ubicados (cliente, prospecto o pendiente de
       visita). El administrador **dibuja** un cuadrante haciendo clic en sus
       esquinas y lo **edita** arrastrándolas; cualquiera de la oficina
       **ubica o mueve** el pin de un cliente (clic en el mapa o buscando la
       dirección). La pestaña *Clientes* lista primero los que no tienen
       ubicación. Lo que se guarda en el mapa aparece solo en Admin.
+    - **Pines sugeridos**: el cuadrante de una entrega sale del pin del
+      cliente, no de la dirección escrita. Para cada entrega cuyo cliente no
+      tiene pin, el mapa busca la dirección de la entrega en Google y pone un
+      pin naranja **?** con la dirección que encontró (aviso si es
+      aproximada). No se guarda nada hasta que alguien pulsa *Confirmar
+      ubicación*; si quedó mal, se arrastra el pin antes de confirmar. Se
+      buscan hasta 25 por cada vez que se abre el mapa.
+    - **Cerrar entregas viejas...** (administrador): marca como entregadas,
+      en una sola operación (todas o ninguna), las entregas abiertas vendidas
+      antes de una fecha: las viejas que nadie marcó (por ejemplo, las de una
+      base restaurada). Muestra cuántas son antes de cerrar; cada una queda
+      *Completada* sin monto, con la nota "Cerrada en bloque" y el nombre de
+      quien lo hizo en su historial. Las canceladas no se tocan.
     - **Seguridad del mapa**: lo atiende el propio Admin solo en esa PC
       (`127.0.0.1`, puerto 47123 por omisión), con una clave nueva en cada
       apertura; sin ella, o si la petición no va dirigida a 127.0.0.1 /
@@ -371,8 +385,8 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 | Mostrador / Entrega | En Chromis POS: cliente asignado escaneando su tarjeta, botón → Entrega con los datos llenos desde el cliente y una indicación; al cobrar se guardó en `customer_delivery` (ticket 1) y en las propiedades del ticket, y el ticket siguiente volvió a Mostrador. Venta al mismo cliente sin marcar: preguntó al cobrar y quedó como mostrador sin entrega. Venta sin cliente: no preguntó. Entrega sin cliente: pide asignarlo. Con el botón apagado en Admin no aparece. En Admin → Entregas se vio la entrega y se marcó como entregada. `tests/DeliveryTest.java` (19 comprobaciones). |
-| Gestor de entregas (datos) | `tests/DeliveryManagerTest.java` (76 comprobaciones): coordenadas válidas e inválidas, polígono en L, cuadrante por la ubicación del cliente, permisos por papel (el repartidor no prepara ni toca entregas ajenas, otro despachador no mueve las de un cuadrante ajeno), monto y motivo obligatorios sin dejar nada a medias, la misma operación reenviada y enviada **al mismo tiempo desde dos conexiones** se aplica una sola vez, dos cierres distintos simultáneos: uno gana y el otro se rechaza; importación con comillas, comas, saltos de línea y BOM, vista previa sin guardar, enlace por nombre, nombres repetidos omitidos, reimportación sin duplicar y pin movido respetado. |
-| Gestor de entregas (pantalla y mapa) | En Chromis Admin: la entrega de la Estrella dentro del cuadrante *Oriente* (repartidor Employee) pasó a *Preparada*, *En ruta* y *Completada* con el formulario ($36 recibido), se reabrió (con confirmación) y al intentar *No entregada* sin motivo no dejó guardar; historial con los 4 cambios; despachador Manager asignado al cuadrante. El mapa abierto desde Admin guardó un cuadrante nuevo y Admin lo mostró solo. `tests/MapServerTest.java` (39 comprobaciones): sin la clave o dirigido a otra dirección no responde, no se alcanza desde la red, el despachador no dibuja cuadrantes pero sí ubica clientes, coordenadas 0,0 o sin coordenadas se rechazan sin borrar la ubicación, otra sesión invalida la clave anterior, el cuadrante cambia de forma y las entregas fuera de él salen. `tests/mapa_navegador.py` (Chromium con Google Maps simulado): dibujar, nombrar y editar cuadrantes, buscar y mover el pin de un cliente. |
+| Gestor de entregas (datos) | `tests/DeliveryManagerTest.java` (90 comprobaciones): coordenadas válidas e inválidas, polígono en L, cuadrante por la ubicación del cliente, permisos por papel (el repartidor no prepara ni toca entregas ajenas, otro despachador no mueve las de un cuadrante ajeno), monto y motivo obligatorios sin dejar nada a medias, la misma operación reenviada y enviada **al mismo tiempo desde dos conexiones** se aplica una sola vez, dos cierres distintos simultáneos: uno gana y el otro se rechaza; importación con comillas, comas, saltos de línea y BOM, vista previa sin guardar, enlace por nombre, nombres repetidos omitidos, reimportación sin duplicar y pin movido respetado. |
+| Gestor de entregas (pantalla y mapa) | En Chromis Admin: la entrega de la Estrella dentro del cuadrante *Oriente* (repartidor Employee) pasó a *Preparada*, *En ruta* y *Completada* con el formulario ($36 recibido), se reabrió (con confirmación) y al intentar *No entregada* sin motivo no dejó guardar; historial con los 4 cambios; despachador Manager asignado al cuadrante. El mapa abierto desde Admin guardó un cuadrante nuevo y Admin lo mostró solo. `tests/MapServerTest.java` (39 comprobaciones): sin la clave o dirigido a otra dirección no responde, no se alcanza desde la red, el despachador no dibuja cuadrantes pero sí ubica clientes, coordenadas 0,0 o sin coordenadas se rechazan sin borrar la ubicación, otra sesión invalida la clave anterior, el cuadrante cambia de forma y las entregas fuera de él salen. `tests/mapa_navegador.py` (Chromium con Google Maps simulado): dibujar, nombrar y editar cuadrantes, buscar y mover el pin de un cliente; pin sugerido para el cliente sin ubicar (aviso de aproximado, el que ya tiene pin no se busca), arrastrarlo y confirmarlo. `DeliveryManagerTest`: *Cerrar entregas viejas* cuenta y cierra solo las abiertas anteriores a la fecha (no las canceladas, las ya entregadas ni las recientes), entregadas en Chromis, sin monto, con nota e historial. |
 | Pedido tentativo | `tests/DraftOrderTest.java` (54 comprobaciones): horario (antes y después de la hora, caja apagada a la hora, caja designada, apagado), cantidades (bajo, agotado, reserva con pedido en camino, faltante), proveedor por producto, reemplazo, edición, descartar y enviar. Con Chromis POS abierto y la hora ya pasada, la caja armó los borradores al minuto y mostró *Pedido tentativo listo*; en Admin se cambió una cantidad, se quitó un producto, se agregó otro escaneando y se envió como PED-000009 con su PDF. |
 
 El botón de editar línea solo aparece a usuarios con el permiso

@@ -123,11 +123,14 @@ public class DeliveryManagerController {
         Button btnSetup = new Button("Configurar mapa...");
         btnSetup.setOnAction(e -> configureMap());
         btnSetup.setDisable(role != Role.ADMIN);
+        Button btnOld = new Button("Cerrar entregas viejas...");
+        btnOld.setOnAction(e -> closeOld());
+        btnOld.setDisable(role != Role.ADMIN);
         Label who = new Label(Start.getActiveUser() + " · " + (role == Role.ADMIN ? "administrador" : "despachador"));
         who.setTextFill(javafx.scene.paint.Color.web("#555555"));
         Region grow = new Region();
         HBox.setHgrow(grow, Priority.ALWAYS);
-        HBox top = new HBox(14, btnMap, btnRefresh, chkClosed, lblSummary, grow, who, btnSetup);
+        HBox top = new HBox(14, btnMap, btnRefresh, chkClosed, lblSummary, grow, who, btnOld, btnSetup);
         top.setAlignment(Pos.CENTER_LEFT);
         AnchorPane.setTopAnchor(top, 88.0);
         AnchorPane.setLeftAnchor(top, 15.0);
@@ -615,7 +618,9 @@ public class DeliveryManagerController {
                     () -> Platform.runLater(this::loadRows), port);
             new Thread(() -> {
                 try {
-                    Desktop.getDesktop().browse(new URI(address));
+                    if (!openAppWindow(address)) {
+                        Desktop.getDesktop().browse(new URI(address));
+                    }
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
                         lblMessage.setText("No se pudo abrir el navegador. Copia esta dirección en Chrome o Vivaldi:");
@@ -628,6 +633,106 @@ public class DeliveryManagerController {
         } catch (Exception ex) {
             error("No se pudo abrir el mapa", ex);
         }
+    }
+
+    /**
+     * On Windows the map opens in its own window (Edge or Chrome in app mode:
+     * no tabs or address bar, like part of Chromis). False = neither is
+     * installed and the normal browser is used.
+     */
+    static boolean openAppWindow(String address) {
+        if (!System.getProperty("os.name", "").toLowerCase().startsWith("windows")) {
+            return false;
+        }
+        List<String> exes = new ArrayList<>();
+        for (String env : new String[]{"ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"}) {
+            String dir = System.getenv(env);
+            if (dir != null) {
+                exes.add(dir + "\\Microsoft\\Edge\\Application\\msedge.exe");
+                exes.add(dir + "\\Google\\Chrome\\Application\\chrome.exe");
+            }
+        }
+        for (String exe : exes) {
+            if (new java.io.File(exe).isFile()) {
+                try {
+                    new ProcessBuilder(exe, "--app=" + address, "--window-size=1400,900").start();
+                    return true;
+                } catch (java.io.IOException ex) {
+                    LOGGER.log(Level.INFO, "no se pudo abrir " + exe, ex);
+                }
+            }
+        }
+        return false;
+    }
+
+    // ---------------- Old deliveries ----------------
+
+    /** Admin: closes as delivered the open deliveries sold before a date (old ones nobody marked). */
+    private void closeOld() {
+        if (role != Role.ADMIN) {
+            return;
+        }
+        javafx.scene.control.DatePicker date = new javafx.scene.control.DatePicker(java.time.LocalDate.now().minusDays(7));
+        Label count = new Label();
+        Runnable recount = () -> {
+            if (date.getValue() == null) {
+                count.setText("");
+                return;
+            }
+            try {
+                int n = DeliveryStatusStore.countOld(connection(), startOf(date.getValue()));
+                count.setText(n == 0 ? "No hay entregas abiertas vendidas antes de esa fecha."
+                        : n + " entrega(s) abierta(s) vendida(s) antes de esa fecha.");
+            } catch (SQLException ex) {
+                count.setText("No se pudo contar: " + ex.getMessage());
+            }
+        };
+        date.valueProperty().addListener((o, a, b) -> recount.run());
+        recount.run();
+        Label help = new Label("Se marcan como entregadas (completadas) sin monto recibido, con la nota \"Cerrada en bloque\" "
+                + "y tu nombre en el historial de cada una. Sirve para las entregas viejas que nadie marcó.");
+        help.setWrapText(true);
+        help.setMaxWidth(480);
+        GridPane g = new GridPane();
+        g.setHgap(10);
+        g.setVgap(8);
+        g.addRow(0, new Label("Vendidas antes del"), date);
+        g.add(count, 0, 1, 2, 1);
+        g.add(help, 0, 2, 2, 1);
+        Dialog<ButtonType> d = new Dialog<>();
+        d.setTitle("Cerrar entregas viejas");
+        d.setHeaderText(null);
+        d.getDialogPane().setContent(g);
+        ButtonType ok = new ButtonType("Cerrar entregas", ButtonBar.ButtonData.OK_DONE);
+        d.getDialogPane().getButtonTypes().addAll(ok, CANCEL);
+        if (d.showAndWait().orElse(CANCEL) != ok || date.getValue() == null) {
+            return;
+        }
+        try {
+            java.sql.Timestamp before = startOf(date.getValue());
+            int n = DeliveryStatusStore.countOld(connection(), before);
+            if (n == 0) {
+                lblMessage.setText("No había entregas abiertas anteriores a esa fecha.");
+                return;
+            }
+            ButtonType yes = new ButtonType("Sí", ButtonBar.ButtonData.YES);
+            ButtonType no = new ButtonType("No", ButtonBar.ButtonData.NO);
+            Alert a = new Alert(Alert.AlertType.CONFIRMATION, "¿Cerrar " + n + " entrega(s) como entregadas?", yes, no);
+            a.setHeaderText(null);
+            if (a.showAndWait().orElse(no) != yes) {
+                return;
+            }
+            int closed = DeliveryStatusStore.closeOld(connection(), before, Start.getActiveUserId(), Start.getActiveUser());
+            loadRows();
+            lblMessage.setText("Se cerraron " + closed + " entrega(s) anteriores al "
+                    + date.getValue().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ".");
+        } catch (SQLException ex) {
+            error("No se pudieron cerrar las entregas (no se cambió ninguna)", ex);
+        }
+    }
+
+    private static java.sql.Timestamp startOf(java.time.LocalDate d) {
+        return java.sql.Timestamp.valueOf(d.atStartOfDay());
     }
 
     private void configureMap() {
