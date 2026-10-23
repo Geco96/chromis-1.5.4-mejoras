@@ -146,6 +146,9 @@ public class DeliveryManagerTest {
             check("un solo movimiento en el historial", events(c, s1), "1");
             check("repartidor no da salida", apply(c, change(s1, "en_ruta", Role.DRIVER, employee)).startsWith("REFUSED"), true);
             check("salida a ruta", apply(c, change(s1, "en_ruta", Role.DISPATCHER, manager)), "APPLIED");
+            List<Entry> mias = DeliveryStatusStore.forDriver(c, employee);
+            check("mis entregas: la que va en ruta, primero", !mias.isEmpty() && mias.get(0).ticketId.equals(s1), true);
+            check("mis entregas: no salen las de otro repartidor", DeliveryStatusStore.forDriver(c, manager).stream().anyMatch(x -> x.ticketId.equals(s1)), false);
             check("otro repartidor no la toca", apply(c, change(s1, "completado", Role.DRIVER, manager)), "REFUSED: Esta entrega no es tuya.");
 
             Change sinMonto = change(s1, "completado", Role.DRIVER, employee);

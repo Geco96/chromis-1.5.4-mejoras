@@ -8,6 +8,7 @@ import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -39,11 +40,12 @@ public final class DeliveryStatusStore {
     public static final String DONE = "completado";
     public static final String FAILED = "no_entregado";
     public static final String CANCELLED = "cancelado";
-    public static final List<String> STATUSES = List.of(PENDING, READY, ON_ROUTE, DONE, FAILED, CANCELLED);
+    // Arrays.asList (no List.of): this class is also used by Chromis for Android 8+
+    public static final List<String> STATUSES = Collections.unmodifiableList(Arrays.asList(PENDING, READY, ON_ROUTE, DONE, FAILED, CANCELLED));
 
     /** Issue reported with the delivery. */
     public static final String ISSUE_NONE = "ninguno";
-    public static final List<String> ISSUES = List.of(ISSUE_NONE, "faltante", "rechazo", "danado", "otro");
+    public static final List<String> ISSUES = Collections.unmodifiableList(Arrays.asList(ISSUE_NONE, "faltante", "rechazo", "danado", "otro"));
 
     public enum Role {
         ADMIN, DISPATCHER, DRIVER
@@ -232,6 +234,52 @@ public final class DeliveryStatusStore {
         return list;
     }
 
+    /**
+     * Deliveries of one driver (his zone's or assigned to him only): the ones
+     * on route, the ones still being prepared (to know what comes next) and
+     * the ones he closed today. On route first, then the rest.
+     */
+    public static List<Entry> forDriver(Connection con, String driverId) throws SQLException {
+        List<Entry> mine = new ArrayList<>();
+        long today = startOfToday();
+        for (Entry e : load(con, 1)) {
+            if (driverId == null || !driverId.equals(e.driver())) {
+                continue;
+            }
+            boolean closed = DONE.equals(e.status) || FAILED.equals(e.status) || CANCELLED.equals(e.status);
+            if (closed && (e.confirmedAt == null || e.confirmedAt.getTime() < today) && !FAILED.equals(e.status)) {
+                continue;
+            }
+            mine.add(e);
+        }
+        mine.sort((a, b) -> Integer.compare(order(a.status), order(b.status)));
+        return mine;
+    }
+
+    private static int order(String status) {
+        switch (status) {
+            case ON_ROUTE:
+                return 0;
+            case READY:
+                return 1;
+            case PENDING:
+                return 2;
+            case FAILED:
+                return 3;
+            default:
+                return 4;
+        }
+    }
+
+    private static long startOfToday() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        return c.getTimeInMillis();
+    }
+
     /** One delivery, or null if the ticket is not a delivery sale. */
     public static Entry get(Connection con, String ticketId) throws SQLException {
         createTables(con);
@@ -390,14 +438,15 @@ public final class DeliveryStatusStore {
             }
             con.commit();
             return Outcome.APPLIED;
-        } catch (SQLIntegrityConstraintViolationException dup) {
-            // The same operation arrived twice at the same time: the other one applied it
+        } catch (SQLException ex) {
             con.rollback();
-            if (exists(con, c.opId)) {
+            // The same operation arrived twice at the same time: the other one applied it
+            // (duplicate key 1062; every MySQL / MariaDB driver reports it this way)
+            if ((ex instanceof SQLIntegrityConstraintViolationException || ex.getErrorCode() == 1062) && exists(con, c.opId)) {
                 return Outcome.ALREADY_APPLIED;
             }
-            throw dup;
-        } catch (SQLException | Refused | RuntimeException ex) {
+            throw ex;
+        } catch (Refused | RuntimeException ex) {
             con.rollback();
             throw ex;
         } finally {

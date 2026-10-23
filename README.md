@@ -292,6 +292,12 @@ originales, las clases que se modificaron.
       mapa y puerto. La clave necesita *Maps JavaScript API* y *Geocoding API*
       y se restringe a sitios web `http://127.0.0.1:47123/*`.
 
+    - **Repartidor:** confirma desde Chromis Android → *Mis entregas* (rol con
+      el permiso "Mis entregas (repartidor)"; ver el README de
+      `chromis-android`). Sin señal la confirmación se queda en el celular y
+      llega después, una sola vez. Lo que confirma aparece aquí con el monto
+      recibido y las anotaciones.
+
     ![Gestor de entregas](docs/capturas/admin-gestor-entregas.png)
 
 ### Tablas nuevas
