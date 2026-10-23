@@ -351,6 +351,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Cliente con 7.5 % sobre costo | Arroz $30 (costo $20) → $21.50; producto excluido conserva $80; producto sin costo muestra aviso y no se agrega; al quitar el cliente vuelve a $30. |
 | Captura en Admin | Margen del cliente y opción del producto se guardan y se vuelven a mostrar al reabrir. |
 | Copia a Drive | Con la carpeta de copia inexistente (como G: sin Google Drive) el respaldo local salió correcto y la copia quedó *pendiente*; al crear la carpeta, la siguiente revisión copió el respaldo; con 3 respaldos y "conservar 2" ambas carpetas quedaron con los mismos 2; con la copia atrasada más de 24 h la caja avisó una sola vez en 3 revisiones; al volver la carpeta se puso al día. La tabla existente recibió las columnas nuevas sin perder su configuración. |
+| Restaurar respaldo | `tests/RestoreToolTest.java` con solo `restaurar.jar` (sin Chromis ni `mysql.exe`): el `.zip` de un respaldo programado se reconoce completo y uno cortado a la mitad no; la base restaurada tiene las mismas 112 tablas, 35 triggers, vista, rutina, productos, tickets, clientes, existencias y versión que la original, y los triggers de Chromis siguen activos; la contraseña cifrada de `chromisposconfig.properties` se lee. En la ventana: con otra conexión abierta en la base la mostró, la cerró, pidió confirmar el borrado y restauró. |
 | Respaldo programado | La caja designada respaldó al abrir ventas y al pedirlo desde Admin; la restauración tiene las mismas tablas, vista, 35 triggers y rutina, con checksums iguales. |
 | Reposición en Admin | Umbrales escritos en la tabla se guardan en `stocklevel`/`restock_reserve` y se ven en *Stock Levels* del producto; reserva menor que el mínimo se rechaza con mensaje; PDF con 2 productos y cantidad editada a mano. |
 | Avisos en caja | Al abrir: "1 producto bajo el mínimo". Ventas de Arroz (mín. 5, reserva 10): 12 → 9 *En reserva*, 9 → 4 *Bajo el mínimo*, 4 → 3 sin aviso, 3 → 0 *Se agotó*. El lector siguió funcionando con el aviso en pantalla. |
@@ -399,11 +400,36 @@ Se recomienda probar primero en **una sola terminal** antes de copiarlo a las de
 
 ## Restaurar un respaldo
 
-Descomprimir el `.zip` y cargar el `.sql` con el cliente de MySQL:
+Con **`restaurar.jar`** (en `dist/` y en la rama `descargas`): copiarlo a la
+carpeta de instalación de Chromis y abrirlo con doble clic, como el
+`dbcreator.jar`. Toma el servidor, el usuario, la contraseña y la base de
+`chromisposconfig.properties` de esa carpeta (se pueden cambiar, por ejemplo
+para restaurar en una base con otro nombre y revisarla antes).
+
+1. Elegir el respaldo: el `.zip` de los respaldos programados (no hace falta
+   descomprimirlo) o un `.sql`.
+2. **Restaurar**. Primero lee el archivo completo y, si no termina como un
+   respaldo de Chromis (cortado, o de otro programa), pregunta antes de
+   borrar nada.
+3. Si hay programas con la base abierta (Chromis POS, Admin, el monitor,
+   HeidiSQL...), los muestra con su equipo y ofrece cerrar esas conexiones;
+   nunca se queda esperando más de 20 segundos.
+4. Pide confirmar que se borre la base, la crea de nuevo y carga el respaldo
+   con el avance real (se puede cancelar; la base queda incompleta y hay que
+   restaurar otra vez).
+5. Al final revisa la base: tablas y versión de Chromis.
+
+No necesita `mysql.exe`. El restaurador del `dbcreator.jar` original puede
+quedarse en "Restoring database" para siempre: le pasa el archivo a
+`mysql.exe` sin leer lo que este escribe, lee el respaldo entero a memoria y
+borra la base sin límite de espera (si Chromis la tiene abierta, espera sin
+fin).
+
+También se puede con el cliente de MySQL (descomprimir antes el `.zip`):
 
 ```
 mysql -u USUARIO -p NOMBRE_BASE < chromis-AAAAMMDD-HHMMSS.sql
 ```
 
-Esto **reemplaza** el contenido de esa base: hacerlo con Chromis cerrado en
-todas las terminales.
+Cualquiera de los dos **reemplaza** el contenido de esa base: hacerlo con
+Chromis cerrado en todas las terminales.

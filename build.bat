@@ -2,6 +2,7 @@
 rem Compila las clases modificadas y genera:
 rem   dist\chromispos.jar  (src\ + src-common\ sobre original\chromispos.jar)
 rem   dist\admin.jar       (src-admin\ + src-common\ sobre original-admin\admin.jar)
+rem   dist\restaurar.jar   (restaurador de respaldos, se abre con doble clic)
 rem Requiere JDK 11 o superior en el PATH.
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
@@ -12,7 +13,8 @@ for %%f in (tools\javafx-11.0.2\*.jar) do set JAVAFX=!JAVAFX!;%%f
 
 call :build chromispos original\chromispos.jar "" src src-common || goto :error
 call :build admin original-admin\admin.jar "%JAVAFX%" src-admin src-common || goto :error
-echo Listo: dist\chromispos.jar y dist\admin.jar
+java tools\RestoreJar.java build\admin\classes original\chromispos.jar original-admin\admin.jar dist\restaurar.jar || goto :error
+echo Listo: dist\chromispos.jar, dist\admin.jar y dist\restaurar.jar
 exit /b 0
 
 :build
