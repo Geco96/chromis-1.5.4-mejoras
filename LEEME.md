@@ -28,3 +28,22 @@ elige el `.zip` del respaldo (no hace falta descomprimirlo) y da **Restaurar**.
 Antes de borrar la base revisa que el respaldo esté completo y muestra los
 programas que la tienen abierta (Chromis POS, Admin, monitor), con opción de
 cerrarlos. No necesita `mysql.exe`.
+
+## Enterprise (carpeta `enterprise/`)
+
+Compilados de la rama `enterprise` (commit `7c80ab9`): todo lo de `mejoras` más
+**Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
+entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
+Google en el navegador de la PC). Es para la distribuidora; en las tiendas se
+usan los de arriba.
+
+| Archivo | Dónde va | SHA-256 |
+|---|---|---|
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `d57dcf974d0eb0a5f30cc1eb70c9d80907b2c0859443b2a20e4be8da5144a79e` |
+| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `9e76d220f876b04709b9358406777de15cefaad5ddc14e904506ce7bb295eb50` |
+| `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
+
+Se instalan igual (renombrar el actual a `.original` y copiar el nuevo). Las
+tablas nuevas se crean solas; volver a los jar de `mejoras` no daña nada.
+La parte del repartidor es Chromis Android (`chromis-android`, rama `main`):
+*Mis entregas* con el permiso "Mis entregas (repartidor)".
