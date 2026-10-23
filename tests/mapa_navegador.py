@@ -69,6 +69,13 @@ with sync_playwright() as p:
     c = pg.evaluate("Mapa._st.datos.clientes.find(c => c.nombre === 'Papelería " + sin_pin + "')")
     check('sugerido confirmado', (c['lat'], c['lng']), (19.4405, -99.1405))
     check('ya no es sugerido', 'Sugerido' in pg.locator('.tarjeta:has-text("' + sin_pin + '")').inner_text(), False)
+    # Lo ya confirmado se corrige desde la misma entrega
+    pg.locator('.tarjeta:has-text("' + sin_pin + '") >> text=Mover pin').click()
+    check('mover pin desde la entrega', pg.locator('#dir-pin').count() == 1 and 'Papelería ' + sin_pin in pg.inner_text('#lista'), True)
+    check('el pin a mover aparece en su lugar', pg.evaluate("Mapa._st.pin.marcador.getPosition().lat()"), 19.4405)
+    pg.click('#lista >> text=Cancelar')
+    pg.click('#pestanas >> text=Entregas')
+    check('pines en forma de gota', pg.evaluate("window.__maps.markers.filter(m => m.o.zIndex === 100).every(m => m.o.icon.path.startsWith('M12'))"), True)
     # Dibujar un cuadrante
     pg.click('text=Cuadrantes')
     pg.click('text=＋ Nuevo cuadrante')

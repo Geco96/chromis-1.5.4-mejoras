@@ -59,6 +59,17 @@
         prospecto: { texto: 'Prospecto', color: '#E9C46A' },
         pendiente_visita: { texto: 'Pendiente de visita', color: '#F77F00' }
     };
+    // Pin en forma de gota (24x24, la punta abajo al centro) para que se distinga de los negocios de Google
+    const GOTA = 'M12 1C7.6 1 4 4.5 4 8.9c0 5.9 8 14.1 8 14.1s8-8.2 8-14.1C20 4.5 16.4 1 12 1z';
+    function pin(color, escala, borde, ancho) {
+        return { path: GOTA, fillColor: color, fillOpacity: 1, strokeColor: borde || '#fff', strokeWeight: ancho || 2, scale: escala,
+            anchor: new google.maps.Point(12, 23), labelOrigin: new google.maps.Point(12, 9) };
+    }
+    function inicial(nombre) {
+        const t = String(nombre || '').replace(/^(papeler[ií]a|abarrotes|tienda|miscel[aá]nea)\s+/i, '').trim();
+        return (t.charAt(0) || '•').toUpperCase();
+    }
+
     const st = {
         datos: null, mapa: null, pestana: 'entregas', filtro: null, busqueda: '', soloSinPin: true,
         poligonos: [], marcadores: [], dibujo: null, editando: null, pin: null, sel: null, info: null,
@@ -123,7 +134,7 @@
                 <div class="f1"><span>#${esc(e.numero)} · ${esc(e.nombre || 'Cliente')}</span><span class="estado" style="background:${est.color}">${est.texto}</span></div>
                 <div class="det">${esc(e.direccion)}<br>${e.cuadrante ? '■ ' + esc(e.cuadrante) : '<i>Sin cuadrante</i>'} · 🚚 ${esc(e.repartidor || 'Sin repartidor')} · ${dinero(e.total)}
                 ${e.indicaciones ? '<br>📝 ' + esc(e.indicaciones) : ''}
-                ${ubicado(e) ? '' : '<br><b style="color:#E63946">📍 Cliente sin ubicar</b>' + (e.cliente ? ` <button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">Ubicar</button>` : '') + textoSugerido(e)}</div></div>`;
+                ${ubicado(e) ? (e.cliente ? `<div class="fila"><button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">📍 Mover pin</button></div>` : '') : '<br><b style="color:#E63946">📍 Cliente sin ubicar</b>' + (e.cliente ? ` <button class="gris" onclick="event.stopPropagation(); Mapa.ponerPin('${esc(e.cliente)}')">Ubicar</button>` : '') + textoSugerido(e)}</div></div>`;
         }).join('');
     }
 
@@ -206,7 +217,7 @@
         if (s.estado === 'buscando') return '<br><i>Buscando la dirección en Google…</i>';
         if (s.estado === 'nada') return '<br><i>Google no encontró esta dirección: ubícalo a mano.</i>';
         const c = esc(e.cliente);
-        return `<br><span style="color:#E67E22">❓ Sugerido: ${esc(s.formato)}</span>` +
+        return `<br><span style="color:#E76F51">❓ Sugerido: ${esc(s.formato)}</span>` +
             (s.aproximado && !s.movido ? '<br><b style="color:#B9770E">⚠ Ubicación aproximada: revísala o arrastra el pin.</b>' : '') +
             (s.movido ? '<br><i>Pin movido a mano.</i>' : '') +
             `<div class="fila"><button class="verde" onclick="event.stopPropagation(); Mapa.confirmarSugerido('${c}')">Confirmar ubicación</button>` +
@@ -273,18 +284,19 @@
         d.clientes.filter(c => ubicado(c) && !conEntrega.has(c.id)).forEach(c => {
             const e = CLIENTE[c.estado] || CLIENTE.cautivo;
             const m = new google.maps.Marker({
-                position: { lat: c.lat, lng: c.lng }, map: st.mapa, title: c.nombre, zIndex: 10,
-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: e.color, fillOpacity: 0.9, strokeColor: '#fff', strokeWeight: 1 }
+                position: { lat: c.lat, lng: c.lng }, map: st.mapa, title: c.nombre, zIndex: 10, icon: pin(e.color, 1.5),
+                label: { text: inicial(c.nombre), color: '#fff', fontSize: '12px', fontWeight: 'bold' }
             });
-            m.addListener('click', () => abrirInfo(`<b>${esc(c.nombre)}</b><br>${esc(c.direccion)}<br>${e.texto}`, m.getPosition()));
+            m.addListener('click', () => abrirInfo(`<b>${esc(c.nombre)}</b><br>${esc(c.direccion)}<br>${e.texto}` +
+                `<div class="fila"><button class="gris" onclick="Mapa.ponerPin('${esc(c.id)}')">📍 Mover pin</button></div>`, m.getPosition()));
             st.marcadores.push(m);
         });
         d.entregas.filter(ubicado).forEach(en => {
             const est = ESTADO[en.estado] || { color: '#777' };
             const m = new google.maps.Marker({
                 position: { lat: en.lat, lng: en.lng }, map: st.mapa, title: '#' + en.numero + ' ' + en.nombre, zIndex: 100,
-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: est.color, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
-                label: { text: String(en.numero), color: '#fff', fontSize: '9px' }
+                icon: pin(est.color, 2.2, '#222', 1.5),
+                label: { text: String(en.numero), color: '#fff', fontSize: String(en.numero).length > 4 ? '10px' : '13px', fontWeight: 'bold' }
             });
             m.addListener('click', () => { st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket); });
             st.marcadores.push(m);
@@ -295,8 +307,8 @@
             if (s.estado !== 'ok' || !en || !sinPin(id)) return;
             const m = new google.maps.Marker({
                 position: { lat: s.lat, lng: s.lng }, map: st.mapa, title: 'Sugerido: #' + en.numero + ' ' + en.nombre, zIndex: 90, draggable: true,
-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#E67E22', fillOpacity: 0.85, strokeColor: '#fff', strokeWeight: 2 },
-                label: { text: '?', color: '#fff', fontSize: '11px', fontWeight: 'bold' }
+                icon: pin('#fff', 2.2, '#E76F51', 3),
+                label: { text: '?', color: '#E76F51', fontSize: '15px', fontWeight: 'bold' }
             });
             m.sugerido = id;
             m.addListener('click', () => { st.pestana = 'entregas'; st.filtro = null; acciones.verEntrega(en.ticket); });
@@ -324,7 +336,8 @@
 
     function moverPin(latLng) {
         if (!st.pin.marcador) {
-            st.pin.marcador = new google.maps.Marker({ position: latLng, map: st.mapa, draggable: true, zIndex: 1000 });
+            st.pin.marcador = new google.maps.Marker({ position: latLng, map: st.mapa, draggable: true, zIndex: 1000,
+                icon: pin('#E63946', 2.4, '#222', 1.5), label: { text: '✚', color: '#fff', fontSize: '13px' } });
         } else {
             st.pin.marcador.setPosition(latLng);
         }
@@ -426,6 +439,7 @@
         },
         ponerPin: id => {
             terminar();
+            if (st.info) st.info.close();
             const c = st.datos.clientes.find(x => x.id === id);
             if (!c) return;
             st.pestana = 'clientes';
@@ -477,7 +491,9 @@
             const conPin = st.datos.clientes.find(ubicado);
             if (conPin) centro = { lat: conPin.lat, lng: conPin.lng };
         }
-        st.mapa = new google.maps.Map(document.getElementById('mapa'), { center: centro, zoom: 13, clickableIcons: false, streetViewControl: false });
+        st.mapa = new google.maps.Map(document.getElementById('mapa'), { center: centro, zoom: 13, clickableIcons: false, streetViewControl: false,
+            // sin los negocios y lugares de Google: solo se ven los de Chromis
+            styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] }] });
         st.mapa.addListener('click', ev => clicMapa(ev));
         pintarMapa();
         sugerir();

@@ -1389,6 +1389,8 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       AutoLogoff.getInstance().deactivateTimer();
       boolean resultok = false;
       if (AppUser.hasPermission("sales.Total")) {
+         // Mostrador / Entrega decided at this charge only counts if it is paid
+         boolean orderTypeUnset = ticket.getProperty(DeliveryStore.ORDER_TYPE) == null;
          if (!this.confirmOrderType(ticket)) {
             AutoLogoff.getInstance().activateTimer();
             return false;
@@ -1517,6 +1519,10 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
          this.m_oTicket.resetTaxes();
          this.m_oTicket.resetPayments();
+         if (!resultok && orderTypeUnset && !this.isDelivery()) {
+            // Cancelled: ask again next time (the customer may be assigned before charging again)
+            ticket.getProperties().remove(DeliveryStore.ORDER_TYPE);
+         }
       }
 
       AutoLogoff.getInstance().activateTimer();

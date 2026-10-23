@@ -201,7 +201,9 @@ originales, las clases que se modificaron.
       asignado.
     - Al cobrar a un cliente sin haber marcado nada, la caja pregunta (con
       Mostrador preseleccionado). Sin cliente es venta de mostrador y no
-      pregunta. Se puede apagar la pregunta o el botón en Admin → Customers →
+      pregunta. Si se cancela el cobro, la respuesta no se guarda: al cobrar
+      otra vez (por ejemplo, ya con el cliente asignado) vuelve a preguntar.
+      Se puede apagar la pregunta o el botón en Admin → Customers →
       **Entregas**.
     - Usa la entrega propia de Chromis: se guarda en `customer_delivery` (con el
       mismo id que el ticket) y el ticket impreso lleva el bloque de entrega
@@ -291,6 +293,14 @@ originales, las clases que se modificaron.
       aproximada). No se guarda nada hasta que alguien pulsa *Confirmar
       ubicación*; si quedó mal, se arrastra el pin antes de confirmar. Se
       buscan hasta 25 por cada vez que se abre el mapa.
+    - **Corregir un pin ya confirmado**: botón *📍 Mover pin* en la tarjeta de
+      la entrega, en el globo del cliente al hacer clic en su pin, o en la
+      pestaña *Clientes*. Se arrastra o se hace clic donde va, y *Guardar
+      ubicación* (también *Quitar ubicación*).
+    - **Pines**: en forma de gota y grandes. Las entregas llevan su número de
+      ticket y el color de su estado; los clientes, la inicial de su nombre y
+      el color de su tipo; los sugeridos, un **?** naranja en blanco. El mapa
+      oculta los negocios y lugares de Google para que no se confundan.
     - **Cerrar entregas viejas...** (administrador): marca como entregadas,
       en una sola operación (todas o ninguna), las entregas abiertas vendidas
       antes de una fecha: las viejas que nadie marcó (por ejemplo, las de una
