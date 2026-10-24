@@ -2387,6 +2387,9 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
       if (r.delivery) {
          this.setDelivery(r.info);
+         if (r.saveToCustomer) {
+            this.saveCustomerAddress(r.info);
+         }
       } else if ("1".equals(this.m_oTicket.getNoDelivery())) {
          // Chromis ties its delivery charge line to the delivery data
          JAlertPane.messageBox(1, "Este ticket tiene cargo de envío. Quítalo para que sea venta de mostrador.", 16, new Dimension(125, 50), 4);
@@ -2427,6 +2430,38 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       }
 
       return true;
+   }
+
+   /** The customer had no address: the one typed for the delivery goes into Customers (only the empty fields). */
+   private void saveCustomerAddress(CustomerDeliveryInfo info) {
+      CustomerInfoExt customer = this.m_oTicket.getCustomer();
+      if (customer == null || info == null) {
+         return;
+      }
+
+      try {
+         DeliveryStore.fillCustomerAddress(
+            this.m_App.getSession().getConnection(), customer.getId(), info.fetchAddressLine1(), info.fetchAddressLine2(),
+            info.fetchAddressLine3(), info.fetchPostCode(), info.fetchPhone()
+         );
+         // the ticket's copy too, so a second delivery to it already comes filled in
+         if (customer.getAddress() == null || customer.getAddress().trim().isEmpty()) {
+            customer.setAddress(info.fetchAddressLine1());
+            if (customer.getAddress2() == null || customer.getAddress2().trim().isEmpty()) {
+               customer.setAddress2(info.fetchAddressLine2());
+            }
+            if (customer.getCity() == null || customer.getCity().trim().isEmpty()) {
+               customer.setCity(info.fetchAddressLine3());
+            }
+            if (customer.getPostal() == null || customer.getPostal().trim().isEmpty()) {
+               customer.setPostal(info.fetchPostCode());
+            }
+         }
+      } catch (SQLException var3) {
+         Logger.getLogger(JPanelTicket.class.getName()).log(Level.WARNING, "No se pudo guardar la dirección del cliente", var3);
+         JAlertPane.messageBox(1, "La entrega quedó registrada, pero no se pudo guardar la dirección en el cliente:\n" + var3.getMessage(),
+            16, new Dimension(125, 50), 4);
+      }
    }
 
    /** Marks the ticket as a delivery; the data also go in its properties so a held ticket keeps them. */

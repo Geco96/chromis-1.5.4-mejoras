@@ -85,6 +85,24 @@ public class DeliveryTest {
             check("desmarcar", DeliveryStore.setDelivered(c, s1, false), true);
             check("vuelve a pendiente", find(DeliveryStore.load(c, false, 7), s1) != null, true);
             check("marcar una que no existe", DeliveryStore.setDelivered(c, "no-existe", true), false);
+
+            // Dirección escrita al cobrar → ficha del cliente, solo en lo vacío
+            String guid = one(c, "SELECT guid FROM siteguid");
+            String vacio = "prueba-dir-" + run + "-1", lleno = "prueba-dir-" + run + "-2";
+            exec(c, "INSERT INTO customers (id, taxid, name, siteguid) VALUES ('" + vacio + "', '" + vacio + "', 'Prueba sin dirección', '" + guid + "')");
+            exec(c, "INSERT INTO customers (id, taxid, name, address, phone2, siteguid) VALUES ('" + lleno + "', '" + lleno
+                    + "', 'Prueba con dirección', 'Calle Original 5', '5559999', '" + guid + "')");
+            try {
+                check("guardar en cliente sin dirección", DeliveryStore.fillCustomerAddress(c, vacio, "Av. Nueva 10", "Col. Centro",
+                        "Chimalhuacán", "56330", "5551111"), true);
+                check("la ficha queda llena", one(c, "SELECT CONCAT_WS(' | ', address, address2, city, postal, phone) FROM customers WHERE id = '" + vacio + "'"),
+                        "Av. Nueva 10 | Col. Centro | Chimalhuacán | 56330 | 5551111");
+                DeliveryStore.fillCustomerAddress(c, lleno, "Otra Calle 1", "", "Texcoco", "", "5552222");
+                check("no reemplaza lo que ya tenía", one(c, "SELECT CONCAT_WS(' | ', address, city, COALESCE(phone, '-')) FROM customers WHERE id = '" + lleno + "'"),
+                        "Calle Original 5 | Texcoco | -");
+            } finally {
+                exec(c, "DELETE FROM customers WHERE id IN ('" + vacio + "', '" + lleno + "')");
+            }
         } finally {
             for (String id : ids) {
                 exec(c, "DELETE FROM customer_delivery WHERE id = '" + id + "'");

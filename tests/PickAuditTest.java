@@ -211,7 +211,7 @@ public class PickAuditTest {
             for (String p : products) {
                 exec(c, "DELETE FROM barcodes WHERE productid = '" + p + "'");
                 try { exec(c, "DELETE FROM products WHERE id = '" + p + "'"); }
-                catch (SQLException ex) { exec(c, "UPDATE products SET retired = 1 WHERE id = '" + p + "'"); }
+                catch (SQLException ex) { exec(c, "UPDATE products SET retired = 1, iscatalog = 0 WHERE id = '" + p + "'"); }
             }
         }
         System.out.println(fails == 0 ? "\nTODO BIEN" : "\nFALLAS: " + fails);

@@ -48,6 +48,8 @@ public final class OrderTypeDialog extends JDialog {
 
         public boolean delivery;
         public CustomerDeliveryInfo info;
+        /** The customer had no address and the cashier chose to keep the typed one in Customers. */
+        public boolean saveToCustomer;
     }
 
     private final JToggleButton btnCounter = new JToggleButton("MOSTRADOR");
@@ -62,12 +64,17 @@ public final class OrderTypeDialog extends JDialog {
     private final JTextArea txtComments = new JTextArea(3, 30);
     private final JPanel details = new JPanel(new GridBagLayout());
     private final boolean hasCustomer;
+    /** The customer record has no address: offer to save the one typed here. */
+    private final boolean customerWithoutAddress;
+    private final String customerName;
     private Result result;
 
     private OrderTypeDialog(Window owner, String ticketId, CustomerInfoExt customer, CustomerDeliveryInfo current,
             boolean delivery) {
         super(owner, "Tipo de pedido", ModalityType.APPLICATION_MODAL);
         hasCustomer = customer != null;
+        customerWithoutAddress = customer != null && text(customer.getAddress()).isEmpty();
+        customerName = customer == null ? "" : text(customer.getName());
         JPanel content = new JPanel(new BorderLayout(0, 12));
         content.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
@@ -255,6 +262,14 @@ public final class OrderTypeDialog extends JDialog {
                     DeliveryStore.fit(txtPhone.getText(), DeliveryStore.PHONE_SIZE),
                     when, false,
                     DeliveryStore.fit(txtComments.getText(), DeliveryStore.COMMENTS_SIZE));
+            if (customerWithoutAddress) {
+                Object[] options = {"Sí, guardarla", "No"};
+                r.saveToCustomer = JOptionPane.showOptionDialog(this,
+                        customerName + " no tiene dirección en su ficha (Customers).\n"
+                        + "¿Guardar esta dirección en el cliente para las próximas ventas?",
+                        "Dirección del cliente", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                        options, options[0]) == 0;
+            }
         }
         result = r;
         dispose();

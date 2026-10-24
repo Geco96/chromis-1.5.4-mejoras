@@ -121,4 +121,32 @@ public final class DeliveryStore {
             return ps.executeUpdate() > 0;
         }
     }
+
+    /**
+     * Copies the delivery address typed at the till into the customer record,
+     * only into the fields that are empty there (nothing typed in Customers is
+     * replaced). Returns true if the customer was changed.
+     */
+    public static boolean fillCustomerAddress(Connection con, String customerId, String address, String address2,
+            String city, String postal, String phone) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("UPDATE customers SET "
+                + "address = CASE WHEN COALESCE(TRIM(address), '') = '' THEN ? ELSE address END, "
+                + "address2 = CASE WHEN COALESCE(TRIM(address2), '') = '' THEN ? ELSE address2 END, "
+                + "city = CASE WHEN COALESCE(TRIM(city), '') = '' THEN ? ELSE city END, "
+                + "postal = CASE WHEN COALESCE(TRIM(postal), '') = '' THEN ? ELSE postal END, "
+                + "phone = CASE WHEN COALESCE(TRIM(phone), '') = '' AND COALESCE(TRIM(phone2), '') = '' THEN ? ELSE phone END "
+                + "WHERE id = ?")) {
+            ps.setString(1, blankToNull(fit(address, 100)));
+            ps.setString(2, blankToNull(fit(address2, 100)));
+            ps.setString(3, blankToNull(fit(city, 100)));
+            ps.setString(4, blankToNull(fit(postal, 100)));
+            ps.setString(5, blankToNull(fit(phone, 20)));
+            ps.setString(6, customerId);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isEmpty() ? null : s;
+    }
 }
