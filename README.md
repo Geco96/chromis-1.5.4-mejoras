@@ -324,6 +324,37 @@ originales, las clases que se modificaron.
 
     ![Gestor de entregas](docs/capturas/admin-gestor-entregas.png)
 
+17. **Auditor de salida** (versión *Enterprise*, Admin → Customers →
+    **Auditor de salida**; antes era el programa aparte *AuditorPickPack*):
+    antes de que salga la mercancía de una venta, se escanea contra su
+    ticket.
+    - **Pedido:** se escanea o escribe el número del ticket (o el código del
+      ticket impreso). Solo ventas: una devolución con el mismo número no se
+      mezcla. La meta son los productos vendidos menos lo ya devuelto; el
+      cargo de envío y los servicios no se surten.
+    - **Escanear:** cada lectura suma 1. Se reconoce el código del producto,
+      su referencia o un código de barras adicional (el de una caja cuenta
+      sus unidades). Código ajeno al pedido o de más: sonido de error y aviso
+      en rojo; nada se pasa de lo vendido. **F2** (o *Granel*) suma una
+      cantidad a mano, con decimales (2.5 kg).
+    - **Reportar faltante:** se elige el producto en la tabla de la derecha;
+      queda justificado (sin existencia) y el pedido se puede cerrar sin él.
+    - **Validar y finalizar** (o Enter vacío): solo cuando todo está completo
+      o justificado. Si la venta es **entrega a domicilio** y estaba *Por
+      surtir*, pasa sola a **Preparada** en el Gestor de entregas, con quién
+      la auditó y lo que faltó en su historial.
+    - **Nada se pierde:** cada escaneo se guarda en la base al momento. Si se
+      cierra la ventana, se va la luz o se carga otro pedido, al volver a
+      cargarlo se retoma donde iba (también desde otra PC). Dos PCs con el
+      mismo pedido no cuentan de más. Si ya se auditó, avisa quién y cuándo
+      antes de empezar otra vez.
+    - **Historial:** auditorías desde una fecha, quién auditó, cuadradas o con
+      faltantes y qué faltó; doble clic para ver el detalle.
+    - **Permiso:** "Auditor de salida" en Roles (`PickAudit`; se agrega solo a
+      la lista). Quien administra roles lo tiene sin marcarlo. Un rol de
+      bodega con solo ese permiso ve únicamente el auditor. Ya no hace falta
+      el `.exe` ni su `config.json` con la clave de `root`.
+
 ### Tablas nuevas
 
 Se crean solas la primera vez; **la estructura de las tablas originales de
@@ -347,6 +378,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `delivery_zones` | Cuadrantes: polígono (`lat,lng;lat,lng;...`), color, despachador y repartidor (`people.id`). |
 | *(pos_settings)* | Mapa de entregas: `maps.apikey`, `maps.center`, `maps.port`. |
 | `delivery_status`, `delivery_events` | Estado actual de cada entrega (mismo id que el ticket) y su historial con el identificador único de cada operación. |
+| `pick_audit`, `pick_audit_lines` | Auditor de salida: cada auditoría (ticket, abierta o cerrada, quién y cuándo, cuadrada o con faltantes) y por producto lo esperado, lo escaneado y si el faltante se justificó. |
 | `restock_drafts`, `restock_draft_lines` | Pedidos tentativos por proveedor y sus productos: borrador, enviado (con su folio), descartado o reemplazado. Su hora, caja y último resultado van en `pos_settings` (`restock.draft.*`). |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
@@ -395,6 +427,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 | Mostrador / Entrega | En Chromis POS: cliente asignado escaneando su tarjeta, botón → Entrega con los datos llenos desde el cliente y una indicación; al cobrar se guardó en `customer_delivery` (ticket 1) y en las propiedades del ticket, y el ticket siguiente volvió a Mostrador. Venta al mismo cliente sin marcar: preguntó al cobrar y quedó como mostrador sin entrega. Venta sin cliente: no preguntó. Entrega sin cliente: pide asignarlo. Con el botón apagado en Admin no aparece. En Admin → Entregas se vio la entrega y se marcó como entregada. `tests/DeliveryTest.java` (19 comprobaciones). |
+| Auditor de salida | `tests/PickAuditTest.java` (41 comprobaciones): la venta y no la devolución con el mismo número, meta con renglones juntos, granel con decimales y sin lo devuelto ni el cargo de envío; código, referencia y código de caja; código ajeno, excedente (también la caja que se pasa, sin contar nada), cantidad 0; no cierra con faltantes sin justificar; cierre con faltante justificado pasa la entrega a Preparada con incidencia y nota; retomar, auditar otra vez, descartar; **dos PCs abren el mismo pedido y escanean el último producto al mismo tiempo: solo uno cuenta**. En Chromis Admin: pedido #1 (entrega) escaneado y cerrado → Preparada en el Gestor; código ajeno en rojo; granel con F2; faltante justificado; historial y aviso de "ya auditada". |
 | Gestor de entregas (datos) | `tests/DeliveryManagerTest.java` (90 comprobaciones): coordenadas válidas e inválidas, polígono en L, cuadrante por la ubicación del cliente, permisos por papel (el repartidor no prepara ni toca entregas ajenas, otro despachador no mueve las de un cuadrante ajeno), monto y motivo obligatorios sin dejar nada a medias, la misma operación reenviada y enviada **al mismo tiempo desde dos conexiones** se aplica una sola vez, dos cierres distintos simultáneos: uno gana y el otro se rechaza; importación con comillas, comas, saltos de línea y BOM, vista previa sin guardar, enlace por nombre, nombres repetidos omitidos, reimportación sin duplicar y pin movido respetado. |
 | Gestor de entregas (pantalla y mapa) | En Chromis Admin: la entrega de la Estrella dentro del cuadrante *Oriente* (repartidor Employee) pasó a *Preparada*, *En ruta* y *Completada* con el formulario ($36 recibido), se reabrió (con confirmación) y al intentar *No entregada* sin motivo no dejó guardar; historial con los 4 cambios; despachador Manager asignado al cuadrante. El mapa abierto desde Admin guardó un cuadrante nuevo y Admin lo mostró solo. `tests/MapServerTest.java` (39 comprobaciones): sin la clave o dirigido a otra dirección no responde, no se alcanza desde la red, el despachador no dibuja cuadrantes pero sí ubica clientes, coordenadas 0,0 o sin coordenadas se rechazan sin borrar la ubicación, otra sesión invalida la clave anterior, el cuadrante cambia de forma y las entregas fuera de él salen. `tests/mapa_navegador.py` (Chromium con Google Maps simulado): dibujar, nombrar y editar cuadrantes, buscar y mover el pin de un cliente; pin sugerido para el cliente sin ubicar (aviso de aproximado, el que ya tiene pin no se busca), arrastrarlo y confirmarlo. `DeliveryManagerTest`: *Cerrar entregas viejas* cuenta y cierra solo las abiertas anteriores a la fecha (no las canceladas, las ya entregadas ni las recientes), entregadas en Chromis, sin monto, con nota e historial. |
 | Pedido tentativo | `tests/DraftOrderTest.java` (54 comprobaciones): horario (antes y después de la hora, caja apagada a la hora, caja designada, apagado), cantidades (bajo, agotado, reserva con pedido en camino, faltante), proveedor por producto, reemplazo, edición, descartar y enviar. Con Chromis POS abierto y la hora ya pasada, la caja armó los borradores al minuto y mostró *Pedido tentativo listo*; en Admin se cambió una cantidad, se quitó un producto, se agregó otro escaneando y se envió como PED-000009 con su PDF. |

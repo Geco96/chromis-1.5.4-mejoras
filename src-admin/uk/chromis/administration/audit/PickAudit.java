@@ -1,0 +1,37 @@
+package uk.chromis.administration.audit;
+
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.scene.Parent;
+import uk.chromis.administration.base.MenuPanelInterface;
+import uk.chromis.administration.main.Start;
+import uk.chromis.administration.main.StartController;
+
+/** Menu entry for the auditor de salida (pick & pack). */
+public class PickAudit implements MenuPanelInterface {
+
+    private static PickAuditController panelControl;
+    private static Parent root;
+    public StringProperty jobClass = new SimpleStringProperty();
+
+    @Override
+    public void showPanel() throws Exception {
+        StartController.jobClass.bind(jobClass);
+        if (panelControl == null) {
+            panelControl = new PickAuditController();
+            root = panelControl.root();
+        }
+        panelControl.reloadData();
+        jobClass.setValue(getClass().getName());
+        Start.INTERNALANCHOR.getChildren().clear();
+        Start.INTERNALANCHOR.getChildren().add(root);
+        // as wide as the window (it was cut on the right in smaller windows)
+        javafx.scene.layout.AnchorPane.setLeftAnchor(root, 0.0);
+        javafx.scene.layout.AnchorPane.setRightAnchor(root, 0.0);
+    }
+
+    @Override
+    public void processDataChecks() {
+        // Every scan is saved at once; an unfinished audit is resumed by loading its order
+    }
+}

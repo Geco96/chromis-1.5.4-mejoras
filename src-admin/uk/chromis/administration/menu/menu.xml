@@ -142,6 +142,11 @@ menuItem option - text              chromispos.properties entry to use
                     actionClass="uk.chromis.administration.delivery.DeliveryManager"
                     accessName="Customers"
                     actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Auditor de salida"
+                    actionClass="uk.chromis.administration.audit.PickAudit"
+                    accessName="PickAudit"
+                    actionMethod="showPanel"/>
     </menuTitle>
 
 

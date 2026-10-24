@@ -58,6 +58,14 @@ public class LogonController implements Initializable {
          Logger.getLogger(LogonController.class.getName()).log(Level.WARNING, "No se pudo leer la lista de usuarios", ex);
       }
 
+      // "Auditor de salida" can be given in roles
+      try {
+         Connection con = ConnectionFactory.getInstance().getConnection();
+         uk.chromis.pos.audit.PickAuditStore.ensurePermission(con);
+      } catch (RuntimeException ex) {
+         Logger.getLogger(LogonController.class.getName()).log(Level.WARNING, "permiso del auditor", ex);
+      }
+
       String last = PREFS.get("lastUser", "Administrator");
       if (this.userName.getItems().contains(last)) {
          this.userName.setValue(last);
@@ -124,6 +132,11 @@ public class LogonController implements Initializable {
             for (Object o : (ArrayList)ois.readObject()) {
                this.m_apermissions.add((String)o);
             }
+         }
+
+         // Whoever administers roles also has the auditor without ticking it
+         if (this.m_apermissions.contains("UserRoles")) {
+            this.m_apermissions.add(uk.chromis.pos.audit.PickAuditStore.PERMISSION);
          }
 
          sql = "select rightslevel from roles where id =? ";

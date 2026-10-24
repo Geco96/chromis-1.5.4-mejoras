@@ -108,7 +108,6 @@ public class DeliveryManagerController {
 
     private void build() {
         root.setMinSize(1020, 700);
-        root.setPrefWidth(1216);
         Label title = new Label("Gestor de entregas");
         title.setFont(Font.font("System", FontWeight.BOLD, FontPosture.ITALIC, 14));
         AnchorPane.setTopAnchor(title, 57.0);
@@ -673,6 +672,8 @@ public class DeliveryManagerController {
             return;
         }
         javafx.scene.control.DatePicker date = new javafx.scene.control.DatePicker(java.time.LocalDate.now().minusDays(7));
+        date.setConverter(new javafx.util.converter.LocalDateStringConverter(
+                java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"), null));
         Label count = new Label();
         Runnable recount = () -> {
             if (date.getValue() == null) {

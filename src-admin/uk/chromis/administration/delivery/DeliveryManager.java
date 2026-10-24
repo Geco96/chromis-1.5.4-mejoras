@@ -26,6 +26,9 @@ public class DeliveryManager implements MenuPanelInterface {
         jobClass.setValue(getClass().getName());
         Start.INTERNALANCHOR.getChildren().clear();
         Start.INTERNALANCHOR.getChildren().add(root);
+        // as wide as the window (it was cut on the right in smaller windows)
+        javafx.scene.layout.AnchorPane.setLeftAnchor(root, 0.0);
+        javafx.scene.layout.AnchorPane.setRightAnchor(root, 0.0);
     }
 
     @Override
