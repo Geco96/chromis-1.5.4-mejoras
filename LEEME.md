@@ -31,17 +31,18 @@ cerrarlos. No necesita `mysql.exe`.
 
 ## Enterprise (carpeta `enterprise/`)
 
-Compilados de la rama `enterprise` (commit `d1f52d3`): todo lo de `mejoras` más
+Compilados de la rama `enterprise` (commit `236f69a`): todo lo de `mejoras` más
 **Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
 entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
 Google en su propia ventana, pines sugeridos por la dirección y cierre de
-entregas viejas). Es para la distribuidora; en las tiendas se
+entregas viejas) y el **Auditor de salida** (Admin → Customers: escanear la
+mercancía de una venta antes de que salga). Es para la distribuidora; en las tiendas se
 usan los de arriba.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `enterprise/chromispos.jar` | Cajas de la distribuidora | `ef98bf08179ac9a851390a58f2d1cb630943be57c5d8006906eb19808c920295` |
-| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `8a08208ac99ba441f5a58653de7b0045466231f16b509aea5129bdf1257b225c` |
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `77a6eec4d685da383a351d960d69ae452cb314f9895448411256307c4309c0e5` |
+| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `384199299facddb513c1d48cdd81e33e464109cf66ad8b55302540cee658321d` |
 | `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
 
 Se instalan igual (renombrar el actual a `.original` y copiar el nuevo). Las
