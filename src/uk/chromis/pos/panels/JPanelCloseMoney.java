@@ -31,11 +31,9 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 import uk.chromis.basic.BasicException;
 import uk.chromis.commons.dialogs.JAlertPane;
+import uk.chromis.commons.utils.TerminalInfo;
 import uk.chromis.data.gui.MessageInf;
 import uk.chromis.data.gui.TableRendererBasic;
-import uk.chromis.data.loader.Datas;
-import uk.chromis.data.loader.SerializerWriteBasic;
-import uk.chromis.data.loader.StaticSentence;
 import uk.chromis.format.Formats;
 import uk.chromis.globals.CompanyInfo;
 import uk.chromis.globals.IconFactory;
@@ -107,6 +105,9 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
       this.initComponents();
    }
 
+   /** Cash whose categories and receipt count are printed: the one just closed or reloaded; null = the active cash. */
+   private String printMoney;
+
    public void init(AppView app) throws BeanFactoryException {
       this.dbQuery = (DataLogicSystem)app.getBean("uk.chromis.pos.datalogic.DataLogicSystem");
       this.m_App = app;
@@ -151,6 +152,21 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
    }
 
    private void loadData() throws BasicException {
+      this.reload = false;
+      this.printMoney = null;
+      this.clearFields();
+      this.m_PaymentsToClose = PaymentsModel.loadInstance(this.m_App);
+      this.populateData();
+      if (this.m_PaymentsToClose.getPayments() != 0 || this.m_PaymentsToClose.getSales() != 0) {
+         this.m_jCloseCash.setEnabled(true);
+      }
+
+      this.hSales = this.dbQuery.getHourlySales(this.m_App.getActiveCashIndex());
+      this.userSales = this.dbQuery.getUserSales(this.m_App.getActiveCashIndex());
+   }
+
+   /** Empties the screen; populateData only fills the totals of a cash with sales. */
+   private void clearFields() {
       this.m_jSequence.setText(null);
       this.m_jMinDate.setText(null);
       this.m_jMaxDate.setText(null);
@@ -167,14 +183,6 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
       this.m_jCards.setText(null);
       this.m_jTicketTable.setModel(new DefaultTableModel());
       this.m_jsalestable.setModel(new DefaultTableModel());
-      this.m_PaymentsToClose = PaymentsModel.loadInstance(this.m_App);
-      this.populateData();
-      if (this.m_PaymentsToClose.getPayments() != 0 || this.m_PaymentsToClose.getSales() != 0) {
-         this.m_jCloseCash.setEnabled(true);
-      }
-
-      this.hSales = this.dbQuery.getHourlySales(this.m_App.getActiveCashIndex());
-      this.userSales = this.dbQuery.getUserSales(this.m_App.getActiveCashIndex());
    }
 
    private void populateData() {
@@ -227,7 +235,7 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
       List<String> categories = new ArrayList<>();
 
       try {
-         categories = this.dbQuery.getParentCategories(this.m_App.getActiveCashIndex());
+         categories = this.dbQuery.getParentCategories(this.printMoney != null ? this.printMoney : this.m_App.getActiveCashIndex());
       } catch (BasicException var9) {
       }
 
@@ -243,7 +251,7 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
             script.put("nosales", this.result);
             script.put("hourlysales", this.hSales);
             script.put("user", this.printUser());
-            script.put("sales", this.dbQuery.getReceiptCount(this.m_App.getActiveCashIndex()));
+            script.put("sales", this.dbQuery.getReceiptCount(this.printMoney != null ? this.printMoney : this.m_App.getActiveCashIndex()));
             script.put("usersales", this.userSales);
             script.put("categories", categories);
             script.put("company", new CompanyInfo());
@@ -727,49 +735,58 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
 
    private void m_jCloseCashActionPerformed(ActionEvent evt) {
       if (JAlertPane.messageBox(3, AppLocal.getIntString("message.wannaclosecash"), 16, new Dimension(125, 50), 3) == 5) {
+         // No second click while the cash is being closed
+         this.m_jCloseCash.setEnabled(false);
          Date dNow = new Date();
-
+         String closedMoney = this.m_App.getActiveCashIndex();
+         int closedSequence = this.m_App.getActiveCashSequence();
+         CashCloser.Result next;
          try {
-            if (this.m_App.getActiveCashDateEnd() == null) {
-               new StaticSentence(
-                     this.m_App.getSession(),
-                     "update closedcash set dateend = ?, nosales = ? where host = ? and money = ? ",
-                     new SerializerWriteBasic(new Datas[]{Datas.TIMESTAMP, Datas.INT, Datas.STRING, Datas.STRING})
-                  )
-                  .exec(new Object[]{dNow, this.result, this.m_App.getProperties().getHost(), this.m_App.getActiveCashIndex()});
-            }
-         } catch (BasicException var7) {
-            MessageInf msg = new MessageInf(-67108864, AppLocal.getIntString("message.cannotclosecash"), var7);
+            // Close this cash and open the next one together: if anything fails nothing changes
+            next = CashCloser.close(this.m_App.getSession().getConnection(), closedMoney, this.m_App.getProperties().getHost(),
+               TerminalInfo.getTerminalID(), dNow, this.result);
+         } catch (Exception var7) {
+            java.nio.file.Path log = CashCloser.log("No se pudo cerrar el corte " + closedSequence + " (" + closedMoney + ")", var7);
+            MessageInf msg = new MessageInf(-67108864, "No se pudo hacer el corte. No se cambió nada: las ventas siguen en el corte actual "
+               + "y puede intentarlo de nuevo.\nEl detalle del error quedó en " + log, var7);
             msg.show(this);
-         }
-
-         try {
-            this.m_App.setActiveCash(UUID.randomUUID().toString(), this.m_App.getActiveCashSequence() + 1, dNow, null);
-            this.dbQuery
-               .execInsertCash(
-                  new Object[]{
-                     this.m_App.getActiveCashIndex(),
-                     this.m_App.getProperties().getHost(),
-                     this.m_App.getActiveCashSequence(),
-                     this.m_App.getActiveCashDateStart(),
-                     this.m_App.getActiveCashDateEnd()
-                  }
-               );
-            this.dbQuery.execDrawerOpened(new Object[]{UUID.randomUUID().toString(), this.m_App.getAppUserView().getUser().getId(), "Close Cash"});
-            this.m_PaymentsToClose.setDateEnd(dNow);
-            this.printPayments("Printer.CloseCash");
-            JAlertPane.messageBox(new Dimension(300, 100), 1, AppLocal.getIntString("message.closecashok"), 16, new Dimension(125, 50), 4);
             try {
-               AutoAttendance.onCashClosed(this.m_App.getSession().getConnection(), this.m_App.getAppUserView().getUser().getId(), this);
-            } catch (SQLException var8) {
-               // Attendance is optional: the cash is already closed
+               this.loadData();
+            } catch (BasicException var6) {
+               CashCloser.log("No se pudo volver a leer el corte", var6);
             }
+            return;
+         }
+
+         this.m_App.setActiveCash(next.money, next.sequence, next.start, null);
+         try {
+            this.dbQuery.execDrawerOpened(new Object[]{UUID.randomUUID().toString(), this.m_App.getAppUserView().getUser().getId(), "Close Cash"});
          } catch (BasicException var6) {
-            MessageInf msg = new MessageInf(-67108864, AppLocal.getIntString("message.cannotclosecash"), var6);
+            CashCloser.log("No se pudo registrar la apertura del cajón del corte", var6);
+         }
+
+         this.m_PaymentsToClose.setDateEnd(dNow);
+         this.printMoney = closedMoney;
+         try {
+            this.printPayments("Printer.CloseCash");
+         } catch (RuntimeException var6) {
+            java.nio.file.Path log = CashCloser.log("Se cerró el corte " + closedSequence + " pero no se pudo imprimir", var6);
+            MessageInf msg = new MessageInf(-33554432, "El corte se cerró correctamente, pero no se pudo imprimir.\n"
+               + "Puede reimprimirlo con Recargar día. Detalle en " + log, var6);
             msg.show(this);
+         } finally {
+            this.printMoney = null;
+         }
+
+         JAlertPane.messageBox(new Dimension(300, 100), 1, AppLocal.getIntString("message.closecashok"), 16, new Dimension(125, 50), 4);
+         try {
+            AutoAttendance.onCashClosed(this.m_App.getSession().getConnection(), this.m_App.getAppUserView().getUser().getId(), this);
+         } catch (SQLException var8) {
+            // Attendance is optional: the cash is already closed
          }
 
          try {
+            this.reload = false;
             this.loadData();
          } catch (BasicException var5) {
             MessageInf msg = new MessageInf(-67108864, AppLocal.getIntString("label.noticketstoclose"), var5);
@@ -792,34 +809,53 @@ public class JPanelCloseMoney extends JPanel implements JPanelView, BeanFactoryA
 
    private void btnReloadDayActionPerformed(ActionEvent evt) {
       Object[] result = JAlertPane.closedCashBox();
-      if ((Integer)result[0] != 0) {
-         this.m_jCloseCash.setEnabled(true);
-      } else {
-         this.m_jCloseCash.setEnabled(false);
-
-         try {
-            this.reload = true;
-            this.m_PaymentsToClose = PaymentsModel.loadInstance((ClosedCashInfo)result[1]);
-            this.populateData();
-            this.hSales = this.dbQuery.getHourlySales(((ClosedCashInfo)result[1]).getMoneyGuid());
-            this.userSales = this.dbQuery.getUserSales(((ClosedCashInfo)result[1]).getMoneyGuid());
-         } catch (BasicException var4) {
-            this.reload = false;
-            System.out.println("error thrown");
-            this.m_jCloseCash.setEnabled(true);
-         }
+      if ((Integer)result[0] != 0 || result[1] == null) {
+         return; // cancelled: the current cash stays on screen
       }
+
+      ClosedCashInfo cash = (ClosedCashInfo)result[1];
+      try {
+         if (cash.getEndDate() == null) {
+            cash = this.closeLeftOpen(cash);
+         }
+
+         this.m_jCloseCash.setEnabled(false);
+         this.reload = true;
+         this.printMoney = cash.getMoneyGuid();
+         this.clearFields();
+         this.m_PaymentsToClose = PaymentsModel.loadInstance(cash);
+         this.populateData();
+         this.hSales = this.dbQuery.getHourlySales(cash.getMoneyGuid());
+         this.userSales = this.dbQuery.getUserSales(cash.getMoneyGuid());
+      } catch (Exception var4) {
+         java.nio.file.Path log = CashCloser.log("No se pudo recargar el corte " + cash.getHostSequence(), var4);
+         MessageInf msg = new MessageInf(-33554432, "No se pudo cargar el corte " + cash.getHostSequence() + ". Detalle en " + log, var4);
+         msg.show(this);
+         this.btnResetDayActionPerformed(null);
+      }
+   }
+
+   /** A cash left open by an error: offers to close it at its last sale so it can be printed and reloaded later. */
+   private ClosedCashInfo closeLeftOpen(ClosedCashInfo cash) throws SQLException {
+      if (JAlertPane.messageBox(3, "El corte " + cash.getHostSequence() + " quedó abierto por un error y sus ventas no están en ningún corte.\n"
+            + "¿Cerrarlo ahora con la hora de su última venta?", 16, new Dimension(125, 50), 3) != 5) {
+         return cash;
+      }
+      Date end = CashCloser.lastActivity(this.m_App.getSession().getConnection(), cash.getMoneyGuid());
+      if (!CashCloser.closeLeftOpen(this.m_App.getSession().getConnection(), cash.getMoneyGuid(), end)) {
+         return cash;
+      }
+      return new ClosedCashInfo(cash.getStartDate(), end, cash.getHost(), cash.getHostSequence(), cash.getMoneyGuid());
    }
 
    private void btnResetDayActionPerformed(ActionEvent evt) {
       try {
          this.reload = false;
+         this.printMoney = null;
+         this.clearFields();
          this.m_PaymentsToClose = PaymentsModel.loadInstance(this.m_App);
          this.populateData();
-         if (this.m_PaymentsToClose.getPayments() != 0 || this.m_PaymentsToClose.getSales() != 0) {
-            this.m_jCloseCash.setEnabled(true);
-         }
-
+         this.m_jCloseCash.setEnabled(this.m_PaymentsToClose.getPayments() != 0 || this.m_PaymentsToClose.getSales() != 0);
          this.hSales = this.dbQuery.getHourlySales(this.m_App.getActiveCashIndex());
          this.userSales = this.dbQuery.getUserSales(this.m_App.getActiveCashIndex());
       } catch (BasicException var3) {

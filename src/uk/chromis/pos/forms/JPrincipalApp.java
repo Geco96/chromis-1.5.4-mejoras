@@ -185,6 +185,23 @@ public class JPrincipalApp extends JPanel implements AppUserView {
 
    public void activate() {
       try {
+         // Chromis can leave the terminal on a cash that is not in the database (or already closed): then no sale can be saved
+         uk.chromis.pos.panels.CashCloser.Result cash = uk.chromis.pos.panels.CashCloser.ensureOpenCash(
+            this.m_appview.getSession().getConnection(),
+            this.m_appview.getActiveCashIndex(),
+            this.m_appview.getProperties().getHost(),
+            uk.chromis.commons.utils.TerminalInfo.getTerminalID()
+         );
+         if (cash != null) {
+            uk.chromis.pos.panels.CashCloser.log("La caja estaba en un corte inexistente o cerrado (" + this.m_appview.getActiveCashIndex()
+               + "); se abrió el corte " + cash.sequence, null);
+            this.m_appview.setActiveCash(cash.money, cash.sequence, cash.start, null);
+         }
+      } catch (SQLException var3) {
+         uk.chromis.pos.panels.CashCloser.log("No se pudo revisar el corte activo de la caja", var3);
+      }
+
+      try {
          AutoAttendance.onLogin(this.m_appview.getSession().getConnection(), this.m_appuser.getId(), this);
       } catch (SQLException var2) {
          // Attendance is optional: the user can always work

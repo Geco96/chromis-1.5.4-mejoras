@@ -361,6 +361,30 @@ originales, las clases que se modificaron.
       bodega con solo ese permiso ve únicamente el auditor. Ya no hace falta
       el `.exe` ni su `config.json` con la clave de `root`.
 
+13. **Corte de caja seguro y "Recargar día" corregido** (Chromis POS → Close Cash):
+    - El corte se hace en una sola operación: cerrar el corte actual, abrir el
+      siguiente y cambiar la caja a él ocurren juntos o no ocurre nada. Antes,
+      si algo fallaba a la mitad (por ejemplo, un número de corte repetido),
+      el corte quedaba a medias: las ventas fuera de todo corte o la caja en
+      un corte inexistente, y los cortes siguientes salían en ceros.
+    - El número del corte nuevo se toma de la base (el siguiente libre), no
+      de la memoria de la caja.
+    - Si falla, aparece "No se pudo hacer el corte. No se cambió nada" y se
+      puede reintentar. Si el corte se cierra pero la impresora falla, se
+      avisa que se puede reimprimir con *Recargar día*.
+    - Todo error del corte queda con su detalle en `chromis-cortes.log`, en la
+      carpeta del usuario de Windows de esa caja.
+    - Al entrar a la caja se revisa que su corte exista y esté abierto; si no
+      (otro defecto de Chromis al arrancar), se abre el siguiente corte.
+    - *Recargar día* funciona con cualquier número de corte (Chromis comparaba
+      los números de forma que solo funcionaba hasta el 127), encuentra el
+      corte por su día de inicio o de cierre, muestra la hora de inicio y fin
+      de cada uno, y lista los cortes que quedaron abiertos por un error
+      ("sin cerrar") para cerrarlos a la hora de su última venta e imprimirlos.
+    - Al reimprimir un corte, el conteo de ventas y las categorías salen de
+      ese corte (antes salían del corte actual), y los totales de un corte
+      vacío ya no muestran los del corte anterior.
+
 ### Tablas nuevas
 
 Se crean solas la primera vez; **la estructura de las tablas originales de
@@ -429,6 +453,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
 | Código corto y EAN-13 interno | Cemento: Code 128 con largo 8 → CMNTGRSP, con largo 6 → CMNTGR; EAN-13 interno → 2000000000015, guardado por Chromis como `EAN-13`; con "al guardar sin código: EAN-13" y el PLU vacío se generó solo. |
 | Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
+| Corte de caja | Con el 363 ya ocupado, el corte 362 se cerró y abrió el 364 (Chromis original: error y corte a medias). Con una falla simulada al abrir el corte nuevo: mensaje "No se cambió nada", el corte siguió abierto con su venta, la caja en su corte y el error en `chromis-cortes.log`; al reintentar se cerró. Al arrancar con la caja en un corte inexistente, Chromis intentó crear uno con número repetido y falló sin avisar; la revisión al entrar abrió el siguiente. *Recargar día*: el 362 (inicio 19/10, cierre 26/10) aparece al buscar el 26/10 y se carga con sus ventas; un corte "sin cerrar" se cierra a la hora de su última venta. `CashCloseTest`: 22 comprobaciones. |
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
