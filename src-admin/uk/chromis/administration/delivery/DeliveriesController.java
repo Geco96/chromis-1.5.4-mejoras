@@ -189,6 +189,16 @@ public class DeliveriesController implements Initializable {
      * exports (Table editor → clientes → Export → CSV). First a preview with
      * the numbers, then the real import, all or nothing.
      */
+    /** A sale already charged as a counter sale becomes a delivery. */
+    @FXML
+    public void convertSale() {
+        String role = Boolean.TRUE.equals(Start.hasPermission("UserRoles")) ? "ADMIN" : "DISPATCHER";
+        if (ConvertSaleDialog.show(apAnchor.getScene().getWindow(), role, "Admin, Entregas")) {
+            reloadData();
+            lblMessage.setText("");
+        }
+    }
+
     @FXML
     public void importWebCustomers() {
         FileChooser chooser = new FileChooser();

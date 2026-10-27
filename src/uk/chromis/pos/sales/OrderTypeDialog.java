@@ -50,6 +50,8 @@ public final class OrderTypeDialog extends JDialog {
         public CustomerDeliveryInfo info;
         /** The customer had no address and the cashier chose to keep the typed one in Customers. */
         public boolean saveToCustomer;
+        /** The cashier wants to turn a sale already charged into a delivery (nothing chosen for this ticket). */
+        public boolean convertPastSale;
     }
 
     private final JToggleButton btnCounter = new JToggleButton("MOSTRADOR");
@@ -70,7 +72,7 @@ public final class OrderTypeDialog extends JDialog {
     private Result result;
 
     private OrderTypeDialog(Window owner, String ticketId, CustomerInfoExt customer, CustomerDeliveryInfo current,
-            boolean delivery) {
+            boolean delivery, boolean offerConversion) {
         super(owner, "Tipo de pedido", ModalityType.APPLICATION_MODAL);
         hasCustomer = customer != null;
         customerWithoutAddress = customer != null && text(customer.getAddress()).isEmpty();
@@ -120,7 +122,23 @@ public final class OrderTypeDialog extends JDialog {
         JPanel buttons = new JPanel(new GridLayout(1, 2, 12, 0));
         buttons.add(cancel);
         buttons.add(ok);
-        content.add(buttons, BorderLayout.SOUTH);
+        if (offerConversion) {
+            JButton past = new JButton("Convertir una venta ya cobrada...");
+            past.setFont(FONT);
+            past.setToolTipText("Una venta de mostrador ya cobrada pasa a ser entrega a domicilio");
+            past.addActionListener(e -> {
+                Result r = new Result();
+                r.convertPastSale = true;
+                result = r;
+                dispose();
+            });
+            JPanel south = new JPanel(new BorderLayout(0, 8));
+            south.add(past, BorderLayout.NORTH);
+            south.add(buttons, BorderLayout.SOUTH);
+            content.add(south, BorderLayout.SOUTH);
+        } else {
+            content.add(buttons, BorderLayout.SOUTH);
+        }
         setContentPane(content);
         getRootPane().setDefaultButton(ok);
 
@@ -137,8 +155,14 @@ public final class OrderTypeDialog extends JDialog {
      */
     public static Result show(Component owner, String ticketId, CustomerInfoExt customer, CustomerDeliveryInfo current,
             boolean delivery) {
+        return show(owner, ticketId, customer, current, delivery, false);
+    }
+
+    /** offerConversion adds "Convertir una venta ya cobrada..." (from the button, not when charging). */
+    public static Result show(Component owner, String ticketId, CustomerInfoExt customer, CustomerDeliveryInfo current,
+            boolean delivery, boolean offerConversion) {
         Window w = owner == null ? null : SwingUtilities.getWindowAncestor(owner);
-        OrderTypeDialog d = new OrderTypeDialog(w, ticketId, customer, current, delivery);
+        OrderTypeDialog d = new OrderTypeDialog(w, ticketId, customer, current, delivery, offerConversion);
         d.setVisible(true);
         return d.result;
     }

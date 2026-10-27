@@ -225,6 +225,20 @@ originales, las clases que se modificaron.
       venta y de entrega, cliente, quién recibe, dirección, teléfono,
       indicaciones y total) para marcarlas como entregadas; también se ven las
       entregadas de los últimos 7 días.
+    - **Convertir una venta ya cobrada en entrega**: si una venta se cobró como
+      mostrador y después resulta que se lleva a domicilio, se convierte desde
+      la caja (botón **MOSTRADOR** → *Convertir una venta ya cobrada...*), desde
+      Admin → Customers → **Entregas** o desde el **Gestor de entregas** (botón
+      *Convertir venta en entrega...*). Se escribe o escanea el número de
+      ticket, se revisa la venta (fecha, cliente, total y productos) y los
+      datos de entrega, llenos desde el cliente como en la caja; si el cliente
+      no tiene dirección, la escrita se puede guardar en su ficha. La venta no
+      cambia (importes, pagos, corte e inventario quedan igual): solo se le
+      agregan los datos de entrega y queda *Por surtir* en el Gestor. Solo se
+      convierten ventas (no devoluciones) con cliente, de los últimos 7 días y
+      que no sean ya entrega; queda en el historial de la entrega quién la
+      convirtió, cuándo y desde dónde. Lo puede hacer quien entra a Entregas o
+      al Gestor, y cualquier cajero desde la caja.
 
 15. **Gestor de entregas: datos e importación** (versión *Enterprise*; la
     pantalla y el mapa están en la mejora 16, *Mis entregas* en Android viene
@@ -361,7 +375,7 @@ originales, las clases que se modificaron.
       bodega con solo ese permiso ve únicamente el auditor. Ya no hace falta
       el `.exe` ni su `config.json` con la clave de `root`.
 
-13. **Corte de caja seguro y "Recargar día" corregido** (Chromis POS → Close Cash):
+18. **Corte de caja seguro y "Recargar día" corregido** (Chromis POS → Close Cash):
     - El corte se hace en una sola operación: cerrar el corte actual, abrir el
       siguiente y cambiar la caja a él ocurren juntos o no ocurre nada. Antes,
       si algo fallaba a la mitad (por ejemplo, un número de corte repetido),
@@ -458,6 +472,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
 | Guardar producto en Admin con ventas de por medio | Original: el stock regresó de 7 a 11 (se perdió la venta). Mejorado: se conserva. |
 | Mostrador / Entrega | En Chromis POS: cliente asignado escaneando su tarjeta, botón → Entrega con los datos llenos desde el cliente y una indicación; al cobrar se guardó en `customer_delivery` (ticket 1) y en las propiedades del ticket, y el ticket siguiente volvió a Mostrador. Venta al mismo cliente sin marcar: preguntó al cobrar y quedó como mostrador sin entrega. Venta sin cliente: no preguntó. Entrega sin cliente: pide asignarlo. Con el botón apagado en Admin no aparece. En Admin → Entregas se vio la entrega y se marcó como entregada. `tests/DeliveryTest.java` (19 comprobaciones). Cliente sin dirección: se escribió la dirección al cobrar, la caja ofreció guardarla en su ficha y quedó en Customers (dirección, colonia, ciudad, C.P., teléfono) y en la entrega del ticket; `DeliveryTest` comprueba que solo se llenan los campos vacíos. |
+| Convertir venta en entrega | `tests/SaleConversionTest.java` (23 comprobaciones): busca la venta por número y no la devolución con el mismo número; los datos salen del cliente; al convertir quedan la entrega en `customer_delivery`, `tipo_pedido=entrega` en el ticket (sin perder sus otras propiedades) y el historial (quién, papel y desde dónde); aparece en Entregas y en el Gestor como *Por surtir*; el pago no cambia; no se convierte dos veces; se rechazan devolución, ticket inexistente, venta sin cliente y venta de hace más de 7 días; sin dirección no guarda nada; cliente sin dirección: la escrita queda en su ficha. En pantalla: desde la caja (MOSTRADOR → *Convertir una venta ya cobrada...*), desde Admin → Entregas y desde el Gestor, una venta cada uno; la caja siguió en Mostrador para el ticket en curso y al buscar otra vez el mismo ticket avisó que ya es entrega. |
 | Auditor de salida | `tests/PickAuditTest.java` (41 comprobaciones): la venta y no la devolución con el mismo número, meta con renglones juntos, granel con decimales y sin lo devuelto ni el cargo de envío; código, referencia y código de caja; código ajeno, excedente (también la caja que se pasa, sin contar nada), cantidad 0; no cierra con faltantes sin justificar; cierre con faltante justificado pasa la entrega a Preparada con incidencia y nota; retomar, auditar otra vez, descartar; **dos PCs abren el mismo pedido y escanean el último producto al mismo tiempo: solo uno cuenta**. En Chromis Admin: pedido #1 (entrega) escaneado y cerrado → Preparada en el Gestor; código ajeno en rojo; granel con F2; faltante justificado; historial y aviso de "ya auditada". |
 | Gestor de entregas (datos) | `tests/DeliveryManagerTest.java` (90 comprobaciones): coordenadas válidas e inválidas, polígono en L, cuadrante por la ubicación del cliente, permisos por papel (el repartidor no prepara ni toca entregas ajenas, otro despachador no mueve las de un cuadrante ajeno), monto y motivo obligatorios sin dejar nada a medias, la misma operación reenviada y enviada **al mismo tiempo desde dos conexiones** se aplica una sola vez, dos cierres distintos simultáneos: uno gana y el otro se rechaza; importación con comillas, comas, saltos de línea y BOM, vista previa sin guardar, enlace por nombre, nombres repetidos omitidos, reimportación sin duplicar y pin movido respetado. |
 | Gestor de entregas (pantalla y mapa) | En Chromis Admin: la entrega de la Estrella dentro del cuadrante *Oriente* (repartidor Employee) pasó a *Preparada*, *En ruta* y *Completada* con el formulario ($36 recibido), se reabrió (con confirmación) y al intentar *No entregada* sin motivo no dejó guardar; historial con los 4 cambios; despachador Manager asignado al cuadrante. El mapa abierto desde Admin guardó un cuadrante nuevo y Admin lo mostró solo. `tests/MapServerTest.java` (39 comprobaciones): sin la clave o dirigido a otra dirección no responde, no se alcanza desde la red, el despachador no dibuja cuadrantes pero sí ubica clientes, coordenadas 0,0 o sin coordenadas se rechazan sin borrar la ubicación, otra sesión invalida la clave anterior, el cuadrante cambia de forma y las entregas fuera de él salen. `tests/mapa_navegador.py` (Chromium con Google Maps simulado): dibujar, nombrar y editar cuadrantes, buscar y mover el pin de un cliente; pin sugerido para el cliente sin ubicar (aviso de aproximado, el que ya tiene pin no se busca), arrastrarlo y confirmarlo. `DeliveryManagerTest`: *Cerrar entregas viejas* cuenta y cierra solo las abiertas anteriores a la fecha (no las canceladas, las ya entregadas ni las recientes), entregadas en Chromis, sin monto, con nota e historial. |

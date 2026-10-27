@@ -2372,16 +2372,33 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
    private void orderTypeAction() {
       if (this.m_oTicket != null && !this.m_oTicket.isRefund()) {
-         this.chooseOrderType(this.isDelivery());
+         this.chooseOrderType(this.isDelivery(), true);
       }
    }
 
    /** Shows the choice; false if the cashier cancelled. */
    private boolean chooseOrderType(boolean startWithDelivery) {
+      return this.chooseOrderType(startWithDelivery, false);
+   }
+
+   private boolean chooseOrderType(boolean startWithDelivery, boolean offerConversion) {
       OrderTypeDialog.Result r = OrderTypeDialog.show(
-         this, this.m_oTicket.getId(), this.m_oTicket.getCustomer(), this.deliveryInfo, startWithDelivery
+         this, this.m_oTicket.getId(), this.m_oTicket.getCustomer(), this.deliveryInfo, startWithDelivery, offerConversion
       );
       if (r == null) {
+         return false;
+      }
+
+      if (r.convertPastSale) {
+         // A sale already charged: the ticket on screen stays as it was
+         try {
+            if (ConvertSaleDialog.show(this, this.m_App.getSession().getConnection(), this.m_App.getAppUserView().getUser().getId(),
+               this.m_App.getAppUserView().getUser().getName())) {
+               JAlertPane.messageBox(1, "La venta quedó como entrega a domicilio.", 16, new Dimension(125, 50), 4);
+            }
+         } catch (SQLException var4) {
+            Logger.getLogger(JPanelTicket.class.getName()).log(Level.WARNING, "No se pudo abrir la conversión de ventas", var4);
+         }
          return false;
       }
 

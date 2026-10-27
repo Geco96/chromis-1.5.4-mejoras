@@ -129,7 +129,18 @@ public class DeliveryManagerController {
         who.setTextFill(javafx.scene.paint.Color.web("#555555"));
         Region grow = new Region();
         HBox.setHgrow(grow, Priority.ALWAYS);
-        HBox top = new HBox(14, btnMap, btnRefresh, chkClosed, lblSummary, grow, who, btnOld, btnSetup);
+        Button btnConvert = new Button("Convertir venta en entrega...");
+        btnConvert.setOnAction(e -> {
+            if (ConvertSaleDialog.show(root.getScene().getWindow(), role.name(), "Admin, Gestor de entregas")) {
+                reloadData();
+            }
+        });
+        // Next to the title, so the bar below keeps room for its labels
+        HBox head = new HBox(14, who, btnConvert);
+        head.setAlignment(Pos.CENTER_RIGHT);
+        AnchorPane.setTopAnchor(head, 50.0);
+        AnchorPane.setRightAnchor(head, 15.0);
+        HBox top = new HBox(14, btnMap, btnRefresh, chkClosed, lblSummary, grow, btnOld, btnSetup);
         top.setAlignment(Pos.CENTER_LEFT);
         AnchorPane.setTopAnchor(top, 88.0);
         AnchorPane.setLeftAnchor(top, 15.0);
@@ -165,7 +176,7 @@ public class DeliveryManagerController {
         txtAddress.setPrefWidth(560);
         AnchorPane.setBottomAnchor(txtAddress, 8.0);
         AnchorPane.setRightAnchor(txtAddress, 15.0);
-        root.getChildren().addAll(title, top, tabs, lblMessage, txtAddress);
+        root.getChildren().addAll(title, head, top, tabs, lblMessage, txtAddress);
     }
 
     private void buildDeliveries() {
