@@ -41,18 +41,27 @@ cerrarlos. No necesita `mysql.exe`.
 
 ## Enterprise (carpeta `enterprise/`)
 
-Compilados de la rama `enterprise` (commit `836fcc1`): todo lo de `mejoras` más
+Compilados de la rama `enterprise` (commit `35b3cf4`): todo lo de `mejoras` más
 **Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
 entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
 Google en su propia ventana, pines sugeridos por la dirección y cierre de
 entregas viejas) y el **Auditor de salida** (Admin → Customers: escanear la
-mercancía de una venta antes de que salga). Es para la distribuidora; en las tiendas se
+mercancía de una venta antes de que salga).
+
+**Nuevo en esta versión:** una venta ya cobrada como mostrador se puede
+**convertir en entrega a domicilio** después, desde la caja (botón MOSTRADOR →
+*Convertir una venta ya cobrada...*), desde Admin → Customers → Entregas o desde
+el Gestor de entregas: se escribe o escanea el número de ticket, se revisan los
+datos de entrega y se confirma. La venta, el pago, el corte y el inventario no
+cambian. Solo ventas con cliente, de los últimos 7 días.
+
+Es para la distribuidora; en las tiendas se
 usan los de arriba.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `enterprise/chromispos.jar` | Cajas de la distribuidora | `4e4f91234f189e14a419b51f6695f4944dd7ab4c0855db9c2e8fefaa6dc37130` |
-| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `7df12317cd818bbc8a0d6ad45564b79a204ea09909e8255c989150dc8fb39836` |
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `457ee0307fe3778a7fe62b32ab7e404e25e3e638265e820a3905404c8497a6e7` |
+| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `b92bbdcd7f02320291352893507af6d7d4a1aa73b1c362b6c30c5e29851101dd` |
 | `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
 
 Se instalan igual (renombrar el actual a `.original` y copiar el nuevo), **en todas las cajas** de la distribuidora: una caja con el jar anterior vende normal, pero no tiene el botón Mostrador / Entrega ni registra entregas. Las
