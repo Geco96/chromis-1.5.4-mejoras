@@ -1,5 +1,6 @@
 package uk.chromis.pos.heldtickets;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -8,6 +9,8 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Copy of every held ticket (sharedtickets, the "carrito" of the till) that
@@ -73,6 +76,8 @@ public final class HeldTicketArchive {
         public String terminal;
         /** A held ticket with the same id is in the list again. */
         public boolean backInList;
+        /** No till has read it yet: lines and total come from what Chromis audited, if anything. */
+        public boolean fromAudit;
     }
 
     private HeldTicketArchive() {
@@ -190,8 +195,60 @@ public final class HeldTicketArchive {
         return n;
     }
 
+    private static final Pattern UUID = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+    /**
+     * Ticket id of a held ticket without opening it (only Chromis POS has the
+     * class): TicketInfo writes its id first, so it is the first UUID of the
+     * content. Null if there is none.
+     */
+    public static String ticketIdOf(byte[] content) {
+        if (content == null) {
+            return null;
+        }
+        Matcher m = UUID.matcher(new String(content, StandardCharsets.ISO_8859_1));
+        return m.find() ? m.group() : null;
+    }
+
+    /** False for a ticket with no lines: the class of the lines only appears in the content when there is one. */
+    public static boolean hasLines(byte[] content) {
+        return content != null && new String(content, StandardCharsets.ISO_8859_1).contains("uk.chromis.pos.ticket.TicketLineInfo");
+    }
+
+    /**
+     * What can be known of the copies no till has read yet: their ticket id,
+     * and whether they were empty (Chromis saves and deletes an empty ticket
+     * every time the cashier moves on) or charged; those are dropped.
+     */
+    public static void identify(Connection con) throws SQLException {
+        List<Object[]> rows = new ArrayList<>();
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT archive_id, content FROM " + TABLE
+                + " WHERE summarized = " + PENDING + " AND ticket_id IS NULL")) {
+            while (rs.next()) {
+                rows.add(new Object[]{rs.getLong(1), rs.getBytes(2)});
+            }
+        }
+        for (Object[] r : rows) {
+            byte[] content = (byte[]) r[1];
+            if (!hasLines(content)) {
+                try (PreparedStatement ps = con.prepareStatement("DELETE FROM " + TABLE + " WHERE archive_id = ?")) {
+                    ps.setLong(1, (Long) r[0]);
+                    ps.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement ps = con.prepareStatement("UPDATE " + TABLE + " SET ticket_id = ? WHERE archive_id = ?")) {
+                    ps.setString(1, ticketIdOf(content));
+                    ps.setLong(2, (Long) r[0]);
+                    ps.executeUpdate();
+                }
+            }
+        }
+        purge(con);
+    }
+
     /** Deleted held tickets of the last [days] days, newest first (only the last copy of each). */
     public static List<Entry> list(Connection con, int days) throws SQLException {
+        identify(con);
         List<Entry> list = new ArrayList<>();
         try (PreparedStatement ps = con.prepareStatement("SELECT d.archive_id, d.id, d.name, d.appuser, d.deleted_at, d.db_user, "
                 + "d.summarized, d.ticket_id, d.customer, d.total, d.line_count, d.line_text, "
@@ -245,8 +302,41 @@ public final class HeldTicketArchive {
                     }
                 }
             }
+            if (e.summarized != READ && e.how != How.NOT_SAVED) {
+                linesFromAudit(con, e);
+            }
         }
         return list;
+    }
+
+    /** Lines and total of a copy no till has read, from the lines Chromis audited when it was deleted. */
+    private static void linesFromAudit(Connection con, Entry e) throws SQLException {
+        StringBuilder text = new StringBuilder();
+        int count = 0;
+        double total = 0;
+        try (PreparedStatement ps = con.prepareStatement("SELECT productname, units, value FROM lineremoved "
+                + "WHERE ticketid = ? AND description = ? AND removeddate >= ? - INTERVAL 1 MINUTE ORDER BY sequence")) {
+            ps.setString(1, e.ticketId);
+            ps.setString(2, e.how == How.DELETE_ALL ? "Shared Ticket Removed" : "Full Ticket Removed");
+            ps.setTimestamp(3, e.deletedAt);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    double u = rs.getDouble(2);
+                    double v = rs.getDouble(3) * u;
+                    text.append(u == Math.rint(u) ? String.valueOf((long) u) : String.valueOf(u)).append(" x ")
+                            .append(rs.getString(1) == null ? "" : rs.getString(1))
+                            .append(String.format(java.util.Locale.ROOT, "  $%.2f", v)).append('\n');
+                    total += v;
+                    count++;
+                }
+            }
+        }
+        if (count > 0) {
+            e.fromAudit = true;
+            e.lineCount = count;
+            e.total = total;
+            e.lines = text.toString().trim();
+        }
     }
 
     /**
