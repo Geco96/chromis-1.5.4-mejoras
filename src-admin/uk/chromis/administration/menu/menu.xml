@@ -241,7 +241,12 @@ menuItem option - text              chromispos.properties entry to use
                     text = "Respaldos programados"
                     actionClass="uk.chromis.administration.backups.ScheduledBackups"
                     accessName="DatabaseBackup"
-                    actionMethod="showPanel"/>  
+                    actionMethod="showPanel"/>
+        <menuEntry  type="menuitem"
+                    text = "Ventas en espera borradas"
+                    actionClass="uk.chromis.administration.heldtickets.DeletedHeldTickets"
+                    accessName="DatabaseBackup"
+                    actionMethod="showPanel"/>
         <menuEntry  type="menuitem"
                     text = "menu.saveResources"
                     actionClass="uk.chromis.administration.utilities.BlobReader"

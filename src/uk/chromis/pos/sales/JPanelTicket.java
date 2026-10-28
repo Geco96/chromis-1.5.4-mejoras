@@ -264,6 +264,10 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                () -> JAlertPane.messageBox(0, message, 16, new Dimension(125, 50), 4)
             )
       );
+      // Copies of deleted held tickets, so they can be put back from Chromis Admin
+      HeldTicketWatcher.start(
+         AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this::refreshHeldTicketsButton
+      );
       this.restockAlerts = new RestockAlerts(
          AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this.m_App.getInventoryLocation(), this
       );
@@ -598,6 +602,21 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          } catch (BasicException var2) {
             new MessageInf(var2).show(this);
          }
+      }
+   }
+
+   /** Updates the held tickets button (count and icon) as Chromis does after a click; its method is private. */
+   private void refreshHeldTicketsButton() {
+      if (this.m_ticketsbag == null) {
+         return;
+      }
+
+      try {
+         java.lang.reflect.Method m = this.m_ticketsbag.getClass().getDeclaredMethod("checkLayaways");
+         m.setAccessible(true);
+         m.invoke(this.m_ticketsbag);
+      } catch (ReflectiveOperationException | RuntimeException var2) {
+         Logger.getLogger(JPanelTicket.class.getName()).log(Level.FINE, "No se pudo actualizar el botón de ventas en espera", var2);
       }
    }
 
