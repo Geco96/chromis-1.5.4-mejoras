@@ -121,8 +121,16 @@ public class HeldTicketArchiveTest {
             check("copias guardadas", copies(a1) + copies(b1) + copies(c1) + copies(d1), 4);
             check("quién borró en la base", one("SELECT db_user FROM " + HeldTicketArchive.TABLE + " WHERE id = '" + a1 + "'") != null, true);
 
+            check("número de ticket sin abrirla", HeldTicketArchive.ticketIdOf(bytes(ta)), ta.getId());
+            check("sabe que tiene productos", HeldTicketArchive.hasLines(bytes(ta)) + " / " + HeldTicketArchive.hasLines(bytes(tb)), "true / false");
+            // Sin ninguna caja que la lea (la caja tiene el jar anterior): Admin igual sabe quién y cómo
             Entry pa = find(a1);
             check("antes de leerla, pendiente", pa == null ? null : pa.summarized, HeldTicketArchive.PENDING);
+            check("sin leer: borrar todas por", pa.how + " " + pa.deletedBy + " en " + pa.terminal, How.DELETE_ALL + " Jimena en CAJA2");
+            check("sin leer: productos de lo registrado", pa.fromAudit + " | " + pa.lineCount + " | " + pa.lines, "true | 2 | 2 x Arroz 1kg  $20.00\n2 x Frijol 1kg  $20.00");
+            check("sin leer: la vacía ya no aparece", copies(b1), 0);
+            Entry pc = find(c1);
+            check("sin leer: sin registro de borrado", pc.how + " " + pc.fromAudit, How.NOT_SAVED + " false");
             readPending();
             check("la vacía se descarta", copies(b1), 0);
             Entry ea = find(a1);

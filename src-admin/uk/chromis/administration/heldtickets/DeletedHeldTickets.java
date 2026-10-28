@@ -47,6 +47,7 @@ public class DeletedHeldTickets implements MenuPanelInterface {
 
     private static final Logger LOGGER = Logger.getLogger(DeletedHeldTickets.class.getName());
     private static final String ALL_USERS = "Todos los usuarios";
+    private static final long UNREAD_WARNING_MS = 5 * 60_000L;
     private static AnchorPane root;
     private static DeletedHeldTickets panel;
     public StringProperty jobClass = new SimpleStringProperty();
@@ -117,9 +118,9 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         table.getColumns().add(column("Borrada", 115, e -> when.format(e.deletedAt)));
         table.getColumns().add(column("Venta en espera", 230, e -> e.name));
         table.getColumns().add(column("Cliente", 130, e -> e.customer == null ? "" : e.customer));
-        table.getColumns().add(column("Productos", 70, e -> e.summarized == HeldTicketArchive.READ ? String.valueOf(e.lineCount) : ""));
+        table.getColumns().add(column("Productos", 70, e -> known(e) ? String.valueOf(e.lineCount) : ""));
         TableColumn<Entry, String> total = column("Total", 75,
-                e -> e.summarized == HeldTicketArchive.READ ? String.format(Locale.ROOT, "%,.2f", e.total) : "");
+                e -> known(e) ? String.format(Locale.ROOT, "%,.2f", e.total) : "");
         total.setStyle("-fx-alignment: CENTER-RIGHT;");
         table.getColumns().add(total);
         table.getColumns().add(column("La capturó", 95, e -> e.appUser == null ? "" : e.appUser));
@@ -235,8 +236,13 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         }
         if (e.summarized == HeldTicketArchive.READ) {
             s.append('\n').append(e.lines == null ? "" : e.lines);
+        } else if (e.fromAudit) {
+            s.append("\nProductos registrados por Chromis al borrarla (precio sin impuestos):\n").append(e.lines);
         } else if (e.summarized == HeldTicketArchive.UNREADABLE) {
             s.append("\nLa caja no pudo leer sus productos; se puede restaurar igual.");
+        } else if (System.currentTimeMillis() - e.deletedAt.getTime() > UNREAD_WARNING_MS) {
+            s.append("\nNinguna caja ha leído sus productos todavía. Las cajas con el chromispos.jar nuevo los leen cada minuto: "
+                    + "revisa que todas lo tengan. Se puede restaurar igual.");
         } else {
             s.append("\nSus productos aparecen cuando alguna caja con Chromis POS abierto la lea (en un minuto); se puede restaurar igual.");
         }
@@ -246,13 +252,18 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         txtDetail.setText(s.toString());
     }
 
+    /** Lines and total are known: read by a till, or audited by Chromis. */
+    private static boolean known(Entry e) {
+        return e.summarized == HeldTicketArchive.READ || e.fromAudit;
+    }
+
     private void restore() {
         Entry e = table.getSelectionModel().getSelectedItem();
         if (e == null) {
             return;
         }
         String text = "Se regresará a las ventas en espera de todas las cajas:\n\n" + e.name
-                + (e.summarized == HeldTicketArchive.READ ? String.format(Locale.ROOT, "\n%d %s, $%,.2f", e.lineCount, e.lineCount == 1 ? "producto" : "productos", e.total) : "");
+                + (known(e) ? String.format(Locale.ROOT, "\n%d %s, $%,.2f", e.lineCount, e.lineCount == 1 ? "producto" : "productos", e.total) : "");
         if (e.how == HeldTicketArchive.How.NOT_SAVED) {
             text += "\n\nChromis no registró que alguien la borrara. Si alguna caja la tiene abierta en este momento, "
                     + "no la restaures: al guardarla la caja la regresa sola.";

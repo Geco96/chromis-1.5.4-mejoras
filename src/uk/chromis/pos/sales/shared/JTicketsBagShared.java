@@ -104,44 +104,19 @@ public class JTicketsBagShared extends JTicketsBag {
       });
    }
 
+   /**
+    * "Borrar todas" (right click on the held tickets button, or F10) is turned off: a touch held a little too long
+    * on a touch screen and a "Yes" to a question in English deleted every held ticket of every till.
+    */
    @Override
    public void deleteAllShared() {
-      AutoLogoff.getInstance().deactivateTimer();
-      if (JAlertPane.messageBox(0, AppLocal.getIntString("message.deleteallshared"), 16, new Dimension(125, 50), 3) == 5) {
-         try {
-            this.m_App.getAppUserView().getUser();
-            if (AppUser.hasPermission("access.alltickets")) {
-               for (SharedTicketInfo aticket : this.dlReceipts.getSharedTicketList()) {
-                  TicketInfo ticket = this.dlReceipts.getSharedTicket(aticket.getId());
-                  this.deleteSharedTicket(ticket);
-               }
-
-               this.dlReceipts.deleteAllSharedTickets();
-            } else if (SystemProperty.SHAREDTICKETBYUSER) {
-               for (SharedTicketInfo aticket : this.dlReceipts.getSharedTicketListByUser(this.m_App.getAppUserView().getUser().getName())) {
-                  TicketInfo ticket = this.dlReceipts.getSharedTicket(aticket.getId());
-                  this.deleteSharedTicket(ticket);
-               }
-
-               this.dlReceipts.deleteSharedTickets(this.m_App.getAppUserView().getUser().getName());
-            } else {
-               for (SharedTicketInfo aticket : this.dlReceipts.getSharedTicketList()) {
-                  TicketInfo ticket = this.dlReceipts.getSharedTicket(aticket.getId());
-                  this.deleteSharedTicket(ticket);
-               }
-
-               this.dlReceipts.deleteAllSharedTickets();
-            }
-
-            this.m_jListTickets.setText("");
-            this.m_jListTickets.setIcon(IconFactory.getIcon("sale_pending.png"));
-            this.m_jListTickets.setEnabled(false);
-         } catch (BasicException var4) {
-            Logger.getLogger(JTicketsBagShared.class.getName()).log(Level.SEVERE, null, var4);
-         }
-      }
-
-      AutoLogoff.getInstance().activateTimer();
+      JAlertPane.messageBox(
+         1,
+         "Borrar todas las ventas en espera está desactivado.\nPara quitar una venta en espera, ábrela y bórrala con el bote de basura.",
+         16,
+         new Dimension(125, 50),
+         4
+      );
    }
 
    public void deleteSharedTicket(TicketInfo ticket) {
