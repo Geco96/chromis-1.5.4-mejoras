@@ -1,12 +1,12 @@
 # Descargas: Chromis 1.5.4 con mejoras
 
-Archivos compilados de la rama `mejoras` (commit `7d08c33`), listos para instalar.
+Archivos compilados de la rama `mejoras` (commit `8a144f8`), listos para instalar.
 Las instrucciones completas están en el README de la rama `mejoras`.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `bd85457c5b465707fe63e0cb9dea6745620e90cfac066c04853234f1636d2b98` |
-| `admin.jar` | Carpeta de instalación de Chromis Admin | `8d0306c8ebcd5d675041f321ad2c15613d7e841d06a2eaa55df50241a4b32b08` |
+| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `2a3c048f3f6c4fa0235e193f2544e335923ddfa1532acdd9876a1be3ccb68477` |
+| `admin.jar` | Carpeta de instalación de Chromis Admin | `eac1e09b06257e3f249beaafbb676c8e1b25d5982a3d8f5cfebb58bdd69947b3` |
 | `restaurar.jar` | Carpeta de instalación de Chromis (donde está `chromisposconfig.properties`); se abre con doble clic para restaurar un respaldo | `5562c4cd7101a6f5a83f3a40b462d67690697a0b6967a146d0b0638a1cfe7efe` |
 
 ## Novedades de esta versión (también en `enterprise/`)
@@ -19,7 +19,9 @@ Las instrucciones completas están en el README de la rama `mejoras`.
   *borrar todas* —clic derecho en el botón de ventas en espera o F10— o perdida
   porque Chromis se cerró con ella abierta). Se ve quién la capturó, cómo y
   quién la borró, y se puede **restaurar** a las ventas en espera de todas las
-  cajas. Las copias se guardan 60 días.
+  cajas, como venta nueva marcada "(restaurada)", así que ya no choca con la
+  misma venta si sigue abierta en una caja. También guarda las ventas a las
+  que les quitaron los productos uno por uno. Las copias se guardan 60 días.
 - **Corte de caja seguro**: cerrar el corte y abrir el siguiente se hace en una
   sola operación; si algo falla no cambia nada y se puede reintentar. Los
   errores quedan en `chromis-cortes.log` (carpeta del usuario de Windows).
@@ -50,7 +52,7 @@ cerrarlos. No necesita `mysql.exe`.
 
 ## Enterprise (carpeta `enterprise/`)
 
-Compilados de la rama `enterprise` (commit `5abc568`): todo lo de `mejoras` más
+Compilados de la rama `enterprise` (commit `3d10f4f`): todo lo de `mejoras` más
 **Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
 entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
 Google en su propia ventana, pines sugeridos por la dirección y cierre de
@@ -69,8 +71,8 @@ usan los de arriba.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `enterprise/chromispos.jar` | Cajas de la distribuidora | `6a6dfbd4d7895bba6d8b84e60e5db61320d929d933fc817909a08f194c86a046` |
-| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `3df9b0d3d41df464a537f46a3a45dcd15c70539f3ff72f87dc24f37d2f8325b4` |
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `5247cc9d7135bf5ee86c4ecd0e0c24f2608a8d49508d8802d29907bc39ac8ee6` |
+| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `2909378895709de4ac43ccbaf899e4d18d93f153cafd0f618ec1b5f50c36928a` |
 | `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
 
 Se instalan igual (renombrar el actual a `.original` y copiar el nuevo), **en todas las cajas** de la distribuidora: una caja con el jar anterior vende normal, pero no tiene el botón Mostrador / Entrega ni registra entregas. Las
