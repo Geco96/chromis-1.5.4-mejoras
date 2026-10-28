@@ -262,11 +262,11 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         if (e == null) {
             return;
         }
-        String text = "Se regresará a las ventas en espera de todas las cajas:\n\n" + e.name
+        String text = "Se regresará a las ventas en espera de todas las cajas, como \"" + e.name + HeldTicketArchive.RESTORED + "\":\n\n" + e.name
                 + (known(e) ? String.format(Locale.ROOT, "\n%d %s, $%,.2f", e.lineCount, e.lineCount == 1 ? "producto" : "productos", e.total) : "");
-        if (e.how == HeldTicketArchive.How.NOT_SAVED) {
-            text += "\n\nChromis no registró que alguien la borrara. Si alguna caja la tiene abierta en este momento, "
-                    + "no la restaures: al guardarla la caja la regresa sola.";
+        if (e.how == HeldTicketArchive.How.NOT_SAVED || e.how == HeldTicketArchive.How.EMPTIED) {
+            text += "\n\nPodría seguir abierta en una caja. Si es así, al guardarla la caja quedarán dos: la de la caja "
+                    + "y la restaurada (con los productos que tenía al borrarse); borra la que sobre.";
         }
         Alert ask = new Alert(Alert.AlertType.CONFIRMATION, text, ButtonType.OK, ButtonType.CANCEL);
         ask.setTitle("Restaurar venta en espera");
@@ -283,7 +283,7 @@ public class DeletedHeldTickets implements MenuPanelInterface {
             HeldTicketArchive.restore(connection(), e.archiveId);
             LOGGER.log(Level.INFO, "{0} restauró la venta en espera {1}", new Object[]{Start.getActiveUser(), e.name});
             reloadData();
-            message("Listo: \"" + e.name + "\" está otra vez en las ventas en espera. En las cajas aparece en menos de un minuto (o al tocar el carrito).", false);
+            message("Listo: \"" + e.name + HeldTicketArchive.RESTORED + "\" está otra vez en las ventas en espera. En las cajas aparece en menos de un minuto (o al tocar el carrito).", false);
         } catch (SQLException ex) {
             message("No se pudo restaurar: " + ex.getMessage(), true);
         }
