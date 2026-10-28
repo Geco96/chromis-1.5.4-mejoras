@@ -30,6 +30,8 @@ public final class HeldTicketArchive {
     public static final String TABLE = "sharedtickets_deleted";
     static final String TRIGGER_DELETE = "sharedtickets_guardar_borrada";
     static final String TRIGGER_INSERT = "sharedtickets_quitar_borrada";
+    /** Class of the lines of a ticket: its name is in the content only when the ticket has lines. */
+    static final String LINE_CLASS = "uk.chromis.pos.ticket.TicketLineInfo";
     /** Copies are kept this many days. */
     public static final int KEEP_DAYS = 60;
 
@@ -42,6 +44,7 @@ public final class HeldTicketArchive {
     public enum How {
         DELETE_ALL("Borrar todas (clic derecho / F10)", "Borrar todas (clic derecho en el botón de ventas en espera o F10)"),
         BIN("Con el bote de basura", "Borrada con el bote de basura"),
+        EMPTIED("Le quitaron los productos", "Se abrió y le quitaron los productos uno por uno"),
         NOT_SAVED("Sin registro de borrado", "Se abrió y no se volvió a guardar (cierre de Chromis o apagón), o sigue abierta en una caja");
 
         /** Short, for a table column. */
@@ -120,14 +123,34 @@ public final class HeldTicketArchive {
                         + "deliveryinfo, deleted_at, db_user) VALUES (OLD.id, OLD.name, OLD.content, OLD.pickupid, OLD.appuser, "
                         + "OLD.loyaltycard, OLD.pickupbarcode, OLD.deliveryinfo, NOW(), USER())");
             }
-            if (!hasTrigger(con, TRIGGER_INSERT)) {
+            // The copy goes away when the ticket is held again, but not when what comes back is empty (the products
+            // were removed one by one): Chromis saves it and deletes it right away, and the copy with the products
+            // must stay. The first version deleted it always; it is replaced.
+            String body = triggerBody(con, TRIGGER_INSERT);
+            if (body != null && !body.contains("TicketLineInfo")) {
+                st.execute("DROP TRIGGER " + TRIGGER_INSERT);
+                body = null;
+            }
+            if (body == null) {
                 st.execute("CREATE TRIGGER " + TRIGGER_INSERT + " AFTER INSERT ON sharedtickets FOR EACH ROW "
-                        + "DELETE FROM " + TABLE + " WHERE id = NEW.id");
+                        + "BEGIN IF LOCATE('" + LINE_CLASS + "', NEW.content) > 0 THEN "
+                        + "DELETE FROM " + TABLE + " WHERE id = NEW.id; END IF; END");
             }
         } catch (SQLException ex) {
             return "No se pudo activar la copia de las ventas en espera borradas: " + ex.getMessage();
         }
         return null;
+    }
+
+    /** Statement of a trigger of this database, or null if there is none. */
+    static String triggerBody(Connection con, String name) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("SELECT action_statement FROM information_schema.triggers "
+                + "WHERE trigger_schema = DATABASE() AND trigger_name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
     }
 
     static boolean hasTrigger(Connection con, String name) throws SQLException {
@@ -212,7 +235,7 @@ public final class HeldTicketArchive {
 
     /** False for a ticket with no lines: the class of the lines only appears in the content when there is one. */
     public static boolean hasLines(byte[] content) {
-        return content != null && new String(content, StandardCharsets.ISO_8859_1).contains("uk.chromis.pos.ticket.TicketLineInfo");
+        return content != null && new String(content, StandardCharsets.ISO_8859_1).contains(LINE_CLASS);
     }
 
     /**
@@ -302,6 +325,21 @@ public final class HeldTicketArchive {
                     }
                 }
             }
+            if (e.how == How.NOT_SAVED) {
+                try (PreparedStatement ps = con.prepareStatement("SELECT name, terminalid FROM lineremoved "
+                        + "WHERE ticketid = ? AND description = 'Single Item Removed' AND removeddate >= ? - INTERVAL 1 MINUTE "
+                        + "ORDER BY removeddate DESC LIMIT 1")) {
+                    ps.setString(1, e.ticketId);
+                    ps.setTimestamp(2, e.deletedAt);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            e.how = How.EMPTIED;
+                            e.deletedBy = rs.getString(1);
+                            e.terminal = rs.getString(2);
+                        }
+                    }
+                }
+            }
             if (e.summarized != READ && e.how != How.NOT_SAVED) {
                 linesFromAudit(con, e);
             }
@@ -317,7 +355,7 @@ public final class HeldTicketArchive {
         try (PreparedStatement ps = con.prepareStatement("SELECT productname, units, value FROM lineremoved "
                 + "WHERE ticketid = ? AND description = ? AND removeddate >= ? - INTERVAL 1 MINUTE ORDER BY sequence")) {
             ps.setString(1, e.ticketId);
-            ps.setString(2, e.how == How.DELETE_ALL ? "Shared Ticket Removed" : "Full Ticket Removed");
+            ps.setString(2, e.how == How.DELETE_ALL ? "Shared Ticket Removed" : e.how == How.BIN ? "Full Ticket Removed" : "Single Item Removed");
             ps.setTimestamp(3, e.deletedAt);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -340,38 +378,88 @@ public final class HeldTicketArchive {
     }
 
     /**
-     * Puts the copy back in the held tickets list, with the same id, so it
-     * shows in every till. Fails if a held ticket with that id is there.
+     * Puts the copy back in the held tickets list of every till, as a new
+     * held ticket (new id and new ticket number inside), so it never clashes
+     * with the same ticket if a till still has it open: that till saves its
+     * own version and both stay. Returns the new id.
      */
-    public static void restore(Connection con, long archiveId) throws SQLException {
-        Object[] row;
-        try (PreparedStatement ps = con.prepareStatement("SELECT id, name, content, pickupid, appuser, loyaltycard, "
-                + "pickupbarcode, deliveryinfo FROM " + TABLE + " WHERE archive_id = ?")) {
+    public static String restore(Connection con, long archiveId) throws SQLException {
+        String name;
+        byte[] content;
+        Object[] rest;
+        byte[] delivery;
+        try (PreparedStatement ps = con.prepareStatement("SELECT name, content, pickupid, appuser, loyaltycard, deliveryinfo "
+                + "FROM " + TABLE + " WHERE archive_id = ?")) {
             ps.setLong(1, archiveId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     throw new SQLException("Esa venta ya no está en las borradas (alguien la restauró o se volvió a guardar).");
                 }
-                row = new Object[]{rs.getString(1), rs.getString(2), rs.getBytes(3), rs.getInt(4), rs.getString(5),
-                    rs.getString(6), rs.getString(7), rs.getBytes(8)};
+                name = rs.getString(1);
+                content = rs.getBytes(2);
+                rest = new Object[]{rs.getInt(3), rs.getString(4), rs.getString(5)};
+                delivery = rs.getBytes(6);
             }
         }
-        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM sharedtickets WHERE id = ?")) {
-            ps.setString(1, (String) row[0]);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    throw new SQLException("Esa venta ya está otra vez en las ventas en espera.");
-                }
+        String oldTicket = ticketIdOf(content);
+        String newTicket = java.util.UUID.randomUUID().toString();
+        String newId = java.util.UUID.randomUUID().toString();
+        String label = name == null ? RESTORED : name.endsWith(RESTORED) ? name : name + RESTORED;
+        boolean autoCommit = con.getAutoCommit();
+        con.setAutoCommit(false);
+        try {
+            try (PreparedStatement ps = con.prepareStatement("INSERT INTO sharedtickets (id, name, content, pickupid, appuser, "
+                    + "loyaltycard, pickupbarcode, deliveryinfo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+                ps.setString(1, newId);
+                ps.setString(2, cut(label, 255));
+                ps.setBytes(3, replace(content, oldTicket, newTicket));
+                ps.setObject(4, rest[0]);
+                ps.setObject(5, rest[1]);
+                ps.setObject(6, rest[2]);
+                // Chromis builds the pickup barcode the same way from the ticket number
+                ps.setString(7, "P" + newTicket.substring(24));
+                ps.setBytes(8, replace(delivery, oldTicket, newTicket));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement("DELETE FROM " + TABLE + " WHERE archive_id = ?")) {
+                ps.setLong(1, archiveId);
+                ps.executeUpdate();
+            }
+            con.commit();
+        } catch (SQLException | RuntimeException ex) {
+            con.rollback();
+            throw ex;
+        } finally {
+            con.setAutoCommit(autoCommit);
+        }
+        return newId;
+    }
+
+    /** Added to the name of a restored held ticket, so the cashier tells it apart. */
+    public static final String RESTORED = " (restaurada)";
+
+    /**
+     * Every copy of [from] in [data] replaced by [to], of the same length (a
+     * UUID), so the serialized ticket stays valid.
+     */
+    public static byte[] replace(byte[] data, String from, String to) {
+        if (data == null || from == null || from.length() != to.length()) {
+            return data;
+        }
+        byte[] f = from.getBytes(StandardCharsets.ISO_8859_1);
+        byte[] t = to.getBytes(StandardCharsets.ISO_8859_1);
+        byte[] out = data.clone();
+        for (int i = 0; i <= out.length - f.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < f.length && match; j++) {
+                match = out[i + j] == f[j];
+            }
+            if (match) {
+                System.arraycopy(t, 0, out, i, t.length);
+                i += f.length - 1;
             }
         }
-        // Inserted from the values read (the trigger on sharedtickets deletes from this table, so no INSERT ... SELECT)
-        try (PreparedStatement ps = con.prepareStatement("INSERT INTO sharedtickets (id, name, content, pickupid, appuser, "
-                + "loyaltycard, pickupbarcode, deliveryinfo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
-            for (int i = 0; i < row.length; i++) {
-                ps.setObject(i + 1, row[i]);
-            }
-            ps.executeUpdate();
-        }
+        return out;
     }
 
     /** Changes whenever a held ticket is added or removed. */

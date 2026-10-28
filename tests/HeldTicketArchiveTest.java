@@ -1,4 +1,6 @@
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.sql.*;
 import java.util.*;
@@ -155,23 +157,52 @@ public class HeldTicketArchiveTest {
             HeldTicketArchive.purge(c);
             check("cobrada: se descarta la copia", copies(c1), 0);
 
-            // Restaurar
+            // Restaurar: vuelve como venta en espera nueva (otro id y otro número de ticket adentro)
             String sig = HeldTicketArchive.listSignature(c);
-            HeldTicketArchive.restore(c, ea.archiveId);
-            check("restaurada: otra vez en espera", one("SELECT COUNT(*) FROM sharedtickets WHERE id = '" + a1 + "'"), "1");
+            String r1 = HeldTicketArchive.restore(c, ea.archiveId);
+            shared.add(r1);
+            check("restaurada: otra vez en espera, con otro id", !r1.equals(a1) && "1".equals(one("SELECT COUNT(*) FROM sharedtickets WHERE id = '" + r1 + "'")), true);
+            check("restaurada: nombre", one("SELECT name FROM sharedtickets WHERE id = '" + r1 + "'"), "CLIENTE A - prueba" + HeldTicketArchive.RESTORED);
             check("la caja nota el cambio en la lista", HeldTicketArchive.listSignature(c).equals(sig), false);
-            check("restaurada: mismo contenido", Arrays.equals(bytesOf(a1), bytes(ta)), true);
+            TicketInfo back;
+            try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytesOf(r1)))) { back = (TicketInfo) in.readObject(); }
+            check("restaurada: se abre con sus productos", back.getLinesCount() + " " + back.getLine(0).getProductName(), "2 Arroz 1kg");
+            check("restaurada: otro número de ticket", !back.getId().equals(ta.getId()) && back.getId().equals(HeldTicketArchive.ticketIdOf(bytesOf(r1))), true);
+            check("restaurada: código de recogida", one("SELECT pickupbarcode FROM sharedtickets WHERE id = '" + r1 + "'"), "P" + back.getId().substring(24));
             check("restaurada: se quita de las borradas", copies(a1), 0);
+            // La caja que la tenía abierta la guarda: ya no choca con la restaurada
+            String err = null;
+            try (PreparedStatement ps = c.prepareStatement("INSERT INTO sharedtickets (id, name, content, pickupid, appuser) VALUES (?, 'CLIENTE A - prueba', ?, 0, 'Carlos')")) {
+                ps.setString(1, a1); ps.setBytes(2, bytes(ta)); ps.executeUpdate();
+            } catch (SQLException ex) { err = ex.getMessage(); }
+            check("la caja guarda la suya sin error", err, null);
+            exec("DELETE FROM sharedtickets WHERE id = '" + a1 + "'");
+            exec("DELETE FROM " + HeldTicketArchive.TABLE + " WHERE id = '" + a1 + "'");
             String msg = null;
             try { HeldTicketArchive.restore(c, ea.archiveId); } catch (SQLException ex) { msg = ex.getMessage(); }
             check("no se restaura dos veces", msg != null && msg.startsWith("Esa venta ya no está"), true);
-            check("solo quedan las perdidas", find(d1) != null && find(a1) == null, true);
-            // La restaurada se abre y Chromis se cierra: el borrado anterior (borrar todas) ya no cuenta
-            exec("UPDATE lineremoved SET removeddate = removeddate - INTERVAL 2 MINUTE WHERE ticketid = '" + ta.getId() + "'");
-            exec("DELETE FROM sharedtickets WHERE id = '" + a1 + "'");
+            // La restaurada se abre y Chromis se cierra: sin registro de borrado
+            exec("DELETE FROM sharedtickets WHERE id = '" + r1 + "'");
             readPending();
-            Entry again = find(a1);
+            Entry again = find(r1);
             check("perdida otra vez: sin registro de borrado", again == null ? null : again.how + " " + again.deletedBy, How.NOT_SAVED + " null");
+
+            // Le quitan los productos uno por uno y la caja pasa a otra venta: Chromis guarda el ticket vacío y lo borra
+            TicketInfo te = ticket("Cuaderno", "Lápiz");
+            String e1 = hold("CLIENTE E - prueba", "Laura", te);
+            exec("DELETE FROM sharedtickets WHERE id = '" + e1 + "'");
+            audit(te, "Single Item Removed", "Laura", "CAJA3");
+            TicketInfo emptied = ticket();
+            try (PreparedStatement ps = c.prepareStatement("INSERT INTO sharedtickets (id, name, content, pickupid, appuser) VALUES (?, 'CLIENTE E - prueba', ?, 0, 'Laura')")) {
+                ps.setString(1, e1); ps.setBytes(2, bytesWithId(emptied, te.getId())); ps.executeUpdate();
+            }
+            check("vacía guardada: la copia con productos se queda", copies(e1), 1);
+            exec("DELETE FROM sharedtickets WHERE id = '" + e1 + "'");
+            Entry ee = find(e1);
+            check("vaciada: se ve la de productos", ee == null ? null : ee.lineCount + " " + ee.how + " " + ee.deletedBy + " en " + ee.terminal, "2 " + How.EMPTIED + " Laura en CAJA3");
+            readPending();
+            Entry ee2 = find(e1);
+            check("vaciada: la caja la lee", ee2 == null ? null : ee2.summarized + " " + ee2.lineCount, HeldTicketArchive.READ + " 2");
         } finally {
             for (String s : shared) {
                 exec("DELETE FROM sharedtickets WHERE id = '" + s + "'");
@@ -183,6 +214,10 @@ public class HeldTicketArchiveTest {
         }
         System.out.println(fails == 0 ? "TODO BIEN" : fails + " FALLAS");
         System.exit(fails == 0 ? 0 : 1);
+    }
+    /** El ticket con el número de otro (el mismo ticket después de quitarle los productos). */
+    static byte[] bytesWithId(TicketInfo t, String id) throws Exception {
+        return HeldTicketArchive.replace(bytes(t), t.getId(), id);
     }
     static byte[] bytesOf(String id) throws SQLException {
         try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT content FROM sharedtickets WHERE id = '" + id + "'")) {
