@@ -61,8 +61,12 @@ public class DeliveryTest {
             check("cortar al tamaño", DeliveryStore.fit("  Av. Juárez 120  ", 6), "Av. Ju");
             check("cortar nulo", DeliveryStore.fit(null, 6), null);
 
-            sale(c, s1, n, money, person, customer, 120.5, true, "2026-10-22 00:00:00");
-            sale(c, s2, n + 1, money, person, null, 80, true, "2026-10-21 00:00:00");
+            // Fechas de entrega relativas a hoy: con fechas fijas "entregadas en los últimos 7 días" dejaba de cumplirse con el tiempo
+            java.text.SimpleDateFormat day = new java.text.SimpleDateFormat("yyyy-MM-dd 00:00:00");
+            String yesterday = day.format(new java.util.Date(System.currentTimeMillis() - 86_400_000L));
+            String twoDaysAgo = day.format(new java.util.Date(System.currentTimeMillis() - 2 * 86_400_000L));
+            sale(c, s1, n, money, person, customer, 120.5, true, yesterday);
+            sale(c, s2, n + 1, money, person, null, 80, true, twoDaysAgo);
             sale(c, s3, n + 2, money, person, customer, 50, false, null);
 
             List<DeliveryStore.Delivery> pending = DeliveryStore.load(c, false, 7);
