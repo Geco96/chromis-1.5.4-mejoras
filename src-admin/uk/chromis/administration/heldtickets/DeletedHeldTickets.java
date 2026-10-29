@@ -17,6 +17,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -60,6 +61,7 @@ public class DeletedHeldTickets implements MenuPanelInterface {
     private final Label lblMessage = new Label();
     private final TextArea txtDetail = new TextArea();
     private final Button btnRestore = new Button("Restaurar en ventas en espera");
+    private final CheckBox chkCharged = new CheckBox("Ver también las que se cobraron");
     private List<Entry> rows = List.of();
 
     @Override
@@ -108,14 +110,15 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         btnRestore.setStyle("-fx-font-weight: bold;");
         btnRestore.setDisable(true);
         btnRestore.setOnAction(e -> restore());
-        HBox top = new HBox(12, cmbDays, cmbUser, btnRefresh, lblSummary, grow, btnRestore);
+        chkCharged.setOnAction(e -> reloadData());
+        HBox top = new HBox(12, cmbDays, cmbUser, chkCharged, btnRefresh, lblSummary, grow, btnRestore);
         top.setAlignment(Pos.CENTER_LEFT);
         AnchorPane.setTopAnchor(top, 88.0);
         AnchorPane.setLeftAnchor(top, 15.0);
         AnchorPane.setRightAnchor(top, 15.0);
 
         SimpleDateFormat when = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        table.getColumns().add(column("Borrada", 115, e -> when.format(e.deletedAt)));
+        table.getColumns().add(column("Salió de la lista", 115, e -> when.format(e.deletedAt)));
         table.getColumns().add(column("Venta en espera", 230, e -> e.name));
         table.getColumns().add(column("Cliente", 130, e -> e.customer == null ? "" : e.customer));
         table.getColumns().add(column("Productos", 70, e -> known(e) ? String.valueOf(e.lineCount) : ""));
@@ -124,10 +127,10 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         total.setStyle("-fx-alignment: CENTER-RIGHT;");
         table.getColumns().add(total);
         table.getColumns().add(column("La capturó", 95, e -> e.appUser == null ? "" : e.appUser));
-        table.getColumns().add(column("Cómo se borró", 210, e -> e.how.label));
-        table.getColumns().add(column("La borró", 95, e -> e.deletedBy == null ? "" : e.deletedBy));
-        table.getColumns().add(column("Equipo", 100, DeletedHeldTickets::place));
-        table.setPlaceholder(new Label("No hay ventas en espera borradas en esos días."));
+        table.getColumns().add(column("Qué pasó", 210, e -> e.how.label));
+        table.getColumns().add(column("Quién", 95, DeletedHeldTickets::who));
+        table.getColumns().add(column("Caja", 100, DeletedHeldTickets::place));
+        table.setPlaceholder(new Label("No hay ventas en espera que hayan salido de la lista en esos días."));
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, e) -> showDetail(e));
         AnchorPane.setTopAnchor(table, 122.0);
         AnchorPane.setLeftAnchor(table, 15.0);
@@ -141,10 +144,10 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         AnchorPane.setLeftAnchor(txtDetail, 15.0);
         AnchorPane.setRightAnchor(txtDetail, 15.0);
 
-        Label help = new Label("Aquí queda una copia de cada venta en espera que salió de la lista sin cobrarse: borrada con el bote, "
-                + "con \"borrar todas\" (clic derecho en el botón de ventas en espera o F10) o perdida porque Chromis se cerró con ella "
-                + "abierta. Restaurar la regresa a las ventas en espera de todas las cajas. Las copias se guardan "
-                + HeldTicketArchive.KEEP_DAYS + " días; las ventas que sí se cobraron no aparecen.");
+        Label help = new Label("Aquí queda una copia de cada venta en espera que salió de la lista: borrada con el bote, "
+                + "perdida porque Chromis se cerró con ella abierta, o abierta ahora en una caja (mientras una caja la tiene abierta "
+                + "no aparece en las demás; vuelve cuando la cajera pasa a otra venta). Restaurar la regresa a las ventas en espera "
+                + "de todas las cajas. Las copias se guardan " + HeldTicketArchive.KEEP_DAYS + " días; las cobradas solo con la casilla.");
         help.setWrapText(true);
         help.setTextFill(javafx.scene.paint.Color.web("#555555"));
         AnchorPane.setBottomAnchor(help, 34.0);
@@ -165,10 +168,23 @@ public class DeletedHeldTickets implements MenuPanelInterface {
         return c;
     }
 
-    /** The PC that deleted it: the Chromis terminal, else the host the database saw. */
+    /** Who deleted it, has it open, or charged it. */
+    private static String who(Entry e) {
+        String w = e.how == HeldTicketArchive.How.CHARGED ? e.chargedBy
+                : e.deletedBy != null ? e.deletedBy : e.openedBy;
+        return w == null ? "" : w;
+    }
+
+    /** The till: the Chromis terminal that deleted or opened it, else the host the database saw. */
     private static String place(Entry e) {
+        if (e.how == HeldTicketArchive.How.CHARGED) {
+            return "";
+        }
         if (e.terminal != null && !e.terminal.isEmpty()) {
             return e.terminal;
+        }
+        if (e.openedTerminal != null && !e.openedTerminal.isEmpty()) {
+            return e.openedTerminal;
         }
         if (e.dbUser != null && e.dbUser.contains("@")) {
             return e.dbUser.substring(e.dbUser.indexOf('@') + 1);
@@ -186,7 +202,7 @@ public class DeletedHeldTickets implements MenuPanelInterface {
             }
             int days = cmbDays.getSelectionModel().getSelectedIndex() == 0 ? 7
                     : cmbDays.getSelectionModel().getSelectedIndex() == 1 ? 30 : HeldTicketArchive.KEEP_DAYS;
-            rows = HeldTicketArchive.list(con, days);
+            rows = HeldTicketArchive.list(con, days, chkCharged.isSelected());
         } catch (SQLException ex) {
             LOGGER.log(Level.WARNING, "Ventas en espera borradas", ex);
             message("No se pudieron leer las ventas en espera borradas: " + ex.getMessage(), true);
@@ -198,8 +214,9 @@ public class DeletedHeldTickets implements MenuPanelInterface {
             if (e.appUser != null && !e.appUser.isEmpty()) {
                 users.add(e.appUser);
             }
-            if (e.deletedBy != null && !e.deletedBy.isEmpty()) {
-                users.add(e.deletedBy);
+            String w = who(e);
+            if (!w.isEmpty()) {
+                users.add(w);
             }
         }
         cmbUser.getItems().setAll(ALL_USERS);
@@ -212,7 +229,7 @@ public class DeletedHeldTickets implements MenuPanelInterface {
     private void fill() {
         String u = cmbUser.getValue();
         List<Entry> shown = u == null || ALL_USERS.equals(u) ? rows
-                : rows.stream().filter(e -> u.equalsIgnoreCase(e.appUser) || u.equalsIgnoreCase(e.deletedBy)).collect(Collectors.toList());
+                : rows.stream().filter(e -> u.equalsIgnoreCase(e.appUser) || u.equalsIgnoreCase(who(e))).collect(Collectors.toList());
         table.getItems().setAll(shown);
         double sum = shown.stream().mapToDouble(e -> e.total).sum();
         lblSummary.setText(shown.size() + (shown.size() == 1 ? " venta" : " ventas")
@@ -221,21 +238,38 @@ public class DeletedHeldTickets implements MenuPanelInterface {
     }
 
     private void showDetail(Entry e) {
-        btnRestore.setDisable(e == null || e.backInList);
+        btnRestore.setDisable(e == null || !e.restorable());
         if (e == null) {
             txtDetail.setText("Elige una venta para ver sus productos.");
             return;
         }
         StringBuilder s = new StringBuilder();
         s.append(e.name).append('\n');
-        if (e.how == HeldTicketArchive.How.NOT_SAVED) {
-            s.append("Chromis no registró que alguien la borrara: se abrió y no se volvió a guardar, o sigue abierta en una caja.\n");
+        SimpleDateFormat time = new SimpleDateFormat("dd/MM HH:mm");
+        if (e.how == HeldTicketArchive.How.OPEN) {
+            s.append("Está abierta ahora en ").append(e.openedTerminal == null ? "una caja" : e.openedTerminal)
+                    .append(e.openedBy == null ? "" : " por " + e.openedBy).append(" (desde ").append(time.format(e.deletedAt))
+                    .append("). Mientras esté abierta no aparece en las demás cajas; vuelve sola a la lista cuando la cajera pase a otra "
+                            + "venta o salga. No hay que restaurarla.\n");
+        } else if (e.how == HeldTicketArchive.How.CHARGED) {
+            s.append("Se cobró").append(e.chargedTicket == null ? "" : " en el ticket " + e.chargedTicket)
+                    .append(e.chargedBy == null ? "" : " por " + e.chargedBy)
+                    .append(e.chargedAt == null ? "" : " el " + time.format(e.chargedAt)).append(".\n");
+        } else if (e.how == HeldTicketArchive.How.NOT_SAVED && e.openedTerminal != null) {
+            s.append("Se abrió en ").append(e.openedTerminal).append(e.openedBy == null ? "" : " por " + e.openedBy)
+                    .append(" (").append(time.format(e.deletedAt)).append(") y esa caja ya no la tiene abierta, pero no la volvió a "
+                            + "guardar: Chromis se cerró a la fuerza, se apagó o se reinició con ella abierta.\n");
+        } else if (e.how == HeldTicketArchive.How.NOT_SAVED) {
+            s.append("Chromis no registró que alguien la borrara: se abrió y no se volvió a guardar (Chromis se cerró o se fue la luz "
+                    + "con ella abierta), o sigue abierta en una caja que todavía no tiene el chromispos.jar nuevo.\n");
         } else {
             s.append(e.how.text).append(e.deletedBy == null ? "" : " por " + e.deletedBy)
                     .append(e.terminal == null ? "" : " en " + e.terminal).append(".\n");
         }
         if (e.summarized == HeldTicketArchive.READ) {
             s.append('\n').append(e.lines == null ? "" : e.lines);
+        } else if (e.how == HeldTicketArchive.How.OPEN || e.how == HeldTicketArchive.How.CHARGED) {
+            // nothing to add: it is not lost
         } else if (e.fromAudit) {
             s.append("\nProductos registrados por Chromis al borrarla (precio sin impuestos):\n").append(e.lines);
         } else if (e.summarized == HeldTicketArchive.UNREADABLE) {

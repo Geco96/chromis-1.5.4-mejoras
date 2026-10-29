@@ -7,6 +7,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +19,10 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import uk.chromis.basic.BasicException;
 import uk.chromis.commons.dialogs.JAlertPane;
+import uk.chromis.commons.dbmanager.DbUtils;
 import uk.chromis.data.gui.MessageInf;
+import uk.chromis.data.loader.SerializerWriteString;
+import uk.chromis.data.loader.StaticSentence;
 import uk.chromis.globals.IconFactory;
 import uk.chromis.globals.SystemProperty;
 import uk.chromis.pos.auditing.Audit;
@@ -35,6 +39,7 @@ import uk.chromis.pos.printer.DeviceDisplayAdvance;
 import uk.chromis.pos.printer.TicketParser;
 import uk.chromis.pos.printer.TicketPrinterException;
 import uk.chromis.pos.sales.CustomerDisplay;
+import uk.chromis.pos.sales.HeldTicketWatcher;
 import uk.chromis.pos.sales.JPanelTicket;
 import uk.chromis.pos.sales.JTicketsBag;
 import uk.chromis.pos.sales.SharedTicketInfo;
@@ -48,7 +53,7 @@ import uk.chromis.pos.ticket.UserInfo;
 import uk.chromis.pos.util.AutoLogoff;
 
 public class JTicketsBagShared extends JTicketsBag {
-   private String m_sCurrentTicket = null;
+   private volatile String m_sCurrentTicket = null;
    private DataLogicReceipts dlReceipts = null;
    private DataLogicSales dlSales;
    private DataLogicSystem dlSystem;
@@ -184,33 +189,25 @@ public class JTicketsBagShared extends JTicketsBag {
       return new JPanel();
    }
 
-   private void saveCurrentTicket() {
+   /**
+    * Puts the ticket on screen back in the held tickets list. False if it could not be saved (the error is shown).
+    * If its id is already taken (Chromis could save another ticket under it, see openFromList), it is saved with a
+    * new id instead of being lost.
+    */
+   private boolean saveCurrentTicket() {
       if (this.m_sCurrentTicket != null) {
          try {
-            if (SystemProperty.USEPICKUPFORLAYAWAY) {
-               if (this.m_panelticket.getActiveTicket().getPickupId() == 0 && this.m_panelticket.getActiveTicket().getArticlesCount() > 0.0) {
-                  this.m_panelticket.getActiveTicket().setPickupId(this.dlSales.getNextPickupIndex());
+            try {
+               this.insertCurrentTicket();
+            } catch (BasicException var3) {
+               if (!isDuplicateKey(var3)) {
+                  throw var3;
                }
 
-               this.m_panelticket.getActiveTicket().setSharedTicket(Boolean.TRUE);
-               this.dlReceipts
-                  .insertSharedTicketUsingPickUpID(
-                     this.m_sCurrentTicket,
-                     this.m_panelticket.getActiveTicket(),
-                     this.m_panelticket.getActiveTicket().getPickupId(),
-                     "P" + this.m_panelticket.getActiveTicket().getId().substring(24),
-                     this.m_panelticket.getActiveTicket().fetchDeliveryInfo()
-                  );
-            } else {
-               this.m_panelticket.getActiveTicket().setSharedTicket(Boolean.TRUE);
-               this.dlReceipts
-                  .insertSharedTicket(
-                     this.m_sCurrentTicket,
-                     this.m_panelticket.getActiveTicket(),
-                     this.m_panelticket.getActiveTicket().getPickupId(),
-                     "P" + this.m_panelticket.getActiveTicket().getId().substring(24),
-                     this.m_panelticket.getActiveTicket().fetchDeliveryInfo()
-                  );
+               Logger.getLogger(JTicketsBagShared.class.getName())
+                  .log(Level.WARNING, "La venta en espera {0} ya existía; se guarda con otro id", this.m_sCurrentTicket);
+               this.m_sCurrentTicket = UUID.randomUUID().toString();
+               this.insertCurrentTicket();
             }
 
             TicketInfo l = this.dlReceipts.getSharedTicket(this.m_sCurrentTicket);
@@ -221,15 +218,57 @@ public class JTicketsBagShared extends JTicketsBag {
             this.checkLayaways();
          } catch (BasicException var2) {
             new MessageInf(var2).show(this);
+            return false;
          }
       }
+
+      return true;
+   }
+
+   private void insertCurrentTicket() throws BasicException {
+      if (SystemProperty.USEPICKUPFORLAYAWAY) {
+         if (this.m_panelticket.getActiveTicket().getPickupId() == 0 && this.m_panelticket.getActiveTicket().getArticlesCount() > 0.0) {
+            this.m_panelticket.getActiveTicket().setPickupId(this.dlSales.getNextPickupIndex());
+         }
+
+         this.m_panelticket.getActiveTicket().setSharedTicket(Boolean.TRUE);
+         this.dlReceipts
+            .insertSharedTicketUsingPickUpID(
+               this.m_sCurrentTicket,
+               this.m_panelticket.getActiveTicket(),
+               this.m_panelticket.getActiveTicket().getPickupId(),
+               "P" + this.m_panelticket.getActiveTicket().getId().substring(24),
+               this.m_panelticket.getActiveTicket().fetchDeliveryInfo()
+            );
+      } else {
+         this.m_panelticket.getActiveTicket().setSharedTicket(Boolean.TRUE);
+         this.dlReceipts
+            .insertSharedTicket(
+               this.m_sCurrentTicket,
+               this.m_panelticket.getActiveTicket(),
+               this.m_panelticket.getActiveTicket().getPickupId(),
+               "P" + this.m_panelticket.getActiveTicket().getId().substring(24),
+               this.m_panelticket.getActiveTicket().fetchDeliveryInfo()
+            );
+      }
+   }
+
+   private static boolean isDuplicateKey(Throwable e) {
+      for (Throwable t = e; t != null; t = t.getCause()) {
+         if (t instanceof SQLIntegrityConstraintViolationException
+            || t.getMessage() != null && t.getMessage().contains("Duplicate entry")) {
+            return true;
+         }
+      }
+
+      return false;
    }
 
    private void setActiveTicket(String id) throws BasicException {
       TicketInfo ticket = this.dlReceipts.getSharedTicket(id);
       if (ticket == null) {
-         this.m_jListTickets.setText("");
-         throw new BasicException(AppLocal.getIntString("message.noticket"));
+         this.checkLayaways();
+         throw new BasicException("Esta venta en espera ya no está en la lista: la abrió otra caja o ya se cobró.");
       } else {
          Date tmpDate = ticket.getdDate();
          UserInfo tmpUser = ticket.getSharedTicketUser();
@@ -251,8 +290,15 @@ public class JTicketsBagShared extends JTicketsBag {
             }
          }
 
-         this.dlReceipts.deleteSharedTicket(id);
+         // Only the till that takes it out of the list opens it: two tills opening it at the same time each had
+         // their own copy (one was lost when both saved it back, or a charged ticket came back to the list)
+         if (new StaticSentence(this.m_App.getSession(), "delete from sharedtickets where id = ?", SerializerWriteString.INSTANCE).exec(id) == 0) {
+            this.checkLayaways();
+            throw new BasicException("Esta venta en espera la acaba de abrir otra caja.");
+         }
+
          this.m_sCurrentTicket = id;
+         HeldTicketWatcher.opened(id, this.m_App.getAppUserView().getUser().getName(), DbUtils.getTerminalName());
          if (loyalty != null) {
             ticket.setLoyaltyCard(new LoyaltyCard(loyalty));
          }
@@ -264,6 +310,34 @@ public class JTicketsBagShared extends JTicketsBag {
          this.m_panelticket.setTicketName(tName);
          this.checkLayaways();
       }
+   }
+
+   /**
+    * Opens a held ticket chosen from the list. Chromis took the chosen id as the current ticket before opening it:
+    * when another till had just opened it, the ticket that was on screen was saved a second time under that id (a
+    * duplicate, and the other till could not save its own ticket back: it was lost).
+    */
+   private void openFromList(String id) {
+      if (!this.saveCurrentTicket()) {
+         // The ticket on screen could not be put in the list: it stays on screen
+         return;
+      }
+
+      // The ticket on screen is in the list now: it must not be saved again if the chosen one cannot be opened
+      this.m_sCurrentTicket = null;
+
+      try {
+         this.setActiveTicket(id);
+      } catch (BasicException var3) {
+         new MessageInf(var3).show(this);
+         this.newTicket();
+         this.checkLayaways();
+      }
+   }
+
+   /** Id of the held ticket on screen (also of a new one, not saved yet). */
+   public String getCurrentSharedId() {
+      return this.m_sCurrentTicket;
    }
 
    private void checkLayaways() {
@@ -315,7 +389,11 @@ public class JTicketsBagShared extends JTicketsBag {
    }
 
    public void newTicket() {
-      this.saveCurrentTicket();
+      if (!this.saveCurrentTicket()) {
+         // Chromis replaced the ticket on screen anyway and it was lost; it stays, so the cashier can try again
+         return;
+      }
+
       this.pickupBarcode = new StringBuilder();
       TicketInfo ticket = new TicketInfo();
       ticket.setTicketOwner(this.m_App.getAppUserView().getUser().getId());
@@ -326,23 +404,21 @@ public class JTicketsBagShared extends JTicketsBag {
 
    @Override
    public void getTicketByCode(String id) {
-      this.saveCurrentTicket();
-      List<SharedTicketInfo> l = null;
+      List<SharedTicketInfo> l;
 
       try {
          l = this.dlReceipts.getSharedTicketList();
       } catch (BasicException var7) {
+         Logger.getLogger(JTicketsBagShared.class.getName()).log(Level.SEVERE, null, var7);
+         return;
       }
 
+      // Chromis saved the ticket on screen before looking (twice when found: the second save failed as a duplicate,
+      // and a code that was not found left the saved ticket on screen to be saved again later)
       for (SharedTicketInfo t : l) {
-         if (t.getPickupBarcode().equals(id)) {
-            this.saveCurrentTicket();
-
-            try {
-               this.setActiveTicket(t.getId());
-            } catch (BasicException var6) {
-               Logger.getLogger(JTicketsBagShared.class.getName()).log(Level.SEVERE, null, var6);
-            }
+         if (id.equals(t.getPickupBarcode())) {
+            this.openFromList(t.getId());
+            return;
          }
       }
    }
@@ -418,9 +494,7 @@ public class JTicketsBagShared extends JTicketsBag {
                JTicketsBagSharedList listDialog = JTicketsBagSharedList.newJDialog(JTicketsBagShared.this);
                String id = listDialog.showTicketsList(l);
                if (id != null) {
-                  JTicketsBagShared.this.saveCurrentTicket();
-                  JTicketsBagShared.this.m_sCurrentTicket = id;
-                  JTicketsBagShared.this.setActiveTicket(id);
+                  JTicketsBagShared.this.openFromList(id);
                }
             } catch (BasicException var4) {
                new MessageInf(var4).show(JTicketsBagShared.this);

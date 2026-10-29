@@ -79,8 +79,16 @@ public class HeldTicketArchiveTest {
         for (Object[] p : HeldTicketArchive.pending(c, 500)) HeldTicketWatcher.read(c, (Long) p[0], (byte[]) p[1]);
     }
     static Entry find(String id) throws SQLException {
-        for (Entry e : HeldTicketArchive.list(c, 7)) if (e.id.equals(id)) return e;
+        for (Entry e : HeldTicketArchive.list(c, 7, false)) if (e.id.equals(id)) return e;
         return null;
+    }
+    /** Con las cobradas. */
+    static Entry findAll(String id) throws SQLException {
+        for (Entry e : HeldTicketArchive.list(c, 7, true)) if (e.id.equals(id)) return e;
+        return null;
+    }
+    static String trigger(String name) throws SQLException {
+        return one("SELECT action_statement FROM information_schema.triggers WHERE trigger_schema = DATABASE() AND trigger_name = '" + name + "'");
     }
     static int copies(String id) throws SQLException {
         return Integer.parseInt(one("SELECT COUNT(*) FROM " + HeldTicketArchive.TABLE + " WHERE id = '" + id + "'"));
@@ -153,9 +161,15 @@ public class HeldTicketArchiveTest {
             int number = Integer.parseInt(one("SELECT GREATEST(COALESCE(MAX(ticketid), 0), 998000) FROM tickets")) + 1;
             exec("INSERT INTO receipts (id, money, datenew, person) VALUES ('" + tc.getId() + "', '" + money + "', NOW(), '" + admin + "')");
             exec("INSERT INTO tickets (id, tickettype, ticketid, person) VALUES ('" + tc.getId() + "', 0, " + number + ", '" + admin + "')");
-            check("cobrada: ya no aparece", find(c1), null);
+            check("cobrada: no aparece entre las perdidas", find(c1), null);
             HeldTicketArchive.purge(c);
-            check("cobrada: se descarta la copia", copies(c1), 0);
+            check("cobrada: queda solo el resumen", copies(c1) + " " + one("SELECT content IS NULL FROM " + HeldTicketArchive.TABLE + " WHERE id = '" + c1 + "'"), "1 1");
+            Entry cc = findAll(c1);
+            check("cobrada: en qué ticket y quién", cc == null ? null : cc.how + " " + cc.chargedTicket + " " + cc.chargedBy + " " + cc.lineCount, How.CHARGED + " " + number + " Administrator 1");
+            check("cobrada: no se restaura", cc.restorable(), false);
+            String cmsg = null;
+            try { HeldTicketArchive.restore(c, cc.archiveId); } catch (SQLException ex) { cmsg = ex.getMessage(); }
+            check("cobrada: restaurar explica", cmsg != null && cmsg.contains("se cobró"), true);
 
             // Restaurar: vuelve como venta en espera nueva (otro id y otro número de ticket adentro)
             String sig = HeldTicketArchive.listSignature(c);
@@ -203,6 +217,69 @@ public class HeldTicketArchiveTest {
             readPending();
             Entry ee2 = find(e1);
             check("vaciada: la caja la lee", ee2 == null ? null : ee2.summarized + " " + ee2.lineCount, HeldTicketArchive.READ + " 2");
+
+            // Abierta en una caja: Admin dice dónde y no deja restaurarla; la caja la marca cada minuto
+            TicketInfo tf = ticket("Tijeras");
+            String f1 = hold("CLIENTE F - prueba", "Liz", tf);
+            exec("DELETE FROM sharedtickets WHERE id = '" + f1 + "'");
+            HeldTicketArchive.opened(c, f1, "Laura", "CAJA2");
+            Entry ef = find(f1);
+            check("abierta: dónde y quién", ef == null ? null : ef.how + " " + ef.openedBy + " " + ef.openedTerminal + " " + ef.restorable(), How.OPEN + " Laura CAJA2 false");
+            exec("UPDATE " + HeldTicketArchive.TABLE + " SET seen_open_at = NOW() - INTERVAL 10 MINUTE WHERE id = '" + f1 + "'");
+            Entry ef2 = find(f1);
+            check("la caja ya no la tiene: perdida, con dónde se abrió", ef2.how + " " + ef2.openedTerminal + " " + ef2.restorable(), How.NOT_SAVED + " CAJA2 true");
+            HeldTicketArchive.stillOpen(c, f1);
+            check("la caja la sigue teniendo", find(f1).how, How.OPEN);
+            HeldTicketArchive.stillOpen(c, UUID.randomUUID().toString());
+
+            // La firma de la lista cambia aunque el número de ventas sea el mismo
+            String g1 = hold("CLIENTE G - prueba", "Liz", ticket("Goma"));
+            String sigA = HeldTicketArchive.listSignature(c);
+            exec("DELETE FROM sharedtickets WHERE id = '" + g1 + "'");
+            String g2 = hold("CLIENTE G2 - prueba", "Liz", ticket("Goma"));
+            check("firma: mismo número, otras ventas", HeldTicketArchive.listSignature(c).equals(sigA), false);
+
+            // Los triggers nunca hacen fallar a Chromis: sin la tabla de copias, borrar y guardar ventas en espera sigue funcionando
+            check("triggers con resguardo", trigger("sharedtickets_guardar_borrada").contains("SQLEXCEPTION") && trigger("sharedtickets_quitar_borrada").contains("SQLEXCEPTION"), true);
+            exec("RENAME TABLE " + HeldTicketArchive.TABLE + " TO " + HeldTicketArchive.TABLE + "_x");
+            String terr = null;
+            try {
+                exec("DELETE FROM sharedtickets WHERE id = '" + g2 + "'");
+                hold("CLIENTE H - prueba", "Liz", ticket("Regla"));
+            } catch (SQLException ex) { terr = ex.getMessage(); }
+            finally { exec("RENAME TABLE " + HeldTicketArchive.TABLE + "_x TO " + HeldTicketArchive.TABLE); }
+            check("sin la tabla de copias, Chromis no falla", terr, null);
+
+            // Triggers y tabla de versiones anteriores: se actualizan solos
+            exec("DROP TRIGGER sharedtickets_guardar_borrada");
+            exec("CREATE TRIGGER sharedtickets_guardar_borrada BEFORE DELETE ON sharedtickets FOR EACH ROW INSERT INTO " + HeldTicketArchive.TABLE
+                    + " (id, name, content, pickupid, appuser, loyaltycard, pickupbarcode, deliveryinfo, deleted_at, db_user) VALUES (OLD.id, OLD.name, "
+                    + "OLD.content, OLD.pickupid, OLD.appuser, OLD.loyaltycard, OLD.pickupbarcode, OLD.deliveryinfo, NOW(), USER())");
+            exec("DROP TRIGGER sharedtickets_quitar_borrada");
+            exec("CREATE TRIGGER sharedtickets_quitar_borrada AFTER INSERT ON sharedtickets FOR EACH ROW DELETE FROM " + HeldTicketArchive.TABLE + " WHERE id = NEW.id");
+            exec("ALTER TABLE " + HeldTicketArchive.TABLE + " DROP COLUMN opened_by, DROP COLUMN opened_terminal, DROP COLUMN seen_open_at");
+            check("actualiza versiones anteriores", HeldTicketArchive.ensure(c), null);
+            check("triggers nuevos", trigger("sharedtickets_guardar_borrada").contains("SQLEXCEPTION") && trigger("sharedtickets_quitar_borrada").contains("TicketLineInfo"), true);
+            check("columnas nuevas", one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = '" + HeldTicketArchive.TABLE + "' AND column_name IN ('opened_by', 'opened_terminal', 'seen_open_at')"), "3");
+
+            // Un respaldo en curso no deja cambiar los triggers: se rinde en segundos (no deja esperando a las cajas) y lo vuelve a intentar
+            exec("DROP TRIGGER sharedtickets_quitar_borrada");
+            String waitBefore = one("SELECT @@SESSION.lock_wait_timeout");
+            try (Connection backup = DriverManager.getConnection(a.length > 0 ? a[0] : "jdbc:mysql://localhost:3306/chromispos",
+                    a.length > 1 ? a[1] : "chromis", a.length > 2 ? a[2] : "chromis")) {
+                backup.setAutoCommit(false);
+                try (Statement st = backup.createStatement()) {
+                    st.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT");
+                    st.executeQuery("SELECT COUNT(*) FROM sharedtickets").close();
+                }
+                long t0 = System.currentTimeMillis();
+                String busy = HeldTicketArchive.ensure(c);
+                long secs = (System.currentTimeMillis() - t0) / 1000;
+                check("con respaldo en curso: se rinde rápido", busy != null && busy.startsWith("Un respaldo en curso") && secs < 10, true);
+                check("deja el tiempo de espera como estaba", one("SELECT @@SESSION.lock_wait_timeout"), waitBefore);
+                backup.commit();
+            }
+            check("después del respaldo sí", HeldTicketArchive.ensure(c) + " " + (trigger("sharedtickets_quitar_borrada") != null), "null true");
         } finally {
             for (String s : shared) {
                 exec("DELETE FROM sharedtickets WHERE id = '" + s + "'");

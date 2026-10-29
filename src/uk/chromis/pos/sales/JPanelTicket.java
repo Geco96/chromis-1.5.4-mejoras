@@ -120,6 +120,7 @@ import uk.chromis.pos.scripting.ScriptFactory;
 import uk.chromis.pos.ticket.ProductInfoExt;
 import uk.chromis.pos.ticket.ReceiptTaxesInfo;
 import uk.chromis.pos.ticket.TaxInfo;
+import uk.chromis.pos.sales.shared.JTicketsBagShared;
 import uk.chromis.pos.ticket.TicketInfo;
 import uk.chromis.pos.ticket.TicketLineInfo;
 import uk.chromis.pos.util.AutoLogoff;
@@ -264,9 +265,13 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                () -> JAlertPane.messageBox(0, message, 16, new Dimension(125, 50), 4)
             )
       );
-      // Copies of deleted held tickets, so they can be put back from Chromis Admin
+      // Copies of held tickets that leave the list, so Chromis Admin shows where they went and can put them back
       HeldTicketWatcher.start(
-         AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this::refreshHeldTicketsButton
+         AppConfig.getDatabaseURL(),
+         AppConfig.getDatabaseUser(),
+         AppConfig.getClearDatabasePassword(),
+         this::refreshHeldTicketsButton,
+         this::currentHeldTicketId
       );
       this.restockAlerts = new RestockAlerts(
          AppConfig.getDatabaseURL(), AppConfig.getDatabaseUser(), AppConfig.getClearDatabasePassword(), this.m_App.getInventoryLocation(), this
@@ -603,6 +608,12 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
             new MessageInf(var2).show(this);
          }
       }
+   }
+
+   /** Id of the held ticket on screen (read by the watcher every minute, off the Swing thread). */
+   private String currentHeldTicketId() {
+      JTicketsBag bag = this.m_ticketsbag;
+      return bag instanceof JTicketsBagShared ? ((JTicketsBagShared)bag).getCurrentSharedId() : null;
    }
 
    /** Updates the held tickets button (count and icon) as Chromis does after a click; its method is private. */
