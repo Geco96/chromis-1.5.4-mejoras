@@ -1,16 +1,25 @@
 # Descargas: Chromis 1.5.4 con mejoras
 
-Archivos compilados de la rama `mejoras` (commit `8a144f8`), listos para instalar.
+Archivos compilados de la rama `mejoras` (commit `2a02bee`), listos para instalar.
 Las instrucciones completas están en el README de la rama `mejoras`.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `2a3c048f3f6c4fa0235e193f2544e335923ddfa1532acdd9876a1be3ccb68477` |
-| `admin.jar` | Carpeta de instalación de Chromis Admin | `eac1e09b06257e3f249beaafbb676c8e1b25d5982a3d8f5cfebb58bdd69947b3` |
+| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `fb1f3da699ff9cdbbbce304816ac5e871e24d63e8d43dda9faa34c127eec5fd9` |
+| `admin.jar` | Carpeta de instalación de Chromis Admin | `e8d4d554e919b5e67f53287d42b15f8cbc0672da0a9d3c5ab2150dd00c5c48e1` |
 | `restaurar.jar` | Carpeta de instalación de Chromis (donde está `chromisposconfig.properties`); se abre con doble clic para restaurar un respaldo | `5562c4cd7101a6f5a83f3a40b462d67690697a0b6967a146d0b0638a1cfe7efe` |
 
 ## Novedades de esta versión (también en `enterprise/`)
 
+- **Ventas en espera entre varias cajas** (corregido de Chromis original): si
+  otra caja abría la venta elegida un momento antes, la caja guardaba su
+  ticket duplicado y la venta de la otra caja se perdía ("Duplicate entry");
+  dos cajas podían abrir la misma venta a la vez; y si guardar fallaba, la
+  venta en pantalla se perdía. Ahora solo una caja abre cada venta, nada se
+  duplica y una venta que no se pudo guardar se queda en pantalla.
+- En **Ventas en espera borradas** se ve dónde está cada una: *abierta ahora*
+  en tal caja y por quién (mientras una caja la tiene abierta no aparece en
+  las demás), *perdida*, o *cobrada* en tal ticket.
 - **"Borrar todas" desactivado**: el clic derecho en el botón de ventas en
   espera y F10 ya no borran las ventas en espera de todas las cajas; solo
   muestran un aviso. Para quitar una, se abre y se borra con el bote.
@@ -52,7 +61,7 @@ cerrarlos. No necesita `mysql.exe`.
 
 ## Enterprise (carpeta `enterprise/`)
 
-Compilados de la rama `enterprise` (commit `3d10f4f`): todo lo de `mejoras` más
+Compilados de la rama `enterprise` (commit `8b389d3`): todo lo de `mejoras` más
 **Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
 entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
 Google en su propia ventana, pines sugeridos por la dirección y cierre de
@@ -71,8 +80,8 @@ usan los de arriba.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `enterprise/chromispos.jar` | Cajas de la distribuidora | `5247cc9d7135bf5ee86c4ecd0e0c24f2608a8d49508d8802d29907bc39ac8ee6` |
-| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `2909378895709de4ac43ccbaf899e4d18d93f153cafd0f618ec1b5f50c36928a` |
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `8c099a534ae72cac9774580e218f8717bad717a45c2b92d82b5d97fe4743d09e` |
+| `enterprise/admin.jar` | Chromis Admin de la distribuidora | `96d9ae305f27b258f2ecc781d5202d733d738b641e71881bb33f7cfda2e1ab2d` |
 | `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
 
 Se instalan igual (renombrar el actual a `.original` y copiar el nuevo), **en todas las cajas** de la distribuidora: una caja con el jar anterior vende normal, pero no tiene el botón Mostrador / Entrega ni registra entregas. Las
