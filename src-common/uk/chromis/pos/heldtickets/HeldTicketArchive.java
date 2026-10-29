@@ -14,16 +14,19 @@ import java.util.regex.Pattern;
 
 /**
  * Copy of every held ticket (sharedtickets, the "carrito" of the till) that
- * leaves the list without being charged, so it can be put back.
+ * leaves the list, so it can be put back and so it is known where it went.
  *
- * Chromis deletes held tickets in several places: "borrar todas" (right click
- * on the held tickets button or F10), the bin of an opened held ticket, and
- * also when a held ticket is opened (it is saved again when the cashier moves
- * on; a crash at that moment loses it). A trigger keeps a copy on every
- * delete; when the same held ticket is saved again its copy goes away. The
- * till fills in what the ticket contains (only Chromis POS can read it) and
- * drops copies of tickets that were charged or empty, so what stays is what
- * was really lost.
+ * Chromis deletes held tickets in several places: "borrar todas", the bin of
+ * an opened held ticket, and also when a held ticket is opened (it is out of
+ * the list of every till until the cashier moves on and it is saved again; a
+ * crash at that moment lost it). A trigger keeps a copy on every delete; when
+ * the same held ticket is saved again with its products its copy goes away.
+ * The till fills in what the ticket contains (only Chromis POS can read it),
+ * which till opened it and whether it is still open there; charged ones keep
+ * only that summary.
+ *
+ * The triggers never make Chromis fail: if the copy cannot be written, the
+ * held ticket is deleted or saved as without them.
  */
 public final class HeldTicketArchive {
 
@@ -34,18 +37,24 @@ public final class HeldTicketArchive {
     static final String LINE_CLASS = "uk.chromis.pos.ticket.TicketLineInfo";
     /** Copies are kept this many days. */
     public static final int KEEP_DAYS = 60;
+    /** A till marks the held ticket it has open every minute; older than this, it is not open anymore. */
+    public static final int OPEN_MINUTES = 3;
+    /** Seconds a change of the tables waits for a backup in progress before giving up (the tills wait meanwhile). */
+    static final int DDL_WAIT_SECONDS = 5;
 
     /** summarized: not read yet by a till, read, or unreadable. */
     public static final int PENDING = 0;
     public static final int READ = 1;
     public static final int UNREADABLE = 2;
 
-    /** How the held ticket left the list, from what Chromis audits in lineremoved. */
+    /** Where the held ticket went. */
     public enum How {
         DELETE_ALL("Borrar todas (clic derecho / F10)", "Borrar todas (clic derecho en el botón de ventas en espera o F10)"),
         BIN("Con el bote de basura", "Borrada con el bote de basura"),
         EMPTIED("Le quitaron los productos", "Se abrió y le quitaron los productos uno por uno"),
-        NOT_SAVED("Sin registro de borrado", "Se abrió y no se volvió a guardar (cierre de Chromis o apagón), o sigue abierta en una caja");
+        OPEN("Abierta en una caja", "Está abierta en una caja; vuelve a la lista cuando la cajera pasa a otra venta o sale"),
+        NOT_SAVED("Sin registro de borrado", "Se abrió y no se volvió a guardar (Chromis se cerró o se fue la luz con ella abierta)"),
+        CHARGED("Cobrada", "Se cobró");
 
         /** Short, for a table column. */
         public final String label;
@@ -57,7 +66,7 @@ public final class HeldTicketArchive {
         }
     }
 
-    /** One deleted held ticket. */
+    /** One held ticket that left the list. */
     public static final class Entry {
 
         public long archiveId;
@@ -77,69 +86,142 @@ public final class HeldTicketArchive {
         /** Chromis user and terminal that deleted it, when Chromis audited it. */
         public String deletedBy;
         public String terminal;
-        /** A held ticket with the same id is in the list again. */
+        /** Chromis user and terminal that opened it (tills with this version). */
+        public String openedBy;
+        public String openedTerminal;
+        /** It is in the held tickets list again. */
         public boolean backInList;
         /** No till has read it yet: lines and total come from what Chromis audited, if anything. */
         public boolean fromAudit;
+        /** Charged: ticket number, who and when. */
+        public Integer chargedTicket;
+        public String chargedBy;
+        public Timestamp chargedAt;
+
+        /** It can be put back in the list (not open in a till, not charged, its content kept). */
+        public boolean restorable() {
+            return how != How.OPEN && how != How.CHARGED && !backInList;
+        }
     }
 
     private HeldTicketArchive() {
     }
 
     /**
-     * Creates the table and the triggers when missing. Returns null, or why
-     * the copies cannot be kept (e.g. the database user may not create
-     * triggers).
+     * Creates the table, its columns and the triggers when missing or older.
+     * Returns null, or why the copies cannot be kept (e.g. the database user
+     * may not create triggers, or a backup was running: then it is tried
+     * again later).
      */
     public static String ensure(Connection con) {
+        Integer wait = null;
         try (Statement st = con.createStatement()) {
-            st.execute("CREATE TABLE IF NOT EXISTS " + TABLE + " ("
-                    + "archive_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
-                    + "id VARCHAR(40) NOT NULL, "
-                    + "name VARCHAR(255), "
-                    + "content MEDIUMBLOB, "
-                    + "pickupid INT NOT NULL DEFAULT 0, "
-                    + "appuser VARCHAR(40), "
-                    + "loyaltycard VARCHAR(50), "
-                    + "pickupbarcode VARCHAR(20), "
-                    + "deliveryinfo LONGBLOB, "
-                    + "deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, "
-                    + "db_user VARCHAR(100), "
-                    + "summarized TINYINT NOT NULL DEFAULT 0, "
-                    + "ticket_id VARCHAR(40), "
-                    + "customer VARCHAR(255), "
-                    + "total DOUBLE, "
-                    + "line_count INT, "
-                    + "line_text TEXT, "
-                    + "KEY idx_id (id), KEY idx_ticket (ticket_id), KEY idx_deleted (deleted_at)"
-                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        } catch (SQLException ex) {
-            return "No se pudo crear la tabla " + TABLE + ": " + ex.getMessage();
-        }
-        try (Statement st = con.createStatement()) {
-            if (!hasTrigger(con, TRIGGER_DELETE)) {
-                st.execute("CREATE TRIGGER " + TRIGGER_DELETE + " BEFORE DELETE ON sharedtickets FOR EACH ROW "
+            // A change of a table waits for a backup in progress and every till waits behind it: not for long
+            try (ResultSet rs = st.executeQuery("SELECT @@SESSION.lock_wait_timeout")) {
+                wait = rs.next() ? rs.getInt(1) : null;
+            }
+            st.execute("SET SESSION lock_wait_timeout = " + DDL_WAIT_SECONDS);
+            if (!hasTable(con)) {
+                st.execute("CREATE TABLE IF NOT EXISTS " + TABLE + " ("
+                        + "archive_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+                        + "id VARCHAR(40) NOT NULL, "
+                        + "name VARCHAR(255), "
+                        + "content MEDIUMBLOB, "
+                        + "pickupid INT NOT NULL DEFAULT 0, "
+                        + "appuser VARCHAR(40), "
+                        + "loyaltycard VARCHAR(50), "
+                        + "pickupbarcode VARCHAR(20), "
+                        + "deliveryinfo LONGBLOB, "
+                        + "deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                        + "db_user VARCHAR(100), "
+                        + "summarized TINYINT NOT NULL DEFAULT 0, "
+                        + "ticket_id VARCHAR(40), "
+                        + "customer VARCHAR(255), "
+                        + "total DOUBLE, "
+                        + "line_count INT, "
+                        + "line_text TEXT, "
+                        + "opened_by VARCHAR(100), "
+                        + "opened_terminal VARCHAR(100), "
+                        + "seen_open_at TIMESTAMP NULL DEFAULT NULL, "
+                        + "KEY idx_id (id), KEY idx_ticket (ticket_id), KEY idx_deleted (deleted_at)"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            } else if (!hasColumn(con, "seen_open_at")) {
+                st.execute("ALTER TABLE " + TABLE + " ADD COLUMN opened_by VARCHAR(100), ADD COLUMN opened_terminal VARCHAR(100), "
+                        + "ADD COLUMN seen_open_at TIMESTAMP NULL DEFAULT NULL");
+            }
+            // The copy is written whatever happens to it: an error there must never stop Chromis from deleting
+            // or saving a held ticket. Earlier versions of the triggers had no such guard; they are replaced.
+            String body = triggerBody(con, TRIGGER_DELETE);
+            if (body == null || !body.contains("SQLEXCEPTION")) {
+                replaceTrigger(st, body != null, TRIGGER_DELETE, "BEFORE DELETE ON sharedtickets FOR EACH ROW BEGIN "
+                        + "DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END; "
                         + "INSERT INTO " + TABLE + " (id, name, content, pickupid, appuser, loyaltycard, pickupbarcode, "
                         + "deliveryinfo, deleted_at, db_user) VALUES (OLD.id, OLD.name, OLD.content, OLD.pickupid, OLD.appuser, "
-                        + "OLD.loyaltycard, OLD.pickupbarcode, OLD.deliveryinfo, NOW(), USER())");
+                        + "OLD.loyaltycard, OLD.pickupbarcode, OLD.deliveryinfo, NOW(), LEFT(USER(), 100)); END");
             }
             // The copy goes away when the ticket is held again, but not when what comes back is empty (the products
             // were removed one by one): Chromis saves it and deletes it right away, and the copy with the products
-            // must stay. The first version deleted it always; it is replaced.
-            String body = triggerBody(con, TRIGGER_INSERT);
-            if (body != null && !body.contains("TicketLineInfo")) {
-                st.execute("DROP TRIGGER " + TRIGGER_INSERT);
-                body = null;
-            }
-            if (body == null) {
-                st.execute("CREATE TRIGGER " + TRIGGER_INSERT + " AFTER INSERT ON sharedtickets FOR EACH ROW "
-                        + "BEGIN IF LOCATE('" + LINE_CLASS + "', NEW.content) > 0 THEN "
+            // must stay.
+            body = triggerBody(con, TRIGGER_INSERT);
+            if (body == null || !body.contains("SQLEXCEPTION") || !body.contains("TicketLineInfo")) {
+                replaceTrigger(st, body != null, TRIGGER_INSERT, "AFTER INSERT ON sharedtickets FOR EACH ROW BEGIN "
+                        + "DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END; "
+                        + "IF LOCATE('" + LINE_CLASS + "', NEW.content) > 0 THEN "
                         + "DELETE FROM " + TABLE + " WHERE id = NEW.id; END IF; END");
             }
+            return null;
         } catch (SQLException ex) {
+            if (ex.getErrorCode() == 1205) {
+                return "Un respaldo en curso no dejó preparar la copia de las ventas en espera; se intenta de nuevo en un momento.";
+            }
             return "No se pudo activar la copia de las ventas en espera borradas: " + ex.getMessage();
+        } finally {
+            if (wait != null) {
+                try (Statement st = con.createStatement()) {
+                    st.execute("SET SESSION lock_wait_timeout = " + wait);
+                } catch (SQLException ex) {
+                    // the session keeps the short wait; harmless
+                }
+            }
         }
-        return null;
+    }
+
+    /** Replaces a trigger in one step (MariaDB); where that is not understood, drops and creates it. */
+    private static void replaceTrigger(Statement st, boolean exists, String name, String definition) throws SQLException {
+        if (!exists) {
+            st.execute("CREATE TRIGGER " + name + " " + definition);
+            return;
+        }
+        try {
+            st.execute("CREATE OR REPLACE TRIGGER " + name + " " + definition);
+        } catch (SQLException ex) {
+            if (ex.getErrorCode() != 1064) {
+                throw ex;
+            }
+            st.execute("DROP TRIGGER " + name);
+            st.execute("CREATE TRIGGER " + name + " " + definition);
+        }
+    }
+
+    private static boolean hasTable(Connection con) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = DATABASE() AND table_name = ?")) {
+            ps.setString(1, TABLE);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
+    private static boolean hasColumn(Connection con, String column) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM information_schema.columns "
+                + "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?")) {
+            ps.setString(1, TABLE);
+            ps.setString(2, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
     }
 
     /** Statement of a trigger of this database, or null if there is none. */
@@ -154,20 +236,14 @@ public final class HeldTicketArchive {
     }
 
     static boolean hasTrigger(Connection con, String name) throws SQLException {
-        try (PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM information_schema.triggers "
-                + "WHERE trigger_schema = DATABASE() AND trigger_name = ?")) {
-            ps.setString(1, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        }
+        return triggerBody(con, name) != null;
     }
 
     /** Copies the till has not read yet: archive id and content. */
     public static List<Object[]> pending(Connection con, int max) throws SQLException {
         List<Object[]> list = new ArrayList<>();
         try (PreparedStatement ps = con.prepareStatement("SELECT archive_id, content FROM " + TABLE
-                + " WHERE summarized = " + PENDING + " ORDER BY archive_id LIMIT ?")) {
+                + " WHERE summarized = " + PENDING + " AND content IS NOT NULL ORDER BY archive_id LIMIT ?")) {
             ps.setInt(1, max);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -208,14 +284,50 @@ public final class HeldTicketArchive {
         }
     }
 
-    /** Drops copies of tickets that were charged after all, and copies older than KEEP_DAYS. Returns how many. */
-    public static int purge(Connection con) throws SQLException {
-        int n = 0;
-        try (Statement st = con.createStatement()) {
-            n += st.executeUpdate("DELETE d FROM " + TABLE + " d JOIN tickets t ON t.id = d.ticket_id");
-            n += st.executeUpdate("DELETE FROM " + TABLE + " WHERE deleted_at < NOW() - INTERVAL " + KEEP_DAYS + " DAY");
+    /** The till that just opened this held ticket (its copy was made by the trigger a moment ago). */
+    public static void opened(Connection con, String id, String user, String terminal) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("UPDATE " + TABLE + " SET opened_by = ?, opened_terminal = ?, "
+                + "seen_open_at = NOW() WHERE id = ? ORDER BY archive_id DESC LIMIT 1")) {
+            ps.setString(1, cut(user, 100));
+            ps.setString(2, cut(terminal, 100));
+            ps.setString(3, id);
+            ps.executeUpdate();
         }
-        return n;
+    }
+
+    /** The till still has this held ticket open (every minute); nothing happens if it is not one. */
+    public static void stillOpen(Connection con, String id) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement("UPDATE " + TABLE + " SET seen_open_at = NOW() "
+                + "WHERE id = ? ORDER BY archive_id DESC LIMIT 1")) {
+            ps.setString(1, id);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Copies older than KEEP_DAYS go away, and charged ones keep only their
+     * summary (they cannot be put back). Only this table is locked: the
+     * tickets are read without locks, so a sale is never held up.
+     */
+    public static void purge(Connection con) throws SQLException {
+        try (Statement st = con.createStatement()) {
+            st.executeUpdate("DELETE FROM " + TABLE + " WHERE deleted_at < NOW() - INTERVAL " + KEEP_DAYS + " DAY");
+        }
+        List<Long> charged = new ArrayList<>();
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT d.archive_id FROM " + TABLE + " d "
+                + "WHERE d.content IS NOT NULL AND d.summarized <> " + PENDING + " AND d.ticket_id IS NOT NULL "
+                + "AND EXISTS (SELECT 1 FROM tickets t WHERE t.id = d.ticket_id)")) {
+            while (rs.next()) {
+                charged.add(rs.getLong(1));
+            }
+        }
+        for (Long a : charged) {
+            try (PreparedStatement ps = con.prepareStatement("UPDATE " + TABLE + " SET content = NULL, deliveryinfo = NULL "
+                    + "WHERE archive_id = ?")) {
+                ps.setLong(1, a);
+                ps.executeUpdate();
+            }
+        }
     }
 
     private static final Pattern UUID = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
@@ -241,7 +353,7 @@ public final class HeldTicketArchive {
     /**
      * What can be known of the copies no till has read yet: their ticket id,
      * and whether they were empty (Chromis saves and deletes an empty ticket
-     * every time the cashier moves on) or charged; those are dropped.
+     * every time the cashier moves on); empty ones are dropped.
      */
     public static void identify(Connection con) throws SQLException {
         List<Object[]> rows = new ArrayList<>();
@@ -266,19 +378,30 @@ public final class HeldTicketArchive {
                 }
             }
         }
-        purge(con);
+        try (Statement st = con.createStatement()) {
+            st.executeUpdate("DELETE FROM " + TABLE + " WHERE deleted_at < NOW() - INTERVAL " + KEEP_DAYS + " DAY");
+        }
     }
 
-    /** Deleted held tickets of the last [days] days, newest first (only the last copy of each). */
-    public static List<Entry> list(Connection con, int days) throws SQLException {
+    /**
+     * Held tickets that left the list in the last [days] days, newest first
+     * (only the last copy of each); charged ones only if asked.
+     */
+    public static List<Entry> list(Connection con, int days, boolean withCharged) throws SQLException {
         identify(con);
         List<Entry> list = new ArrayList<>();
         try (PreparedStatement ps = con.prepareStatement("SELECT d.archive_id, d.id, d.name, d.appuser, d.deleted_at, d.db_user, "
                 + "d.summarized, d.ticket_id, d.customer, d.total, d.line_count, d.line_text, "
-                + "(SELECT COUNT(*) FROM sharedtickets s WHERE s.id = d.id) "
-                + "FROM " + TABLE + " d WHERE d.deleted_at >= NOW() - INTERVAL ? DAY "
+                // In the list again: the same held ticket (its ticket number is inside the content)
+                + "CASE WHEN d.ticket_id IS NULL THEN (SELECT COUNT(*) FROM sharedtickets s WHERE s.id = d.id) "
+                + "ELSE (SELECT COUNT(*) FROM sharedtickets s WHERE LOCATE(d.ticket_id, s.content) > 0) END, "
+                + "d.opened_by, d.opened_terminal, d.seen_open_at >= NOW() - INTERVAL " + OPEN_MINUTES + " MINUTE, "
+                + "t.ticketid, p.name, r.datenew, d.content IS NULL "
+                + "FROM " + TABLE + " d "
+                + "LEFT JOIN tickets t ON t.id = d.ticket_id LEFT JOIN receipts r ON r.id = t.id LEFT JOIN people p ON p.id = t.person "
+                + "WHERE d.deleted_at >= NOW() - INTERVAL ? DAY "
                 + "AND d.archive_id = (SELECT MAX(x.archive_id) FROM " + TABLE + " x WHERE x.id = d.id) "
-                + "AND NOT EXISTS (SELECT 1 FROM tickets t WHERE t.id = d.ticket_id) "
+                + (withCharged ? "" : "AND t.id IS NULL ")
                 + "ORDER BY d.deleted_at DESC, d.archive_id DESC")) {
             ps.setInt(1, days);
             try (ResultSet rs = ps.executeQuery()) {
@@ -297,7 +420,23 @@ public final class HeldTicketArchive {
                     e.lineCount = rs.getInt(11);
                     e.lines = rs.getString(12);
                     e.backInList = rs.getInt(13) > 0;
+                    e.openedBy = rs.getString(14);
+                    e.openedTerminal = rs.getString(15);
+                    boolean openNow = rs.getBoolean(16);
+                    int number = rs.getInt(17);
+                    e.chargedTicket = rs.wasNull() ? null : number;
+                    e.chargedBy = rs.getString(18);
+                    e.chargedAt = rs.getTimestamp(19);
+                    boolean noContent = rs.getBoolean(20);
                     if (e.summarized == READ && e.lineCount == 0) {
+                        continue;
+                    }
+                    e.how = e.chargedTicket != null ? How.CHARGED : openNow ? How.OPEN : How.NOT_SAVED;
+                    if (e.backInList && e.how != How.CHARGED) {
+                        // Saved again (also under another id, when its own was taken): it is not lost
+                        continue;
+                    }
+                    if (noContent && e.how != How.CHARGED) {
                         continue;
                     }
                     list.add(e);
@@ -305,23 +444,24 @@ public final class HeldTicketArchive {
             }
         }
         for (Entry e : list) {
-            e.how = How.NOT_SAVED;
-            if (e.ticketId == null) {
+            if (e.ticketId == null || e.how == How.OPEN) {
                 continue;
             }
             // Chromis writes each line of a held ticket it deletes in lineremoved, with the user and the terminal:
             // "borrar todas" just before the delete, the bin after the ticket was opened (the copy is made when it is
             // opened). Older lines are from an earlier deletion of the same ticket (it was restored since).
-            try (PreparedStatement ps = con.prepareStatement("SELECT description, name, terminalid FROM lineremoved "
-                    + "WHERE ticketid = ? AND description IN ('Shared Ticket Removed', 'Full Ticket Removed') "
-                    + "AND removeddate >= ? - INTERVAL 1 MINUTE ORDER BY removeddate DESC LIMIT 1")) {
-                ps.setString(1, e.ticketId);
-                ps.setTimestamp(2, e.deletedAt);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        e.how = "Shared Ticket Removed".equals(rs.getString(1)) ? How.DELETE_ALL : How.BIN;
-                        e.deletedBy = rs.getString(2);
-                        e.terminal = rs.getString(3);
+            if (e.how == How.NOT_SAVED) {
+                try (PreparedStatement ps = con.prepareStatement("SELECT description, name, terminalid FROM lineremoved "
+                        + "WHERE ticketid = ? AND description IN ('Shared Ticket Removed', 'Full Ticket Removed') "
+                        + "AND removeddate >= ? - INTERVAL 1 MINUTE ORDER BY removeddate DESC LIMIT 1")) {
+                    ps.setString(1, e.ticketId);
+                    ps.setTimestamp(2, e.deletedAt);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            e.how = "Shared Ticket Removed".equals(rs.getString(1)) ? How.DELETE_ALL : How.BIN;
+                            e.deletedBy = rs.getString(2);
+                            e.terminal = rs.getString(3);
+                        }
                     }
                 }
             }
@@ -340,7 +480,7 @@ public final class HeldTicketArchive {
                     }
                 }
             }
-            if (e.summarized != READ && e.how != How.NOT_SAVED) {
+            if (e.summarized != READ && (e.how == How.DELETE_ALL || e.how == How.BIN || e.how == How.EMPTIED)) {
                 linesFromAudit(con, e);
             }
         }
@@ -400,6 +540,9 @@ public final class HeldTicketArchive {
                 rest = new Object[]{rs.getInt(3), rs.getString(4), rs.getString(5)};
                 delivery = rs.getBytes(6);
             }
+        }
+        if (content == null) {
+            throw new SQLException("Esa venta se cobró; no se puede regresar a las ventas en espera.");
         }
         String oldTicket = ticketIdOf(content);
         String newTicket = java.util.UUID.randomUUID().toString();
@@ -462,11 +605,11 @@ public final class HeldTicketArchive {
         return out;
     }
 
-    /** Changes whenever a held ticket is added or removed. */
+    /** Changes whenever a held ticket is added or removed (no length limit, unlike GROUP_CONCAT). */
     public static String listSignature(Connection con) throws SQLException {
         try (Statement st = con.createStatement();
-                ResultSet rs = st.executeQuery("SELECT COUNT(*), COALESCE(MD5(GROUP_CONCAT(id ORDER BY id)), '') FROM sharedtickets")) {
-            return rs.next() ? rs.getInt(1) + ":" + rs.getString(2) : "";
+                ResultSet rs = st.executeQuery("SELECT COUNT(*), COALESCE(SUM(CRC32(id)), 0), COALESCE(BIT_XOR(CRC32(id)), 0) FROM sharedtickets")) {
+            return rs.next() ? rs.getInt(1) + ":" + rs.getString(2) + ":" + rs.getString(3) : "";
         }
     }
 

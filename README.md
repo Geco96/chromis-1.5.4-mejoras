@@ -203,8 +203,27 @@ originales, las clases que se modificaron.
       layaways?", borraba las ventas en espera de todas las cajas. Ahora solo
       aparece un aviso: para quitar una, se abre y se borra con el bote.
     - Chromis también las quita con el bote de basura con una venta en espera
-      abierta, y al abrir una (la vuelve a guardar al pasar a otra venta; si
-      Chromis se cierra o se va la luz en ese momento, se perdía).
+      abierta, y al abrir una: mientras una caja la tiene abierta **no aparece
+      en las demás cajas** y vuelve a la lista cuando la cajera pasa a otra
+      venta o sale (por eso "desaparecen y vuelven a aparecer"); si Chromis se
+      cierra o se va la luz en ese momento, se perdía.
+    - **Corregido de Chromis original, al abrir una venta en espera**:
+      - Si otra caja la había abierto un momento antes (la lista seguía
+        abierta en pantalla), Chromis guardaba el ticket que la cajera tenía en
+        pantalla una segunda vez, con el identificador de la venta elegida:
+        quedaba duplicado, y cuando la otra caja quería guardar su venta daba
+        "Duplicate entry … PRIMARY" y **esa venta se perdía**. Ahora sale
+        "Esta venta en espera ya no está en la lista: la abrió otra caja o ya se
+        cobró" y no se duplica nada.
+      - Dos cajas que abrían la misma venta al mismo tiempo se quedaban las dos
+        con ella (una se perdía al guardarlas, o una cobrada regresaba a la
+        lista). Ahora solo la abre la caja que la quita de la lista.
+      - Si una venta no se puede guardar porque su identificador ya existe, se
+        guarda con otro en vez de perderse; y si no se puede guardar, la venta
+        se queda en pantalla en lugar de cambiarla por otra.
+      - Al escanear el código de recogida de una venta en espera, Chromis
+        guardaba la venta en pantalla dos veces (error de duplicado) y, si el
+        código no era de ninguna, la dejaba guardada y en pantalla a la vez.
     - Un trigger de la base guarda la copia en cada borrado, venga de la caja
       que venga, y la quita cuando la misma venta se vuelve a guardar. Cada
       caja con Chromis POS lee las copias nuevas cada minuto (productos,
@@ -214,7 +233,12 @@ originales, las clases que se modificaron.
       que Chromis guarda en ella), descarta las vacías (los tickets vacíos que
       Chromis guarda y borra al pasar a otra venta) y, si nadie la ha leído,
       muestra los productos que Chromis registró al borrarla.
-    - La pantalla muestra cuándo se borró, quién la capturó, cómo se borró y
+    - La pantalla muestra cuándo salió de la lista, quién la capturó, qué pasó
+      con ella y quién en qué caja: **abierta ahora en una caja** (cada caja
+      avisa cada minuto cuál tiene abierta; esa no se puede restaurar porque
+      vuelve sola), **perdida** (se abrió en tal caja y esa caja ya no la tiene),
+      borrada con el bote, vaciada, o **cobrada en el ticket N** (con la casilla
+      *Ver también las que se cobraron*; de esas solo queda el resumen), con
       quién la borró en qué caja (de lo que Chromis registra en "líneas
       removidas", lo mismo que sale en el corte), con filtro por usuario y por
       días. Si le quitaron los productos uno por uno, también lo dice y con
@@ -229,6 +253,11 @@ originales, las clases que se modificaron.
       quitaron los productos), pide confirmar y avisa que podrían quedar dos.
     - Las copias se guardan 60 días. Necesita que el usuario de la base pueda
       crear triggers (el de Chromis puede); si no, la pantalla lo avisa.
+    - Los triggers nunca hacen fallar a Chromis: si la copia no se puede
+      escribir, la venta en espera se borra o se guarda igual. Si al crear o
+      actualizar los triggers hay un respaldo en curso, se espera 5 segundos
+      como máximo (las cajas esperarían detrás) y se intenta otra vez al
+      minuto. La caja no bloquea las ventas al revisar cuáles se cobraron.
 
 ### Tablas nuevas
 
@@ -292,7 +321,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Código Code 128 | Botón: "ASERRIN BOLSA NEGRO" → SRRNBLSNGR, guardado como CODE128 y encontrado al escanearlo en la caja; en Arroz (EAN-13) pregunta antes de reemplazar. Guardando sin código: "CEMENTO GRIS PORTLAND 50 KG" → CMNTGRSPRTLN. |
 | Código corto y EAN-13 interno | Cemento: Code 128 con largo 8 → CMNTGRSP, con largo 6 → CMNTGR; EAN-13 interno → 2000000000015, guardado por Chromis como `EAN-13`; con "al guardar sin código: EAN-13" y el PLU vacío se generó solo. |
 | Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
-| Ventas en espera borradas | En Chromis POS: 4 ventas en espera; una se abrió y se cobró, y las otras 3 se borraron con clic derecho → *Yes*. Las 3 quedaron copiadas y Chromis registró el borrado (Administrator, CAJA1); en un minuto la caja leyó sus productos y descartó la cobrada y la vacía. En Admin se vieron las 3 con "Borrar todas" y quién las borró, se restauró una y se abrió en la caja con su producto. Esa misma venta se abrió y se cerró Chromis a la fuerza: quedó como "Sin registro de borrado", se restauró (con el aviso de que podría seguir abierta) y el botón de la caja pasó de vacío a 1 sin tocarlo. Con el jar nuevo, el clic derecho y F10 solo muestran "Borrar todas las ventas en espera está desactivado" y las ventas siguen. Con una caja con el jar anterior (como en la distribuidora): una venta borrada con el bote y otra perdida al cerrar la caja dejaron 4 copias (2 de tickets vacíos); Admin mostró solo las 2 reales, la del bote con quién la borró, en qué caja y sus productos, y la otra sin registro de borrado; al entrar una caja con el jar nuevo se completaron sus productos. Le quitaron los productos uno por uno a una venta en espera abierta y se dejó abierta en la caja: Admin la mostró como "Le quitaron los productos" con quién y sus 2 productos; se restauró como "(restaurada)", la caja pasó a otra venta sin el error de "Duplicate entry" y la restaurada se abrió con sus productos y se cobró. `HeldTicketArchiveTest`: 38 comprobaciones (copia al abrir y se quita al volver a guardarla, borrar todas, bote, cierre de Chromis, vacía, cobrada después, restaurar sin cambiar el contenido, no restaurar dos veces, borrado anterior de la misma venta, número de ticket y tickets vacíos sin abrir la copia, quién y qué productos sin que la lea una caja, restaurar como venta nueva sin chocar con la que sigue abierta, productos quitados uno por uno). Un respaldo con la tabla y los triggers se restauró completo con `restaurar.jar`. |
+| Ventas en espera borradas | En Chromis POS: 4 ventas en espera; una se abrió y se cobró, y las otras 3 se borraron con clic derecho → *Yes*. Las 3 quedaron copiadas y Chromis registró el borrado (Administrator, CAJA1); en un minuto la caja leyó sus productos y descartó la cobrada y la vacía. En Admin se vieron las 3 con "Borrar todas" y quién las borró, se restauró una y se abrió en la caja con su producto. Esa misma venta se abrió y se cerró Chromis a la fuerza: quedó como "Sin registro de borrado", se restauró (con el aviso de que podría seguir abierta) y el botón de la caja pasó de vacío a 1 sin tocarlo. Con el jar nuevo, el clic derecho y F10 solo muestran "Borrar todas las ventas en espera está desactivado" y las ventas siguen. Con una caja con el jar anterior (como en la distribuidora): una venta borrada con el bote y otra perdida al cerrar la caja dejaron 4 copias (2 de tickets vacíos); Admin mostró solo las 2 reales, la del bote con quién la borró, en qué caja y sus productos, y la otra sin registro de borrado; al entrar una caja con el jar nuevo se completaron sus productos. Le quitaron los productos uno por uno a una venta en espera abierta y se dejó abierta en la caja: Admin la mostró como "Le quitaron los productos" con quién y sus 2 productos; se restauró como "(restaurada)", la caja pasó a otra venta sin el error de "Duplicate entry" y la restaurada se abrió con sus productos y se cobró. Con la lista de ventas en espera abierta, otra caja abrió la venta elegida: Chromis original dejó el ticket en pantalla duplicado con el identificador de esa venta; corregido, avisó "ya no está en la lista" y quedó una sola. La venta en pantalla chocó con un identificador ya ocupado: se guardó con otro, sin error. Con una falla simulada de la base al tocar el carrito, salió el error y la venta se quedó en pantalla (Chromis original la cambiaba por una vacía y se perdía); al quitar la falla se guardó. Una venta abierta en la caja salió en Admin como "Abierta en una caja · Administrator · CAJA1" sin poder restaurarse. `HeldTicketStressTest`: 6 cajas a la vez abriendo, guardando, cobrando y borrando ~520 ventas en espera con el vigilante y respaldos corriendo, 5 veces: ninguna operación falló, la lista final exacta (sin perdidas ni duplicadas), una copia por cada venta que salió y, cuando dos cajas quisieron la misma (14 a 41 veces), solo una la abrió. `HeldTicketArchiveTest`: 53 comprobaciones (copia al abrir y se quita al volver a guardarla, borrar todas, bote, cierre de Chromis, vacía, cobrada después, restaurar sin cambiar el contenido, no restaurar dos veces, borrado anterior de la misma venta, número de ticket y tickets vacíos sin abrir la copia, quién y qué productos sin que la lea una caja, restaurar como venta nueva sin chocar con la que sigue abierta, productos quitados uno por uno, abierta en una caja y perdida, cobrada con su ticket, firma de la lista, Chromis sin fallar sin la tabla de copias, actualización de triggers y columnas anteriores, respaldo en curso). Un respaldo con la tabla y los triggers se restauró completo con `restaurar.jar`. |
 | Corte de caja | Con el 363 ya ocupado, el corte 362 se cerró y abrió el 364 (Chromis original: error y corte a medias). Con una falla simulada al abrir el corte nuevo: mensaje "No se cambió nada", el corte siguió abierto con su venta, la caja en su corte y el error en `chromis-cortes.log`; al reintentar se cerró. Al arrancar con la caja en un corte inexistente, Chromis intentó crear uno con número repetido y falló sin avisar; la revisión al entrar abrió el siguiente. *Recargar día*: el 362 (inicio 19/10, cierre 26/10) aparece al buscar el 26/10 y se carga con sus ventas; un corte "sin cerrar" se cierra a la hora de su última venta. `CashCloseTest`: 22 comprobaciones. |
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |
