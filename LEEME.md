@@ -1,16 +1,21 @@
 # Descargas: Chromis 1.5.4 con mejoras
 
-Archivos compilados de la rama `mejoras` (commit `2a02bee`), listos para instalar.
+Archivos compilados de la rama `mejoras` (commit `9df0d4e`), listos para instalar.
 Las instrucciones completas están en el README de la rama `mejoras`.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `fb1f3da699ff9cdbbbce304816ac5e871e24d63e8d43dda9faa34c127eec5fd9` |
+| `chromispos.jar` | Carpeta de instalación de Chromis POS, en cada caja | `a394c4def811c2be55c5260e13cc032831681f96a57c99721564048099903068` |
 | `admin.jar` | Carpeta de instalación de Chromis Admin | `e8d4d554e919b5e67f53287d42b15f8cbc0672da0a9d3c5ab2150dd00c5c48e1` |
 | `restaurar.jar` | Carpeta de instalación de Chromis (donde está `chromisposconfig.properties`); se abre con doble clic para restaurar un respaldo | `5562c4cd7101a6f5a83f3a40b462d67690697a0b6967a146d0b0638a1cfe7efe` |
 
 ## Novedades de esta versión (también en `enterprise/`)
 
+- **Hora de cada producto en la venta** (solo cambia `chromispos.jar`): en la
+  pantalla de venta, debajo de cada producto y en letra pequeña, cuándo se
+  agregó y quién, y si le cambiaron la cantidad, de cuánto a cuánto, cuándo y
+  quién. Útil para las ventas en espera que se llenan durante días como cuenta
+  de un cliente. No sale en el ticket impreso.
 - **Ventas en espera entre varias cajas** (corregido de Chromis original): si
   otra caja abría la venta elegida un momento antes, la caja guardaba su
   ticket duplicado y la venta de la otra caja se perdía ("Duplicate entry");
@@ -61,7 +66,7 @@ cerrarlos. No necesita `mysql.exe`.
 
 ## Enterprise (carpeta `enterprise/`)
 
-Compilados de la rama `enterprise` (commit `8b389d3`): todo lo de `mejoras` más
+Compilados de la rama `enterprise` (commit `9b73a13`): todo lo de `mejoras` más
 **Mostrador / Entrega** en la caja, **Pedido tentativo** diario y el **Gestor de
 entregas** (Admin → Customers: estados, cuadrantes, repartidores y mapa de
 Google en su propia ventana, pines sugeridos por la dirección y cierre de
@@ -80,7 +85,7 @@ usan los de arriba.
 
 | Archivo | Dónde va | SHA-256 |
 |---|---|---|
-| `enterprise/chromispos.jar` | Cajas de la distribuidora | `8c099a534ae72cac9774580e218f8717bad717a45c2b92d82b5d97fe4743d09e` |
+| `enterprise/chromispos.jar` | Cajas de la distribuidora | `ebe6efb6f7c1bb4694067467993ede2607f218444403e64bec1cf9be85112c59` |
 | `enterprise/admin.jar` | Chromis Admin de la distribuidora | `96d9ae305f27b258f2ecc781d5202d733d738b641e71881bb33f7cfda2e1ab2d` |
 | `enterprise/restaurar.jar` | Igual que el de arriba (no cambia) | `2c398e3dee6e9aa6ef4832b6e697651f80e13ffd537743a7b52419e883eb07f0` |
 
