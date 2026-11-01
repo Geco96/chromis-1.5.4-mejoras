@@ -51,6 +51,8 @@ public class JTicketLines extends JPanel {
    private final HashMap<Integer, String> processed;
    private JScrollPane m_jScrollTableTicket;
    private JTable m_jTicketTable;
+   /** Under the product, when it was added and when its quantity changed (sales screen only, see LineTimes). */
+   private boolean showLineTimes = false;
 
    public JTicketLines(String ticketline) {
       this.initComponents();
@@ -94,6 +96,32 @@ public class JTicketLines extends JPanel {
       this.fgcolour = this.m_jTicketTable.getForeground();
       this.selfgcolour = this.m_jTicketTable.getSelectionForeground();
       this.selbgcolour = this.m_jTicketTable.getSelectionBackground();
+   }
+
+   /** With the times under the product a row may need more than the usual height; never less. */
+   private void fitRowHeight(int row, String productCell) {
+      if (!this.showLineTimes || productCell == null || row < 0 || row >= this.m_jTicketTable.getRowCount()) {
+         return;
+      }
+
+      JLabel probe = new JLabel(productCell);
+      probe.setFont(ChromisFonts.DEFAULTFONT);
+      javax.swing.text.View view = (javax.swing.text.View)probe.getClientProperty("html");
+      int needed = SystemProperty.LINESIZE;
+      if (view != null) {
+         int width = Math.max(this.m_jTicketTable.getColumnModel().getColumn(0).getWidth(),
+            this.m_jTicketTable.getColumnModel().getColumn(0).getPreferredWidth());
+         view.setSize(Math.max(width - 4, 50), 0.0F);
+         needed = Math.max(needed, (int)Math.ceil(view.getPreferredSpan(javax.swing.text.View.Y_AXIS)) + 4);
+      }
+
+      if (this.m_jTicketTable.getRowHeight(row) != needed) {
+         this.m_jTicketTable.setRowHeight(row, needed);
+      }
+   }
+
+   public void setShowLineTimes(boolean show) {
+      this.showLineTimes = show;
    }
 
    public void addListSelectionListener(ListSelectionListener l) {
@@ -369,9 +397,15 @@ public class JTicketLines extends JPanel {
                row[i] = null;
             }
 
+            if (i == 0 && JTicketLines.this.showLineTimes) {
+               row[i] = LineTimes.withLabel(row[i], oLine);
+            }
+
             JTicketLines.this.setProperties(oLine.getProperties(), index);
             this.fireTableCellUpdated(index, i);
          }
+
+         JTicketLines.this.fitRowHeight(index, row.length > 0 ? row[0] : null);
       }
 
       public void addRow(TicketLineInfo oLine) {
@@ -389,11 +423,16 @@ public class JTicketLines extends JPanel {
             } catch (ScriptException var6) {
                row[i] = null;
             }
+
+            if (i == 0 && JTicketLines.this.showLineTimes) {
+               row[i] = LineTimes.withLabel(row[i], oLine);
+            }
          }
 
          JTicketLines.this.setProperties(oLine.getProperties(), index);
          this.m_rows.add(index, row);
          this.fireTableRowsInserted(index, index);
+         JTicketLines.this.fitRowHeight(index, row[0]);
       }
 
       public void removeRow(int row) {
