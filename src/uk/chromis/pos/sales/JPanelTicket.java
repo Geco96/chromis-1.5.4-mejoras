@@ -297,8 +297,10 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       this.add(this.m_ticketsbag.getNullComponent(), "null");
       if (SystemProperty.TAXINCLUDED) {
          this.m_ticketlines = new JTicketLines(this.dlSystem.getResourceAsXML("Ticket.LineIncTaxes"));
+         this.m_ticketlines.setShowLineTimes(true);
       } else {
          this.m_ticketlines = new JTicketLines(this.dlSystem.getResourceAsXML("Ticket.LineExclTaxes"));
+         this.m_ticketlines.setShowLineTimes(true);
       }
 
       this.ticketPanel.add(this.m_ticketlines, "Center");
@@ -462,6 +464,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       if (this.executeEventAndRefresh("ticket.addline", new JPanelTicket.ScriptArg("line", oLine)) == null) {
          if (!oLine.isProductCom()) {
             this.m_oTicket.addLine(oLine);
+            this.stampLine(oLine);
             this.m_ticketlines.addTicketLine(oLine);
 
             try {
@@ -506,11 +509,13 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
                }
 
                this.m_oTicket.insertLine(i, oLine);
+               this.stampLine(oLine);
                this.m_ticketlines.insertTicketLine(i, oLine);
             } else {
                // Not an auxiliary of that product (or nothing selected): it is a line of its own
                this.m_oTicket.addLine(oLine);
-               this.m_ticketlines.addTicketLine(oLine);
+               this.stampLine(oLine);
+            this.m_ticketlines.addTicketLine(oLine);
             }
          }
 
@@ -610,6 +615,13 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
       }
    }
 
+   /** Notes when a product was added to the sale or its quantity changed (not on refunds), see LineTimes. */
+   private void stampLine(TicketLineInfo line) {
+      if (this.m_oTicket != null && !this.m_oTicket.isRefund()) {
+         LineTimes.stamp(line, this.m_App.getAppUserView().getUser().getName(), new Date());
+      }
+   }
+
    /** Id of the held ticket on screen (read by the watcher every minute, off the Swing thread). */
    private String currentHeldTicketId() {
       JTicketsBag bag = this.m_ticketsbag;
@@ -656,6 +668,8 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
             this.m_jList.setVisible(true);
             this.m_oTicket = oTicket;
             this.m_oTicketExt = oTicketExt;
+            // Lines saved before the times were kept: their quantity is known, not when they were added
+            LineTimes.adopt(oTicket);
             // The delivery data belong to the ticket, not to the panel (Chromis kept the last one for the next sales)
             this.deliveryInfo = this.restoreDelivery(oTicket);
             this.refreshOrderTypeButton();
@@ -744,6 +758,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
          this.m_ticketlines2.clearTicketLines();
 
          for (int i = 0; i < this.m_oTicket.getLinesCount(); i++) {
+            this.stampLine(this.m_oTicket.getLine(i));
             this.m_ticketlines.addTicketLine(this.m_oTicket.getLine(i));
             this.m_ticketlines2.addTicketLine(this.m_oTicket.getLine(i));
          }
@@ -848,6 +863,7 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    private void paintTicketLine(int index, TicketLineInfo oLine) {
       if (this.executeEventAndRefresh("ticket.setline", new JPanelTicket.ScriptArg("index", index), new JPanelTicket.ScriptArg("line", oLine)) == null) {
          this.m_oTicket.setLine(index, oLine);
+         this.stampLine(oLine);
          this.m_ticketlines.setTicketLine(index, oLine);
          this.m_ticketlines.setSelectedIndex(index);
          CustomerDisplay.updateDisplay(oLine);
