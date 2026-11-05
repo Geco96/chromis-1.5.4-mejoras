@@ -84,6 +84,7 @@ import uk.chromis.custom.controls.ImageEditor;
 import uk.chromis.custom.toggleswitch.ToggleSwitch;
 import uk.chromis.data.loader.SessionFactory;
 import uk.chromis.pos.costpricing.CostPricingStore;
+import uk.chromis.pos.search.SearchTagsStore;
 import uk.chromis.format.Formats;
 import uk.chromis.globals.IconFactory;
 import uk.chromis.globals.SystemProperty;
@@ -215,6 +216,7 @@ public class ProductController extends BasePanelController implements Initializa
    public TextField txtMinimum;
    public TextField txtMaximum;
    public TextField txtKitchenDescription;
+   public TextField txtSearchTags;
    public TextField txtPackCost;
    public TableColumn reference;
    public TableColumn barcodeProdTable;
@@ -373,6 +375,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.setTextListener(this.txtShortName);
       this.setTextListener(this.txtCatalogOrder);
       this.setTextListener(this.txtKitchenDescription);
+      this.setTextListener(this.txtSearchTags);
       this.txtCatalogOrder.disableProperty().bind(this.tswtInCatalog.selectedProperty().not());
       this.lblCatalog.disableProperty().bind(this.tswtInCatalog.selectedProperty().not());
       this.discountSpinner.disableProperty().bind(this.tswtCanDiscount.selectedProperty().not());
@@ -1430,6 +1433,7 @@ public class ProductController extends BasePanelController implements Initializa
       this.tswtAlwaysAvailable.setSelected(this.selectedProduct.isAlwaysAvailable());
       this.tswtCanDiscount.setSelected(this.selectedProduct.canDiscount());
       this.tswtCostPricing.setSelected(!this.isCostPricingExcluded(this.selectedProduct.getId()));
+      this.txtSearchTags.setText(String.join(", ", this.searchTags(this.selectedProduct.getId())));
       this.discountSpinner.getEditor().setText(this.selectedProduct.canDiscount() ? String.valueOf(this.selectedProduct.getDiscount()) : "");
       this.tswtManageStockLevel.setSelected(this.selectedProduct.manageStock());
       this.tswtAgeWarning.setSelected(this.selectedProduct.isAgeRestricted());
@@ -2111,6 +2115,7 @@ public class ProductController extends BasePanelController implements Initializa
    public void resetFields() {
       this.APIcall = true;
       this.tswtCostPricing.setSelected(true);
+      this.txtSearchTags.setText("");
       this.txtReference.setText("");
       this.txtReference.setDisable(false);
       this.txtBarcode.setText("");
@@ -2341,6 +2346,7 @@ public class ProductController extends BasePanelController implements Initializa
             try {
                this.productDataLogic.productInsert().exec(record);
                this.saveCostPricing(id);
+               this.saveSearchTags(id);
                dirty.setValue(false);
                if (!this.tswtRetireProduct.isSelected()) {
                   this.addTableRow(this.productDataLogic.getProduct(id));
@@ -2363,6 +2369,7 @@ public class ProductController extends BasePanelController implements Initializa
             try {
                this.productDataLogic.productUpdate().exec(record);
                this.saveCostPricing(this.selectedProduct.getId());
+               this.saveSearchTags(this.selectedProduct.getId());
                dirty.setValue(false);
                if (this.tswtRetireProduct.isSelected()) {
                   this.resetFields();
@@ -2390,6 +2397,26 @@ public class ProductController extends BasePanelController implements Initializa
       } catch (SQLException ex) {
          Logger.getLogger(ProductController.class.getName()).log(Level.SEVERE, null, ex);
          return false;
+      }
+   }
+
+   // Etiquetas de busqueda (product_tags): otras palabras con que se busca el producto en la caja y la tableta
+   private List<String> searchTags(String productId) {
+      try {
+         return SearchTagsStore.tags(SessionFactory.getInstance().getSession().getConnection(), productId);
+      } catch (SQLException ex) {
+         Logger.getLogger(ProductController.class.getName()).log(Level.SEVERE, null, ex);
+         return new ArrayList<>();
+      }
+   }
+
+   private void saveSearchTags(String productId) {
+      try {
+         SearchTagsStore.saveTags(SessionFactory.getInstance().getSession().getConnection(), productId,
+            SearchTagsStore.split(this.txtSearchTags.getText()));
+      } catch (SQLException ex) {
+         Logger.getLogger(ProductController.class.getName()).log(Level.SEVERE, null, ex);
+         Dialogs.showDialog(4, "No se pudieron guardar las etiquetas de búsqueda:\n" + ex.getMessage(), (Stage)this.apAnchor.getScene().getWindow(), true);
       }
    }
 

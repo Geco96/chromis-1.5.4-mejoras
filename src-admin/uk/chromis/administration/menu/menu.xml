@@ -48,6 +48,11 @@ menuItem option - text              chromispos.properties entry to use
                     accessName="Products"
                     actionMethod="showPanel" />  
         <menuEntry  type="menuitem"
+                    text = "Sinónimos de búsqueda"
+                    actionClass="uk.chromis.administration.search.SearchSynonyms"
+                    accessName="Products"
+                    actionMethod="showPanel" />
+        <menuEntry  type="menuitem"
                     text = "menu.recipes"
                     actionClass="uk.chromis.administration.recipes.Recipe"
                     accessName="Recipes"
