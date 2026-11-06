@@ -464,7 +464,7 @@ originales, las clases que se modificaron.
       como máximo (las cajas esperarían detrás) y se intenta otra vez al
       minuto. La caja no bloquea las ventas al revisar cuáles se cobraron.
 
-15. **Hora de cada producto en la venta** (Chromis POS, pantalla de venta):
+20. **Hora de cada producto en la venta** (Chromis POS, pantalla de venta):
     debajo de cada producto, en letra pequeña, cuándo se agregó y quién lo
     agregó, y si después le cambiaron la cantidad, de cuánto a cuánto, cuándo
     y quién: *"Agregado 25/10/26 14:32 Laura · cambió de 2 a 5 el 01/11/26
@@ -479,6 +479,29 @@ originales, las clases que se modificaron.
       se inventa); sus cambios de cantidad sí se registran desde ahora.
     - La fila crece sola si el texto no cabe (por ejemplo, con notas).
     - En devoluciones no se registra.
+
+21. **Buscador rápido de productos** (Chromis POS, botón de búsqueda de la
+    venta; la misma búsqueda que la venta de Chromis Android): filtra mientras
+    se escribe por código, referencia, códigos alternos, nombre y etiquetas.
+    Flechas para moverse, Enter o doble clic agrega, Esc cierra; el buscador
+    clásico de Chromis queda en el botón *Buscador clásico...*.
+    - Entiende **acentos, mayúsculas y ñ** ("lampara" → "Lámpara"),
+      **singular y plural** ("luces" = "luz", "pañales" = "pañal") y palabras
+      **a medio escribir** ("lamp").
+    - **Errores de dedo**: "Tal vez quisiste decir: lámpara"; con un clic busca
+      así. Solo se ofrece si con la corrección sí hay resultados.
+    - **Parecidos**: con menos de 5 resultados se muestran abajo los que tienen
+      todas las palabras menos una (o alguna con error de dedo). Así
+      "Lámparas led luz fría" muestra "Luces led luz fría".
+    - **Etiquetas** (Admin → Productos, primera pestaña, *Etiquetas de
+      búsqueda*): otras palabras con que la gente pide ese producto, separadas
+      por coma.
+    - **Sinónimos** (Admin → Inventario → *Sinónimos de búsqueda*, en bloques):
+      grupos como "lámpara, luz, foco" que valen para todos los productos.
+    - Un nombre escrito en la caja que no es un código (lleva letras) abre el
+      buscador con ese texto en lugar del aviso "no existe".
+    - El índice en memoria se arma al abrir el buscador y se renueva cada
+      5 min o al guardar etiquetas o sinónimos en esa misma PC.
 
 ### Tablas nuevas
 
@@ -505,6 +528,7 @@ Chromis no cambia**, por lo que volver al jar original no causa problemas
 | `delivery_status`, `delivery_events` | Estado actual de cada entrega (mismo id que el ticket) y su historial con el identificador único de cada operación. |
 | `pick_audit`, `pick_audit_lines` | Auditor de salida: cada auditoría (ticket, abierta o cerrada, quién y cuándo, cuadrada o con faltantes) y por producto lo esperado, lo escaneado y si el faltante se justificó. |
 | `restock_drafts`, `restock_draft_lines` | Pedidos tentativos por proveedor y sus productos: borrador, enviado (con su folio), descartado o reemplazado. Su hora, caja y último resultado van en `pos_settings` (`restock.draft.*`). |
+| `product_tags (product, tag)`, `search_synonyms (id, words)` | Etiquetas de búsqueda por producto y grupos de sinónimos (las mismas tablas que usa Chromis Android). |
 | `sharedtickets_deleted` | Copias de las ventas en espera borradas (60 días). La llenan los triggers `sharedtickets_guardar_borrada` y `sharedtickets_quitar_borrada` de la tabla original `sharedtickets`, que no cambia de estructura. |
 
 Se configuran desde Admin; si hiciera falta, también con SQL, por ejemplo:
@@ -551,6 +575,7 @@ MariaDB, se ejecutaron Chromis POS y Chromis Admin modificados (capturas en
 | Asistencia automática | Con ambas opciones activas: al abrir la caja se registró la entrada (aviso verde); al hacer el corte, la salida (aviso azul); al volver a entrar un minuto después no se abrió otra. Pruebas con horas simuladas: apagado no registra, 2 h después del corte no abre, al día siguiente sí, entrada olvidada de ayer se cierra a la hora de su última venta. |
 | Ventas en espera borradas | En Chromis POS: 4 ventas en espera; una se abrió y se cobró, y las otras 3 se borraron con clic derecho → *Yes*. Las 3 quedaron copiadas y Chromis registró el borrado (Administrator, CAJA1); en un minuto la caja leyó sus productos y descartó la cobrada y la vacía. En Admin se vieron las 3 con "Borrar todas" y quién las borró, se restauró una y se abrió en la caja con su producto. Esa misma venta se abrió y se cerró Chromis a la fuerza: quedó como "Sin registro de borrado", se restauró (con el aviso de que podría seguir abierta) y el botón de la caja pasó de vacío a 1 sin tocarlo. Con el jar nuevo, el clic derecho y F10 solo muestran "Borrar todas las ventas en espera está desactivado" y las ventas siguen. Con una caja con el jar anterior (como en la distribuidora): una venta borrada con el bote y otra perdida al cerrar la caja dejaron 4 copias (2 de tickets vacíos); Admin mostró solo las 2 reales, la del bote con quién la borró, en qué caja y sus productos, y la otra sin registro de borrado; al entrar una caja con el jar nuevo se completaron sus productos. Le quitaron los productos uno por uno a una venta en espera abierta y se dejó abierta en la caja: Admin la mostró como "Le quitaron los productos" con quién y sus 2 productos; se restauró como "(restaurada)", la caja pasó a otra venta sin el error de "Duplicate entry" y la restaurada se abrió con sus productos y se cobró. Con la lista de ventas en espera abierta, otra caja abrió la venta elegida: Chromis original dejó el ticket en pantalla duplicado con el identificador de esa venta; corregido, avisó "ya no está en la lista" y quedó una sola. La venta en pantalla chocó con un identificador ya ocupado: se guardó con otro, sin error. Con una falla simulada de la base al tocar el carrito, salió el error y la venta se quedó en pantalla (Chromis original la cambiaba por una vacía y se perdía); al quitar la falla se guardó. Una venta abierta en la caja salió en Admin como "Abierta en una caja · Administrator · CAJA1" sin poder restaurarse. `HeldTicketStressTest`: 6 cajas a la vez abriendo, guardando, cobrando y borrando ~520 ventas en espera con el vigilante y respaldos corriendo, 5 veces: ninguna operación falló, la lista final exacta (sin perdidas ni duplicadas), una copia por cada venta que salió y, cuando dos cajas quisieron la misma (14 a 41 veces), solo una la abrió. `HeldTicketArchiveTest`: 53 comprobaciones (copia al abrir y se quita al volver a guardarla, borrar todas, bote, cierre de Chromis, vacía, cobrada después, restaurar sin cambiar el contenido, no restaurar dos veces, borrado anterior de la misma venta, número de ticket y tickets vacíos sin abrir la copia, quién y qué productos sin que la lea una caja, restaurar como venta nueva sin chocar con la que sigue abierta, productos quitados uno por uno, abierta en una caja y perdida, cobrada con su ticket, firma de la lista, Chromis sin fallar sin la tabla de copias, actualización de triggers y columnas anteriores, respaldo en curso). Un respaldo con la tabla y los triggers se restauró completo con `restaurar.jar`. |
 | Hora de cada producto | En Chromis POS: dos productos mostraron "Agregado 01/11/26 02:31 Administrator"; la venta se puso en espera, se reabrió y al subir uno a 2 mostró "cambió de 1 a 2 el 01/11/26 02:33" (la fila creció a dos renglones); al cobrar, las dos líneas quedaron en `ticketlines` con su hora y la que cambió con su cambio. `tests/LineTimesTest.java` (13 comprobaciones): agregar, volver a mostrar sin cambiar, cambio de cantidad, granel, historial, misma persona sin repetir, líneas de antes sin hora inventada, texto en la plantilla HTML de Chromis sin línea vacía, escape. |
+| Buscador rápido | Contra MariaDB 10.11 (`SearchIndex` y `SearchTagsStore` con el conector MySQL): "bombillas" encontró "Foco ahorrador 20W" por su etiqueta; "lampra" ofreció "Tal vez quisiste decir: lámpara" con "Lámpara de escritorio" de parecido; "Lámparas led luz fría" encontró "Luces led luz fría" (con el sinónimo lámpara = luz; sin él, entre los parecidos); "7503" por código; "100%" no rompe la consulta; las tablas se crean al primer guardado y borrar etiquetas y grupos los quita. La ventana de la caja y la pantalla de Admin compilan pero no se han abierto. |
 | Corte de caja | Con el 363 ya ocupado, el corte 362 se cerró y abrió el 364 (Chromis original: error y corte a medias). Con una falla simulada al abrir el corte nuevo: mensaje "No se cambió nada", el corte siguió abierto con su venta, la caja en su corte y el error en `chromis-cortes.log`; al reintentar se cerró. Al arrancar con la caja en un corte inexistente, Chromis intentó crear uno con número repetido y falló sin avisar; la revisión al entrar abrió el siguiente. *Recargar día*: el 362 (inicio 19/10, cierre 26/10) aparece al buscar el 26/10 y se carga con sus ventas; un corte "sin cerrar" se cierra a la hora de su última venta. `CashCloseTest`: 22 comprobaciones. |
 | Pedido y recepción | Reposición con Bolsa (17) y Espiral (4, faltante de un pedido anterior) → PED-000006 con su código; el código del PDF se lee como Code 128 "PED-000006". Escaneando el folio se cargó el pedido; se escanearon 15 bolsas, 2 Arroz (no pedidos) y nada de Espiral, costo de bolsa 1.20 y factura F-778: stock Bolsa 3 → 18, Arroz 11 → 13, costo de bolsa sin cambio, contrarecibo con faltantes. En Reposición: Bolsa 2 y Espiral 4 marcados como faltantes. *Autorizar costos*: Bolsa 1.00 → 1.20 (+20 %), venta sugerida 2.40 cambiada a 2.50 y autorizada. Otro pedido con *Llegó todo correcto*: Espiral 18 → 22. Los pedidos aparecen en *Orders* de Chromis. |
 | Inicio de sesión en Admin | La lista muestra Administrator, Employee y Manager; al elegir Manager el cursor pasa a la contraseña; contraseña incorrecta se rechaza; la correcta entra; al volver a abrir Admin, Manager ya está seleccionado. |

@@ -970,7 +970,11 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
 
       try {
          ProductInfoExt oProduct = this.dlSales.getProductInfoByCode(this.alternativeBarcode.getM_sbaseBarcode());
-         if (oProduct == null) {
+         if (oProduct == null && looksLikeName(barCode)) {
+            // Mejora: un nombre escrito en la caja abre el buscador rapido con ese texto
+            this.stateToZero();
+            this.quickSearch(barCode);
+         } else if (oProduct == null) {
             this.errorBeep();
             JAlertPane.messageBox(1, "\n" + barCode + " - " + AppLocal.getIntString("message.noproduct"), 16, new Dimension(125, 50), 4);
             this.stateToZero();
@@ -3526,15 +3530,44 @@ public abstract class JPanelTicket extends JPanel implements JPanelView, BeanFac
    }
 
    private void searchForProduct(ActionEvent evt) {
-      AutoLogoff.getInstance().deactivateTimer();
-      JProductFinder productFinder = new JProductFinder(this.dlSales);
-      productFinder.setVisible(true);
-      ProductInfoExt prod = productFinder.getSelectedProduct();
-      if (prod != null) {
-         this.buttonTransition(prod);
-      }
+      this.quickSearch(null);
+   }
 
-      AutoLogoff.getInstance().activateTimer();
+   /**
+    * Mejora: buscador rapido que filtra mientras se escribe (acentos, plurales,
+    * etiquetas, sinonimos, "Tal vez quisiste decir" y parecidos). Desde ahi se
+    * puede abrir el buscador clasico de Chromis.
+    */
+   private void quickSearch(String initialText) {
+      AutoLogoff.getInstance().deactivateTimer();
+      try {
+         JBusquedaRapida.Outcome r = JBusquedaRapida.show(this, this.dlSales, this.siteGuid, initialText);
+         ProductInfoExt prod = r.product;
+         if (prod == null && r.classicRequested) {
+            JProductFinder productFinder = new JProductFinder(this.dlSales);
+            productFinder.setVisible(true);
+            prod = productFinder.getSelectedProduct();
+         }
+
+         if (prod != null) {
+            this.buttonTransition(prod);
+         }
+      } finally {
+         AutoLogoff.getInstance().activateTimer();
+      }
+   }
+
+   /** Texto escrito en la caja que no es un codigo (lleva letras): se busca por nombre. */
+   private static boolean looksLikeName(String text) {
+      if (text == null || text.trim().length() < 2) {
+         return false;
+      }
+      for (int i = 0; i < text.length(); ++i) {
+         if (Character.isLetter(text.charAt(i))) {
+            return true;
+         }
+      }
+      return false;
    }
 
    private void splitTicket(ActionEvent evt) {
