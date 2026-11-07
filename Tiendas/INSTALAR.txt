@@ -1,0 +1,14 @@
+Chromis 1.5.4 con mejoras - Tiendas - 7 de noviembre de 2026
+
+Instalar en cada PC:
+1. Cierra Chromis POS y Chromis Admin.
+2. En la carpeta de instalación de Chromis, renombra los jar actuales
+   agregando .original al final (por ejemplo chromispos.jar.original).
+3. Copia ahí los jar de este paquete:
+   - chromispos.jar  -> en TODAS las cajas
+   - admin.jar       -> en las PC donde se usa Chromis Admin
+   - restaurar.jar   -> opcional; sirve para restaurar un respaldo (doble clic)
+4. Abre Chromis. Las tablas nuevas se crean solas.
+
+Para regresar a la versión anterior: borra el jar nuevo y quita .original
+al que renombraste.

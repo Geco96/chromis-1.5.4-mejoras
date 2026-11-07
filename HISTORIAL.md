@@ -1,4 +1,7 @@
-# Descargas: Chromis 1.5.4 con mejoras
+# Historial de versiones
+
+> Los archivos se movieron: los de la raíz están ahora en `Tiendas/` y los de
+> `enterprise/` en `Distribuidora/`. Las rutas de abajo son las de entonces.
 
 Archivos compilados de la rama `mejoras` (commit `9df0d4e`), listos para instalar.
 Las instrucciones completas están en el README de la rama `mejoras`.
