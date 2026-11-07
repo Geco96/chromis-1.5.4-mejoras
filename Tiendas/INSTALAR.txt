@@ -1,4 +1,4 @@
-Chromis 1.5.4 con mejoras - Tiendas - 7 de noviembre de 2026
+Chromis 1.5.4 con mejoras - Tiendas - 7 de noviembre de 2026 (con buscador rápido)
 
 Instalar en cada PC:
 1. Cierra Chromis POS y Chromis Admin.

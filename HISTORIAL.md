@@ -12,6 +12,14 @@ Las instrucciones completas están en el README de la rama `mejoras`.
 | `admin.jar` | Carpeta de instalación de Chromis Admin | `e8d4d554e919b5e67f53287d42b15f8cbc0672da0a9d3c5ab2150dd00c5c48e1` |
 | `restaurar.jar` | Carpeta de instalación de Chromis (donde está `chromisposconfig.properties`); se abre con doble clic para restaurar un respaldo | `5562c4cd7101a6f5a83f3a40b462d67690697a0b6967a146d0b0638a1cfe7efe` |
 
+## 7 de noviembre de 2026 (mejoras `d3f9554`, enterprise `cceee8f`)
+
+- **Buscador rápido de productos en la caja**, integrado el 6 de noviembre
+  (pull requests #4 y #5): filtra mientras se escribe, sin acentos, en plural,
+  con errores, por etiquetas y sinónimos (tablas nuevas `product_tags` y
+  `search_synonyms`). En Admin: etiquetas en Productos y Sinónimos de búsqueda.
+  Cambian `chromispos.jar` y `admin.jar` en Tiendas y Distribuidora.
+
 ## Novedades de esta versión (también en `enterprise/`)
 
 - **Hora de cada producto en la venta** (solo cambia `chromispos.jar`): en la

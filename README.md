@@ -1,6 +1,6 @@
 # Descargas — Chromis 1.5.4 con mejoras
 
-**Última versión: 7 de noviembre de 2026**
+**Última versión: 7 de noviembre de 2026** (cambian `chromispos.jar` y `admin.jar`)
 
 | Para | Carpeta | Archivos |
 |---|---|---|
@@ -20,6 +20,10 @@ la descarga: `SHA256.txt`. Qué cambió en cada versión: [HISTORIAL.md](HISTORI
 
 ### Novedades de esta versión
 
+- **Buscador rápido de productos en la caja** (la lupa): encuentra mientras
+  escribes, sin acentos, en plural, con errores ("Tal vez quisiste decir…"),
+  por etiquetas y sinónimos. En Admin: etiquetas de búsqueda en Productos y
+  la pantalla Sinónimos de búsqueda. El buscador anterior sigue en un botón.
 - **Hora de cada producto en la venta** (solo cambia `chromispos.jar`).
 - **Ventas en espera entre varias cajas**: ya no se duplican ni se pierden.
 - **Ventas en espera borradas** en Admin: abierta en tal caja, perdida,
